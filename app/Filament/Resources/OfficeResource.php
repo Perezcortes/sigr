@@ -226,6 +226,7 @@ class OfficeResource extends Resource
         return parent::getEloquentQuery()
             ->withoutGlobalScopes([
                 SoftDeletingScope::class,
-            ]);
+            ])
+            ->with(['city', 'estate']); // Eager loading para evitar N+1 queries
     }
 }
