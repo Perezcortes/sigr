@@ -55,7 +55,11 @@
             "@php artisan package:discover --ansi",
             "@php artisan filament:upgrade"
         ],
+        "post-install-cmd": [
+            "@php -r \"if (!is_dir('vendor/cwsps154/users-roles-permissions/resources/views')) { mkdir('vendor/cwsps154/users-roles-permissions/resources/views', 0755, true); }\""
+        ],
         "post-update-cmd": [
+            "@php -r \"if (!is_dir('vendor/cwsps154/users-roles-permissions/resources/views')) { mkdir('vendor/cwsps154/users-roles-permissions/resources/views', 0755, true); }\"",
             "@php artisan vendor:publish --tag=laravel-assets --ansi --force"
         ],
         "post-root-package-install": [
