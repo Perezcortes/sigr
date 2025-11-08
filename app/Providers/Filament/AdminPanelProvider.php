@@ -3,6 +3,8 @@
 namespace App\Providers\Filament;
 
 use App\Filament\Resources\OfficeResource;
+use App\Filament\Resources\OwnerResource;
+use App\Filament\Resources\TenantResource;
 use CWSPS154\UsersRolesPermissions\UsersRolesPermissionsPlugin;
 use Filament\Facades\Filament;
 use Filament\Http\Middleware\Authenticate;
@@ -36,6 +38,8 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->resources([
                 OfficeResource::class,
+                TenantResource::class,
+                OwnerResource::class,
             ])
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
             ->pages([
