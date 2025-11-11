@@ -49,12 +49,12 @@ return new class extends Migration
 
         // Campos base
         $this->addColumnIfNotExists('tipo_persona', function (Blueprint $table) {
-            $table->string('tipo_persona')->after('id');
+            $table->string('tipo_persona', 20)->after('id');
         });
 
         // Persona Física - Información Personal
         $this->addColumnIfNotExists('nombres', function (Blueprint $table) {
-            $table->string('nombres')->nullable()->after('tipo_persona');
+            $table->string('nombres', 100)->nullable()->after('tipo_persona');
         });
         $this->addColumnIfNotExists('primer_apellido', function (Blueprint $table) {
             $table->string('primer_apellido')->nullable()->after('nombres');
@@ -63,22 +63,22 @@ return new class extends Migration
             $table->string('segundo_apellido')->nullable()->after('primer_apellido');
         });
         $this->addColumnIfNotExists('curp', function (Blueprint $table) {
-            $table->string('curp')->nullable()->after('segundo_apellido');
+            $table->string('curp', 18)->nullable()->after('segundo_apellido');
         });
         $this->addColumnIfNotExists('email', function (Blueprint $table) {
-            $table->string('email')->unique()->nullable()->after('curp');
+            $table->string('email', 100)->unique()->nullable()->after('curp');
         });
         $this->addColumnIfNotExists('telefono', function (Blueprint $table) {
-            $table->string('telefono')->nullable()->after('email');
+            $table->string('telefono', 20)->nullable()->after('email');
         });
         $this->addColumnIfNotExists('estado_civil', function (Blueprint $table) {
-            $table->string('estado_civil')->nullable()->after('telefono');
+            $table->string('estado_civil', 20)->nullable()->after('telefono');
         });
         $this->addColumnIfNotExists('regimen_conyugal', function (Blueprint $table) {
-            $table->string('regimen_conyugal')->nullable()->after('estado_civil');
+            $table->string('regimen_conyugal', 30)->nullable()->after('estado_civil');
         });
         $this->addColumnIfNotExists('sexo', function (Blueprint $table) {
-            $table->string('sexo')->nullable()->after('regimen_conyugal');
+            $table->string('sexo', 10)->nullable()->after('regimen_conyugal');
         });
         $this->addColumnIfNotExists('nacionalidad', function (Blueprint $table) {
             $table->string('nacionalidad')->nullable()->after('sexo');
@@ -92,16 +92,16 @@ return new class extends Migration
 
         // Persona Física - Domicilio Actual
         $this->addColumnIfNotExists('calle', function (Blueprint $table) {
-            $table->string('calle')->nullable()->after('rfc');
+            $table->string('calle', 100)->nullable()->after('rfc');
         });
         $this->addColumnIfNotExists('numero_exterior', function (Blueprint $table) {
-            $table->string('numero_exterior')->nullable()->after('calle');
+            $table->string('numero_exterior', 10)->nullable()->after('calle');
         });
         $this->addColumnIfNotExists('numero_interior', function (Blueprint $table) {
-            $table->string('numero_interior')->nullable()->after('numero_exterior');
+            $table->string('numero_interior', 10)->nullable()->after('numero_exterior');
         });
         $this->addColumnIfNotExists('codigo_postal', function (Blueprint $table) {
-            $table->string('codigo_postal')->nullable()->after('numero_interior');
+            $table->string('codigo_postal', 5)->nullable()->after('numero_interior');
         });
         $this->addColumnIfNotExists('colonia', function (Blueprint $table) {
             $table->string('colonia')->nullable()->after('codigo_postal');
@@ -118,7 +118,7 @@ return new class extends Migration
 
         // Forma de Pago (compartido)
         $this->addColumnIfNotExists('forma_pago', function (Blueprint $table) {
-            $table->string('forma_pago')->nullable()->after('referencias_ubicacion');
+            $table->string('forma_pago', 50)->nullable()->after('referencias_ubicacion');
         });
         $this->addColumnIfNotExists('forma_pago_otro', function (Blueprint $table) {
             $table->string('forma_pago_otro')->nullable()->after('forma_pago');

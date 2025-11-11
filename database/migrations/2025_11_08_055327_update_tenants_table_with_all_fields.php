@@ -62,6 +62,9 @@ return new class extends Migration
         $this->addColumnIfNotExists('segundo_apellido', function (Blueprint $table) {
             $table->string('segundo_apellido')->nullable()->after('primer_apellido');
         });
+        $this->addColumnIfNotExists('email', function (Blueprint $table) {
+            $table->string('email')->nullable()->after('segundo_apellido');
+        });
         $this->addColumnIfNotExists('email_confirmacion', function (Blueprint $table) {
             $table->string('email_confirmacion')->nullable()->after('email');
         });
