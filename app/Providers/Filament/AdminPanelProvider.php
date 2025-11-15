@@ -4,6 +4,7 @@ namespace App\Providers\Filament;
 
 use App\Filament\Resources\OfficeResource;
 use App\Filament\Resources\OwnerResource;
+use App\Filament\Resources\RentResource;
 use App\Filament\Resources\TenantResource;
 use CWSPS154\UsersRolesPermissions\UsersRolesPermissionsPlugin;
 use Filament\Facades\Filament;
@@ -40,6 +41,7 @@ class AdminPanelProvider extends PanelProvider
                 OfficeResource::class,
                 TenantResource::class,
                 OwnerResource::class,
+                RentResource::class,
             ])
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
             ->pages([
