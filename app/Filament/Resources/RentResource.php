@@ -64,7 +64,7 @@ class RentResource extends Resource
     {
         return $table
             ->columns([
-                TextColumn::make('tenant.nombres')
+                TextColumn::make('tenant.nombre_completo')
                     ->label('Inquilino')
                     ->formatStateUsing(fn ($state, $record) => $record->tenant->nombre_completo ?? 'N/A')
                     ->searchable(query: function (Builder $query, string $search): Builder {
@@ -76,7 +76,7 @@ class RentResource extends Resource
                     })
                     ->sortable(),
 
-                TextColumn::make('owner.nombres')
+                TextColumn::make('owner.nombre_completo')
                     ->label('Propietario')
                     ->formatStateUsing(fn ($state, $record) => $record->owner->nombre_completo ?? 'N/A')
                     ->searchable(query: function (Builder $query, string $search): Builder {
@@ -95,13 +95,13 @@ class RentResource extends Resource
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('tenant_id')
-                    ->relationship('tenant', 'nombres')
+                    ->relationship('tenant', 'nombre_completo')
                     ->getOptionLabelFromRecordUsing(fn ($record) => $record->nombre_completo)
                     ->searchable()
                     ->label('Filtrar por Inquilino'),
 
                 Tables\Filters\SelectFilter::make('owner_id')
-                    ->relationship('owner', 'nombres')
+                    ->relationship('owner', 'nombre_completo')
                     ->getOptionLabelFromRecordUsing(fn ($record) => $record->nombre_completo)
                     ->searchable()
                     ->label('Filtrar por Propietario'),
