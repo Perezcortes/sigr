@@ -107,8 +107,10 @@ class RentResource extends Resource
                     ->label('Filtrar por Propietario'),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
-                Tables\Actions\EditAction::make(),
+                Tables\Actions\ViewAction::make()
+                    ->url(fn ($record) => static::getUrl('view', ['record' => $record->hash_id])),
+                Tables\Actions\EditAction::make()
+                    ->url(fn ($record) => static::getUrl('edit', ['record' => $record->hash_id])),
                 Tables\Actions\DeleteAction::make(),
             ])
             ->bulkActions([

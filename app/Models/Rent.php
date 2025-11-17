@@ -2,11 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasHashId;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Rent extends Model
 {
+    use HasHashId;
     // ⚠️ Asegúrate de que estos campos existan en tu tabla 'rents'
     protected $fillable = [
         'office_id',

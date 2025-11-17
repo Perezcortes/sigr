@@ -8,4 +8,52 @@
 @theme {
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
+    
+    /* Colores personalizados de la plataforma */
+    --color-primary: #161848; /* Azul marino */
+    --color-cyan: #26cad3; /* Cian */
+    --color-orange: #fe5f3b; /* Naranja */
+    --color-white: #ffffff; /* Blanco */
+}
+
+/* Estilos personalizados para Filament */
+.fi-sidebar {
+    background-color: var(--color-primary) !important;
+}
+
+.fi-sidebar-nav-item {
+    color: var(--color-white) !important;
+}
+
+.fi-sidebar-nav-item:hover {
+    background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.fi-topbar {
+    background-color: var(--color-white) !important;
+    border-bottom: 1px solid rgba(22, 24, 72, 0.1) !important;
+}
+
+.fi-btn-primary {
+    background-color: var(--color-primary) !important;
+    border-color: var(--color-primary) !important;
+}
+
+.fi-btn-primary:hover {
+    background-color: #1a1f5a !important;
+}
+
+.fi-badge-success {
+    background-color: var(--color-cyan) !important;
+    color: var(--color-white) !important;
+}
+
+.fi-badge-warning {
+    background-color: var(--color-orange) !important;
+    color: var(--color-white) !important;
+}
+
+.fi-badge-danger {
+    background-color: var(--color-orange) !important;
+    color: var(--color-white) !important;
 }
