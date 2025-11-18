@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
 use Spatie\MediaLibrary\HasMedia;
 use Filament\Models\Contracts\HasAvatar;
 
@@ -15,7 +16,7 @@ use Filament\Models\Contracts\HasAvatar;
 class User extends Authenticatable implements HasMedia, HasAvatar, FilamentUser
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable, HasRole;
+    use HasFactory, Notifiable, HasRole, HasApiTokens;
 
     /**
      * The attributes that are mass assignable.
