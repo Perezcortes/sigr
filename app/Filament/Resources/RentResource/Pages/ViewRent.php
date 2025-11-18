@@ -5,21 +5,24 @@ namespace App\Filament\Resources\RentResource\Pages;
 use App\Filament\Resources\RentResource;
 use App\Models\Rent;
 use Filament\Actions;
-use Filament\Resources\Pages\ViewRecord;
-use Filament\Infolists;
-use Filament\Infolists\Infolist;
+use Filament\Resources\Pages\EditRecord;
 use Filament\Forms;
 use Filament\Forms\Form;
 
-class ViewRent extends ViewRecord
+class ViewRent extends EditRecord
 {
     protected static string $resource = RentResource::class;
+    protected static ?string $title = 'Ver Renta';
+
+    // Estado personalizado para manejar los campos de relaciones
+    public ?array $tenantData = [];
+    public ?array $ownerData = [];
 
     /**
      * Resuelve el record desde el parámetro de la ruta usando hash
      */
     public function resolveRecord(string|int $key): \Illuminate\Database\Eloquent\Model
-    {
+    {   
         // Intentar encontrar por hash primero
         $record = Rent::findByHash($key);
         
@@ -35,6 +38,76 @@ class ViewRent extends ViewRecord
         return $record;
     }
 
+    // Inicializar el estado personalizado cuando se carga el registro
+    public function mount($record): void
+    {
+        parent::mount($record);
+
+        // Inicializar datos del inquilino
+        if ($this->record->tenant) {
+            $this->tenantData = [
+                'tipo_persona' => $this->record->tenant->tipo_persona,
+                'nombres' => $this->record->tenant->nombres,
+                'primer_apellido' => $this->record->tenant->primer_apellido,
+                'segundo_apellido' => $this->record->tenant->segundo_apellido,
+                'sexo' => $this->record->tenant->sexo,
+                'razon_social' => $this->record->tenant->razon_social,
+                'rfc' => $this->record->tenant->rfc,
+                'email' => $this->record->tenant->email,
+            ];
+            
+            // IMPORTANTE: Establecer también en el data del formulario
+            $this->data['tenant_tipo_persona'] = $this->record->tenant->tipo_persona;
+            $this->data['tenant_nombres'] = $this->record->tenant->nombres;
+            $this->data['tenant_primer_apellido'] = $this->record->tenant->primer_apellido;
+            $this->data['tenant_segundo_apellido'] = $this->record->tenant->segundo_apellido;
+            $this->data['tenant_sexo'] = $this->record->tenant->sexo;
+            $this->data['tenant_razon_social'] = $this->record->tenant->razon_social;
+            $this->data['tenant_rfc'] = $this->record->tenant->rfc;
+            $this->data['tenant_email'] = $this->record->tenant->email;
+        }
+
+        // Inicializar datos del propietario
+        if ($this->record->owner) {
+            $this->ownerData = [
+                'tipo_persona' => $this->record->owner->tipo_persona,
+                'nombres' => $this->record->owner->nombres,
+                'primer_apellido' => $this->record->owner->primer_apellido,
+                'segundo_apellido' => $this->record->owner->segundo_apellido,
+                'sexo' => $this->record->owner->sexo,
+                'razon_social' => $this->record->owner->razon_social,
+                'rfc' => $this->record->owner->rfc,
+                'email' => $this->record->owner->email,
+            ];
+            
+            // IMPORTANTE: Establecer también en el data del formulario
+            $this->data['owner_tipo_persona'] = $this->record->owner->tipo_persona;
+            $this->data['owner_nombres'] = $this->record->owner->nombres;
+            $this->data['owner_primer_apellido'] = $this->record->owner->primer_apellido;
+            $this->data['owner_segundo_apellido'] = $this->record->owner->segundo_apellido;
+            $this->data['owner_sexo'] = $this->record->owner->sexo;
+            $this->data['owner_razon_social'] = $this->record->owner->razon_social;
+            $this->data['owner_rfc'] = $this->record->owner->rfc;
+            $this->data['owner_email'] = $this->record->owner->email;
+        }
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            Actions\Action::make('volver')
+                ->label('Volver al listado')
+                ->icon('heroicon-o-arrow-left')
+                ->color('gray')
+                ->url(fn () => RentResource::getUrl('index')),
+        ];
+    }
+
+    protected function getFormActions(): array
+    {
+        return [];
+    }
+
     public function form(Form $form): Form
     {
         return $form
@@ -42,57 +115,63 @@ class ViewRent extends ViewRecord
                 Forms\Components\Tabs::make('Tabs')
                     ->columnSpanFull()
                     ->tabs([
-                        // TAB: INFORMACIÓN
+                         // TAB: INFORMACIÓN
                         Forms\Components\Tabs\Tab::make('Información')
                             ->icon('heroicon-o-information-circle')
                             ->schema([
                                 // SECCIÓN: DATOS GENERALES
-                                Forms\Components\Section::make('Datos generales')
+                                Forms\Components\Section::make('Datos de la renta')
                                     ->schema([
                                         Forms\Components\TextInput::make('folio')
                                             ->label('Folio')
-                                            ->default('RPG-3681-2025'),
-                                        
+                                            ->disabled(),
                                         Forms\Components\TextInput::make('sucursal')
                                             ->label('Sucursal')
-                                            ->default('Póliza de Rentas R&PG Consultores'),
-                                        
+                                            ->disabled(),
                                         Forms\Components\TextInput::make('abogado')
                                             ->label('Abogado*')
-                                            ->default('Ana Virinia Pérez Guemes y Ocampo'),
-                                        
+                                            ->disabled(),
                                         Forms\Components\TextInput::make('inmobiliaria')
                                             ->label('Inmobiliaria*')
-                                            ->default('Selecciona una inmobiliaria'),
-                                        
+                                            ->disabled(),
                                         Forms\Components\Select::make('estatus')
                                             ->label('Estatus')
                                             ->options([
                                                 'nueva' => 'Nueva',
-                                                'en_proceso' => 'En Proceso',
-                                                'completada' => 'Completada',
+                                                'documentacion' => 'Documentación',
+                                                'analisis' => 'Análisis',
                                             ])
-                                            ->default('nueva'),
-                                        
-                                        Forms\Components\TextInput::make('tipo_inmueble')
+                                            ->default('nueva')
+                                            ->required(),
+                                        Forms\Components\Select::make('tipo_inmueble')
                                             ->label('Tipo de inmueble*')
-                                            ->default('Inmuebles Residenciales'),
-                                        
-                                        Forms\Components\TextInput::make('tipo_poliza')
+                                            ->options([
+                                                'residencial' => 'Inmuebles Residenciales',
+                                                'comercial' => 'Inmuebles Comerciales',
+                                            ])
+                                            ->default('residencial')
+                                            ->required(),
+                                        Forms\Components\Select::make('tipo_poliza')
                                             ->label('Tipo de póliza')
-                                            ->default('PÓLIZA CON SEGURO'),
-                                        
+                                            ->options([
+                                                'integral' => 'Póliza Integral',
+                                                'amplia' => 'Póliza Amplia',
+                                                'con_seguro' => 'Póliza con Seguro',
+                                            ])
+                                            ->default('con_seguro')
+                                            ->required(),
                                         Forms\Components\TextInput::make('renta')
                                             ->label('Renta')
                                             ->numeric()
                                             ->prefix('$')
-                                            ->default(13500),
-                                        
+                                            ->required()
+                                            ->placeholder('0.00'),
                                         Forms\Components\TextInput::make('poliza')
                                             ->label('Póliza')
                                             ->numeric()
                                             ->prefix('$')
-                                            ->default(0),
+                                            ->required()
+                                            ->placeholder('0.00'),
                                     ])
                                     ->columns(2),
                                 
@@ -101,17 +180,18 @@ class ViewRent extends ViewRecord
                                         ->label('Guardar')
                                         ->color('primary')
                                         ->icon('heroicon-o-check')
-                                        ->action(function ($record, array $data) {
-                                            $record->update($data);
+                                        ->action(function () {
+                                            $this->save();
                                             \Filament\Notifications\Notification::make()
                                                 ->success()
-                                                ->title('Guardado exitosamente')
+                                                ->title('Datos guardados')
                                                 ->send();
                                         }),
                                     Forms\Components\Actions\Action::make('cancelar')
                                         ->label('Cancelar')
                                         ->color('gray')
-                                        ->icon('heroicon-o-x-mark'),
+                                        ->icon('heroicon-o-x-mark')
+                                        ->url(fn () => RentResource::getUrl('index')),
                                     Forms\Components\Actions\Action::make('clonar_renta')
                                         ->label('Clonar renta')
                                         ->color('success')
@@ -119,83 +199,114 @@ class ViewRent extends ViewRecord
                                 ]),
 
                                 // SECCIÓN: INQUILINO
-                                Forms\Components\Section::make('Inquilino')
+                                Forms\Components\Section::make('Datos del inquilino')
                                     ->schema([
-                                        Forms\Components\Placeholder::make('tenant_info')
-                                            ->label('Información del Inquilino')
-                                            ->content(fn ($record) => $record->tenant ? $record->tenant->nombre_completo : 'Sin inquilino asignado'),
+                                        // Mostrar información actual del inquilino
+                                        Forms\Components\Placeholder::make('current_tenant_info')
+                                            ->label('Información actual del inquilino')
+                                            ->content(function () {
+                                                $tenant = $this->record->tenant;
+                                                if (!$tenant) {
+                                                    return 'No hay inquilino asignado';
+                                                }
+                                                
+                                                if ($tenant->tipo_persona === 'fisica') {
+                                                    return "Tipo: Persona Física\nNombre: {$tenant->nombres} {$tenant->primer_apellido} {$tenant->segundo_apellido}\nEmail: {$tenant->email}";
+                                                } else {
+                                                    return "Tipo: Persona Moral\nRazón Social: {$tenant->razon_social}\nEmail: {$tenant->email}\nRFC: {$tenant->rfc}";
+                                                }
+                                            })
+                                            ->columnSpanFull(),
                                         
-                                        Forms\Components\Radio::make('tenant_tipo_persona')
+                                        Forms\Components\Select::make('tenant_tipo_persona')
                                             ->label('Tipo de Persona')
                                             ->options([
                                                 'fisica' => 'Persona física',
                                                 'moral' => 'Persona moral',
                                             ])
-                                            ->default(fn ($record) => $record->tenant?->tipo_persona ?? 'fisica')
                                             ->live()
-                                            ->afterStateUpdated(function ($state, $record) {
-                                                if ($record && $record->tenant) {
-                                                    $record->tenant->update(['tipo_persona' => $state]);
-                                                }
-                                            }),
+                                            ->required()
+                                            ->columnSpanFull(),
                                         
+                                        // Campos para Persona Física
                                         Forms\Components\TextInput::make('tenant_nombres')
-                                            ->label('Nombre:')
-                                            ->default(fn ($record) => $record->tenant?->nombres)
-                                            ->visible(fn (Forms\Get $get) => $get('tenant_tipo_persona') === 'fisica')
-                                            ->afterStateUpdated(function ($state, $record) {
-                                                if ($record && $record->tenant) {
-                                                    $record->tenant->update(['nombres' => $state]);
-                                                }
-                                            }),
+                                            ->label('Nombre')
+                                            ->visible(fn (Forms\Get $get) => $get('tenant_tipo_persona') === 'fisica'),
                                         
                                         Forms\Components\TextInput::make('tenant_primer_apellido')
-                                            ->label('Primer Apellido:')
-                                            ->default(fn ($record) => $record->tenant?->primer_apellido)
-                                            ->visible(fn (Forms\Get $get) => $get('tenant_tipo_persona') === 'fisica')
-                                            ->afterStateUpdated(function ($state, $record) {
-                                                if ($record && $record->tenant) {
-                                                    $record->tenant->update(['primer_apellido' => $state]);
-                                                }
-                                            }),
+                                            ->label('Primer Apellido')
+                                            ->visible(fn (Forms\Get $get) => $get('tenant_tipo_persona') === 'fisica'),
                                         
                                         Forms\Components\TextInput::make('tenant_segundo_apellido')
-                                            ->label('Segundo Apellido:')
-                                            ->default(fn ($record) => $record->tenant?->segundo_apellido)
-                                            ->visible(fn (Forms\Get $get) => $get('tenant_tipo_persona') === 'fisica')
-                                            ->afterStateUpdated(function ($state, $record) {
-                                                if ($record && $record->tenant) {
-                                                    $record->tenant->update(['segundo_apellido' => $state]);
-                                                }
-                                            }),
-                                        
+                                            ->label('Segundo Apellido')
+                                            ->visible(fn (Forms\Get $get) => $get('tenant_tipo_persona') === 'fisica'),
+
                                         Forms\Components\Select::make('tenant_sexo')
-                                            ->label('Sexo:')
+                                            ->label('Sexo')
                                             ->options([
                                                 'masculino' => 'Masculino',
                                                 'femenino' => 'Femenino',
                                                 'otro' => 'Otro',
                                             ])
-                                            ->default(fn ($record) => $record->tenant?->sexo ?? 'Seleccione')
-                                            ->afterStateUpdated(function ($state, $record) {
-                                                if ($record && $record->tenant) {
-                                                    $record->tenant->update(['sexo' => $state]);
-                                                }
-                                            }),
-                                        
+                                            ->placeholder('Seleccione')
+                                            ->visible(fn (Forms\Get $get) => $get('tenant_tipo_persona') === 'fisica'),
+
+                                        // Campos para Persona Moral
+                                        Forms\Components\TextInput::make('tenant_razon_social')
+                                            ->label('Nombre / Razón Social')
+                                            ->visible(fn (Forms\Get $get) => $get('tenant_tipo_persona') === 'moral')
+                                            ->columnSpan(2),
+
+                                        Forms\Components\TextInput::make('tenant_rfc')
+                                            ->label('RFC')
+                                            ->visible(fn (Forms\Get $get) => $get('tenant_tipo_persona') === 'moral'),
+
+                                        // Campo común para ambos tipos
                                         Forms\Components\TextInput::make('tenant_email')
-                                            ->label('Correo:')
-                                            ->email()
-                                            ->default(fn ($record) => $record->tenant?->email)
-                                            ->afterStateUpdated(function ($state, $record) {
-                                                if ($record && $record->tenant) {
-                                                    $record->tenant->update(['email' => $state]);
-                                                }
-                                            }),
+                                            ->label('Correo')
+                                            ->email(),
                                     ])
-                                    ->columns(2),
+                                    ->columns(4),
                                 
                                 Forms\Components\Actions::make([
+                                    Forms\Components\Actions\Action::make('actualizar_inquilino')
+                                        ->label('Guardar')
+                                        ->color('primary')
+                                        ->icon('heroicon-o-check')
+                                        ->action(function () {
+                                            if ($this->record->tenant) {
+                                                $updateData = [
+                                                    'tipo_persona' => $this->data['tenant_tipo_persona'] ?? 'fisica',
+                                                    'email' => $this->data['tenant_email'] ?? '',
+                                                ];
+                                                
+                                                if ($this->data['tenant_tipo_persona'] === 'fisica') {
+                                                    $updateData['nombres'] = $this->data['tenant_nombres'] ?? '';
+                                                    $updateData['primer_apellido'] = $this->data['tenant_primer_apellido'] ?? '';
+                                                    $updateData['segundo_apellido'] = $this->data['tenant_segundo_apellido'] ?? '';
+                                                    $updateData['sexo'] = $this->data['tenant_sexo'] ?? '';
+                                                    $updateData['razon_social'] = null;
+                                                    $updateData['rfc'] = null;
+                                                } else {
+                                                    $updateData['razon_social'] = $this->data['tenant_razon_social'] ?? '';
+                                                    $updateData['rfc'] = $this->data['tenant_rfc'] ?? '';
+                                                    $updateData['nombres'] = null;
+                                                    $updateData['primer_apellido'] = null;
+                                                    $updateData['segundo_apellido'] = null;
+                                                    $updateData['sexo'] = null;
+                                                }
+                                                
+                                                $this->record->tenant->update($updateData);
+                                                
+                                                \Filament\Notifications\Notification::make()
+                                                    ->success()
+                                                    ->title('Inquilino actualizado')
+                                                    ->send();
+                                                
+                                                // Recargar la página para mostrar los cambios
+                                                $this->redirect(RentResource::getUrl('view', ['record' => $this->record]));
+                                            }
+                                        }),
                                     Forms\Components\Actions\Action::make('edit_tenant')
                                         ->label('Editar solicitud del inquilino')
                                         ->color('primary'),
@@ -211,7 +322,7 @@ class ViewRent extends ViewRecord
                                 ]),
 
                                 // SECCIÓN: FIADOR
-                                Forms\Components\Section::make('Fiador')
+                                Forms\Components\Section::make('Datos del Obligado solidario / Fiador')
                                     ->schema([
                                         Forms\Components\Select::make('tiene_fiador')
                                             ->label('¿Tiene fiador?')
@@ -223,6 +334,17 @@ class ViewRent extends ViewRecord
                                     ]),
                                 
                                 Forms\Components\Actions::make([
+                                    Forms\Components\Actions\Action::make('actualizar_fiador')
+                                        ->label('Guardar')
+                                        ->color('primary')
+                                        ->icon('heroicon-o-check')
+                                        ->action(function () {
+                                            $this->save();
+                                            \Filament\Notifications\Notification::make()
+                                                ->success()
+                                                ->title('Datos del fiador guardados')
+                                                ->send();
+                                        }),
                                     Forms\Components\Actions\Action::make('edit_guarantor')
                                         ->label('Editar solicitud del fiador')
                                         ->color('primary'),
@@ -235,83 +357,114 @@ class ViewRent extends ViewRecord
                                 ]),
 
                                 // SECCIÓN: PROPIETARIO
-                                Forms\Components\Section::make('Propietario')
+                                Forms\Components\Section::make('Datos del propietario')
                                     ->schema([
-                                        Forms\Components\Placeholder::make('owner_info')
-                                            ->label('Información del Propietario')
-                                            ->content(fn ($record) => $record->owner ? $record->owner->nombre_completo : 'Sin propietario asignado'),
+                                        // Mostrar información actual del propietario
+                                        Forms\Components\Placeholder::make('current_owner_info')
+                                            ->label('Información actual del propietario')
+                                            ->content(function () {
+                                                $owner = $this->record->owner;
+                                                if (!$owner) {
+                                                    return 'No hay propietario asignado';
+                                                }
+                                                
+                                                if ($owner->tipo_persona === 'fisica') {
+                                                    return "Tipo: Persona Física\nNombre: {$owner->nombres} {$owner->primer_apellido} {$owner->segundo_apellido}\nEmail: {$owner->email}";
+                                                } else {
+                                                    return "Tipo: Persona Moral\nRazón Social: {$owner->razon_social}\nEmail: {$owner->email}\nRFC: {$owner->rfc}";
+                                                }
+                                            })
+                                            ->columnSpanFull(),
                                         
-                                        Forms\Components\Radio::make('owner_tipo_persona')
+                                        Forms\Components\Select::make('owner_tipo_persona')
                                             ->label('Tipo de Persona')
                                             ->options([
                                                 'fisica' => 'Persona física',
                                                 'moral' => 'Persona moral',
                                             ])
-                                            ->default(fn ($record) => $record->owner?->tipo_persona ?? 'fisica')
                                             ->live()
-                                            ->afterStateUpdated(function ($state, $record) {
-                                                if ($record && $record->owner) {
-                                                    $record->owner->update(['tipo_persona' => $state]);
-                                                }
-                                            }),
+                                            ->required()
+                                            ->columnSpanFull(),
                                         
+                                        // Campos para Persona Física
                                         Forms\Components\TextInput::make('owner_nombres')
-                                            ->label('Nombre:')
-                                            ->default(fn ($record) => $record->owner?->nombres)
-                                            ->visible(fn (Forms\Get $get) => $get('owner_tipo_persona') === 'fisica')
-                                            ->afterStateUpdated(function ($state, $record) {
-                                                if ($record && $record->owner) {
-                                                    $record->owner->update(['nombres' => $state]);
-                                                }
-                                            }),
+                                            ->label('Nombre')
+                                            ->visible(fn (Forms\Get $get) => $get('owner_tipo_persona') === 'fisica'),
                                         
                                         Forms\Components\TextInput::make('owner_primer_apellido')
-                                            ->label('Primer Apellido:')
-                                            ->default(fn ($record) => $record->owner?->primer_apellido)
-                                            ->visible(fn (Forms\Get $get) => $get('owner_tipo_persona') === 'fisica')
-                                            ->afterStateUpdated(function ($state, $record) {
-                                                if ($record && $record->owner) {
-                                                    $record->owner->update(['primer_apellido' => $state]);
-                                                }
-                                            }),
+                                            ->label('Primer Apellido')
+                                            ->visible(fn (Forms\Get $get) => $get('owner_tipo_persona') === 'fisica'),
                                         
                                         Forms\Components\TextInput::make('owner_segundo_apellido')
-                                            ->label('Segundo Apellido:')
-                                            ->default(fn ($record) => $record->owner?->segundo_apellido)
-                                            ->visible(fn (Forms\Get $get) => $get('owner_tipo_persona') === 'fisica')
-                                            ->afterStateUpdated(function ($state, $record) {
-                                                if ($record && $record->owner) {
-                                                    $record->owner->update(['segundo_apellido' => $state]);
-                                                }
-                                            }),
-                                        
+                                            ->label('Segundo Apellido')
+                                            ->visible(fn (Forms\Get $get) => $get('owner_tipo_persona') === 'fisica'),
+
                                         Forms\Components\Select::make('owner_sexo')
-                                            ->label('Sexo:')
+                                            ->label('Sexo')
                                             ->options([
                                                 'masculino' => 'Masculino',
                                                 'femenino' => 'Femenino',
                                                 'otro' => 'Otro',
                                             ])
-                                            ->default(fn ($record) => $record->owner?->sexo ?? 'Seleccione')
-                                            ->afterStateUpdated(function ($state, $record) {
-                                                if ($record && $record->owner) {
-                                                    $record->owner->update(['sexo' => $state]);
-                                                }
-                                            }),
-                                        
+                                            ->placeholder('Seleccione')
+                                            ->visible(fn (Forms\Get $get) => $get('owner_tipo_persona') === 'fisica'),
+
+                                        // Campos para Persona Moral
+                                        Forms\Components\TextInput::make('owner_razon_social')
+                                            ->label('Nombre / Razón Social')
+                                            ->visible(fn (Forms\Get $get) => $get('owner_tipo_persona') === 'moral')
+                                            ->columnSpan(2),
+
+                                        Forms\Components\TextInput::make('owner_rfc')
+                                            ->label('RFC')
+                                            ->visible(fn (Forms\Get $get) => $get('owner_tipo_persona') === 'moral'),
+
+                                        // Campo común para ambos tipos
                                         Forms\Components\TextInput::make('owner_email')
-                                            ->label('Correo:')
-                                            ->email()
-                                            ->default(fn ($record) => $record->owner?->email)
-                                            ->afterStateUpdated(function ($state, $record) {
-                                                if ($record && $record->owner) {
-                                                    $record->owner->update(['email' => $state]);
-                                                }
-                                            }),
+                                            ->label('Correo')
+                                            ->email(),
                                     ])
-                                    ->columns(2),
+                                    ->columns(4),
                                 
                                 Forms\Components\Actions::make([
+                                    Forms\Components\Actions\Action::make('actualizar_propietario')
+                                        ->label('Guardar')
+                                        ->color('primary')
+                                        ->icon('heroicon-o-check')
+                                        ->action(function () {
+                                            if ($this->record->owner) {
+                                                $updateData = [
+                                                    'tipo_persona' => $this->data['owner_tipo_persona'] ?? 'fisica',
+                                                    'email' => $this->data['owner_email'] ?? '',
+                                                ];
+                                                
+                                                if ($this->data['owner_tipo_persona'] === 'fisica') {
+                                                    $updateData['nombres'] = $this->data['owner_nombres'] ?? '';
+                                                    $updateData['primer_apellido'] = $this->data['owner_primer_apellido'] ?? '';
+                                                    $updateData['segundo_apellido'] = $this->data['owner_segundo_apellido'] ?? '';
+                                                    $updateData['sexo'] = $this->data['owner_sexo'] ?? '';
+                                                    $updateData['razon_social'] = null;
+                                                    $updateData['rfc'] = null;
+                                                } else {
+                                                    $updateData['razon_social'] = $this->data['owner_razon_social'] ?? '';
+                                                    $updateData['rfc'] = $this->data['owner_rfc'] ?? '';
+                                                    $updateData['nombres'] = null;
+                                                    $updateData['primer_apellido'] = null;
+                                                    $updateData['segundo_apellido'] = null;
+                                                    $updateData['sexo'] = null;
+                                                }
+                                                
+                                                $this->record->owner->update($updateData);
+                                                
+                                                \Filament\Notifications\Notification::make()
+                                                    ->success()
+                                                    ->title('Propietario actualizado')
+                                                    ->send();
+                                                
+                                                // Recargar la página para mostrar los cambios
+                                                $this->redirect(RentResource::getUrl('view', ['record' => $this->record]));
+                                            }
+                                        }),
                                     Forms\Components\Actions\Action::make('edit_owner')
                                         ->label('Editar solicitud del propietario')
                                         ->color('primary'),
@@ -327,43 +480,85 @@ class ViewRent extends ViewRecord
                                 ]),
 
                                 // SECCIÓN: PROPIEDAD
-                                Forms\Components\Section::make('Propiedad')
+                                Forms\Components\Section::make('Datos de la propiedad')
                                     ->schema([
-                                        Forms\Components\TextInput::make('tipo_propiedad')
+                                        Forms\Components\Select::make('tipo_propiedad')
                                             ->label('Tipo de Propiedad')
-                                            ->default('Seleccione'),
+                                            ->options([
+                                                'seleccione' => 'Seleccione',
+                                                'casa' => 'Casa',
+                                                'departamento' => 'Departamento',
+                                                'local_comercial' => 'Local comercial',
+                                                'oficina' => 'Oficina',
+                                                'bodega' => 'Bodega',
+                                                'nave_industrial' => 'Nave Industrial',
+                                                'consultorio' => 'Consultorio',
+                                                'terreno' => 'Terreno',
+                                            ])
+                                            ->placeholder('Seleccione'),
                                         
                                         Forms\Components\TextInput::make('calle')
-                                            ->label('Calle')
-                                            ->default(''),
+                                            ->label('Calle'),
                                         
                                         Forms\Components\TextInput::make('numero_exterior')
-                                            ->label('Núm Ext')
-                                            ->default(''),
+                                            ->label('Núm Ext'),
                                         
                                         Forms\Components\TextInput::make('numero_interior')
-                                            ->label('Núm Int')
-                                            ->default(''),
+                                            ->label('Núm Int'),
                                         
-                                        Forms\Components\TextInput::make('referencias_ubicacion')
+                                        Forms\Components\Textarea::make('referencias_ubicacion')
                                             ->label('Referencias Ubicación')
-                                            ->default(''),
+                                            ->rows(2)
+                                            ->columnSpanFull(),
                                         
                                         Forms\Components\TextInput::make('colonia')
-                                            ->label('Colonia')
-                                            ->default(''),
+                                            ->label('Colonia'),
                                         
                                         Forms\Components\TextInput::make('municipio')
-                                            ->label('Municipio/Alcaldía')
-                                            ->default(''),
+                                            ->label('Municipio/Alcaldía'),
                                         
-                                        Forms\Components\TextInput::make('estado')
+                                        Forms\Components\Select::make('estado')
                                             ->label('Estado')
-                                            ->default('Seleccione'),
+                                            ->options([
+                                                'aguascalientes' => 'Aguascalientes',
+                                                'baja_california' => 'Baja California',
+                                                'baja_california_sur' => 'Baja California Sur',
+                                                'campeche' => 'Campeche',
+                                                'chiapas' => 'Chiapas',
+                                                'chihuahua' => 'Chihuahua',
+                                                'cdmx' => 'Ciudad de México',
+                                                'coahuila' => 'Coahuila',
+                                                'colima' => 'Colima',
+                                                'durango' => 'Durango',
+                                                'guanajuato' => 'Guanajuato',
+                                                'guerrero' => 'Guerrero',
+                                                'hidalgo' => 'Hidalgo',
+                                                'jalisco' => 'Jalisco',
+                                                'mexico' => 'Estado de México',
+                                                'michoacan' => 'Michoacán',
+                                                'morelos' => 'Morelos',
+                                                'nayarit' => 'Nayarit',
+                                                'nuevo_leon' => 'Nuevo León',
+                                                'oaxaca' => 'Oaxaca',
+                                                'puebla' => 'Puebla',
+                                                'queretaro' => 'Querétaro',
+                                                'quintana_roo' => 'Quintana Roo',
+                                                'san_luis_potosi' => 'San Luis Potosí',
+                                                'sinaloa' => 'Sinaloa',
+                                                'sonora' => 'Sonora',
+                                                'tabasco' => 'Tabasco',
+                                                'tamaulipas' => 'Tamaulipas',
+                                                'tlaxcala' => 'Tlaxcala',
+                                                'veracruz' => 'Veracruz',
+                                                'yucatan' => 'Yucatán',
+                                                'zacatecas' => 'Zacatecas',
+                                            ])
+                                            ->placeholder('Seleccione'),
                                         
                                         Forms\Components\TextInput::make('codigo_postal')
                                             ->label('CP')
-                                            ->default(''),
+                                            ->numeric()
+                                            ->maxLength(5),
                                     ])
                                     ->columns(2),
                                 
@@ -372,27 +567,25 @@ class ViewRent extends ViewRecord
                                         ->label('Guardar')
                                         ->color('primary')
                                         ->icon('heroicon-o-check')
-                                        ->action(function ($record, array $data) {
-                                            $record->update($data);
+                                        ->action(function () {
+                                            $this->save();
                                             \Filament\Notifications\Notification::make()
                                                 ->success()
-                                                ->title('Guardado exitosamente')
+                                                ->title('Datos de propiedad guardados')
                                                 ->send();
                                         }),
                                 ]),
                             ]),
-
+                        
                         // TAB: DOCUMENTOS
                         Forms\Components\Tabs\Tab::make('Documentos')
                             ->icon('heroicon-o-document-text')
                             ->schema([
                                 Forms\Components\Section::make('Documentos')
                                     ->schema([
-                                        Forms\Components\Textarea::make('documentos_info')
+                                        Forms\Components\Placeholder::make('documentos_placeholder')
                                             ->label('')
-                                            ->default('Aquí se mostrarán los documentos relacionados con la renta.')
-                                            ->placeholder('No hay documentos disponibles')
-                                            ->rows(3),
+                                            ->content('Aquí se mostrarán los documentos relacionados con la renta.'),
                                     ]),
                                 
                                 Forms\Components\Actions::make([
@@ -402,18 +595,16 @@ class ViewRent extends ViewRecord
                                         ->icon('heroicon-o-arrow-up-tray'),
                                 ]),
                             ]),
-
+                        
                         // TAB: INVESTIGACIÓN
                         Forms\Components\Tabs\Tab::make('Investigación')
                             ->icon('heroicon-o-magnifying-glass')
                             ->schema([
                                 Forms\Components\Section::make('Investigación')
                                     ->schema([
-                                        Forms\Components\Textarea::make('investigacion_info')
+                                        Forms\Components\Placeholder::make('investigacion_placeholder')
                                             ->label('')
-                                            ->default('Aquí se mostrará la información de investigación relacionada con la renta.')
-                                            ->placeholder('No hay información de investigación disponible')
-                                            ->rows(3),
+                                            ->content('Aquí se mostrará la información de investigación relacionada con la renta.'),
                                     ]),
                                 
                                 Forms\Components\Actions::make([
@@ -426,5 +617,4 @@ class ViewRent extends ViewRecord
                     ]),
             ]);
     }
-
 }

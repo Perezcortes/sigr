@@ -36,6 +36,12 @@ class RentResource extends Resource
             ->schema([
                 Forms\Components\Section::make('Información de la Renta')
                     ->schema([
+                        // Mostrar el folio (solo lectura si ya existe)
+                        Forms\Components\Placeholder::make('folio')
+                            ->label('Folio')
+                            ->content(fn ($record) => $record?->folio ?? 'Se generará automáticamente')
+                            ->visible(fn ($livewire) => $livewire instanceof Pages\EditRent || $livewire instanceof Pages\ViewRent),
+                        
                         // Solo los campos esenciales
                         Select::make('tenant_id')
                             ->relationship('tenant', 'nombres')
@@ -64,6 +70,15 @@ class RentResource extends Resource
     {
         return $table
             ->columns([
+                TextColumn::make('folio')
+                    ->label('Folio')
+                    ->searchable()
+                    ->sortable()
+                    ->copyable()
+                    ->copyMessage('Folio copiado')
+                    ->badge()
+                    ->color('success'),
+
                 TextColumn::make('tenant.nombre_completo')
                     ->label('Inquilino')
                     ->formatStateUsing(fn ($state, $record) => $record->tenant->nombre_completo ?? 'N/A')
@@ -88,9 +103,25 @@ class RentResource extends Resource
                     })
                     ->sortable(),
 
+                TextColumn::make('estatus')
+                    ->label('Estatus')
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'nueva' => 'gray',
+                        'documentacion' => 'warning',
+                        'analisis' => 'info',
+                        default => 'gray',
+                    })
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        'nueva' => 'Nueva',
+                        'documentacion' => 'Documentación',
+                        'analisis' => 'Análisis',
+                        default => $state,
+                    }),
+
                 TextColumn::make('created_at')
                     ->label('Creado')
-                    ->dateTime()
+                    ->dateTime('d/m/Y H:i')
                     ->sortable(),
             ])
             ->filters([
@@ -105,6 +136,14 @@ class RentResource extends Resource
                     ->getOptionLabelFromRecordUsing(fn ($record) => $record->nombre_completo)
                     ->searchable()
                     ->label('Filtrar por Propietario'),
+
+                Tables\Filters\SelectFilter::make('estatus')
+                    ->label('Estatus')
+                    ->options([
+                        'nueva' => 'Nueva',
+                        'documentacion' => 'Documentación',
+                        'analisis' => 'Análisis',
+                    ]),
             ])
             ->actions([
                 Tables\Actions\ViewAction::make()
@@ -117,7 +156,8 @@ class RentResource extends Resource
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
-            ]);
+            ])
+            ->defaultSort('created_at', 'desc');
     }
 
     public static function getRelations(): array
