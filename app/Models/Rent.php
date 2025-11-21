@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Traits\HasHashId;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Rent extends Model
 {
@@ -105,5 +106,15 @@ class Rent extends Model
     public function owner(): BelongsTo
     {
         return $this->belongsTo(\App\Models\Owner::class);
+    }
+
+    public function tenantRequests(): HasMany
+    {
+        return $this->hasMany(TenantRequest::class);
+    }
+
+    public function ownerRequests(): HasMany
+    {
+        return $this->hasMany(OwnerRequest::class);
     }
 }

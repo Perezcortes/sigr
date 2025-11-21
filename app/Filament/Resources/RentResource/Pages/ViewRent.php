@@ -4,6 +4,10 @@ namespace App\Filament\Resources\RentResource\Pages;
 
 use App\Filament\Resources\RentResource;
 use App\Models\Rent;
+use App\Models\TenantRequest;
+use App\Models\OwnerRequest;
+use App\Filament\Resources\TenantRequestResource;
+use App\Filament\Resources\OwnerRequestResource;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 use Filament\Forms;
@@ -309,7 +313,37 @@ class ViewRent extends EditRecord
                                         }),
                                     Forms\Components\Actions\Action::make('edit_tenant')
                                         ->label('Editar solicitud del inquilino')
-                                        ->color('primary'),
+                                        ->color('primary')
+                                        ->action(function () {
+                                            // Buscar si ya existe una solicitud para este inquilino y renta
+                                            $tenantRequest = TenantRequest::where('tenant_id', $this->record->tenant_id)
+                                                ->where('rent_id', $this->record->id)
+                                                ->first();
+                                            
+                                            if (!$tenantRequest) {
+                                                // Crear nueva solicitud si no existe
+                                                $tenantRequest = TenantRequest::create([
+                                                    'tenant_id' => $this->record->tenant_id,
+                                                    'rent_id' => $this->record->id,
+                                                    'estatus' => 'nueva',
+                                                    // Pre-cargar datos básicos del inquilino
+                                                    'nombres' => $this->record->tenant->nombres,
+                                                    'primer_apellido' => $this->record->tenant->primer_apellido,
+                                                    'segundo_apellido' => $this->record->tenant->segundo_apellido,
+                                                    'email' => $this->record->tenant->email,
+                                                    'rfc' => $this->record->tenant->rfc,
+                                                    'telefono_celular' => $this->record->tenant->telefono_celular,
+                                                    'telefono_fijo' => $this->record->tenant->telefono_fijo,
+                                                    'sexo' => $this->record->tenant->sexo,
+                                                    'estado_civil' => $this->record->tenant->estado_civil,
+                                                    'nacionalidad' => $this->record->tenant->nacionalidad,
+                                                    'tipo_identificacion' => $this->record->tenant->tipo_identificacion,
+                                                ]);
+                                            }
+                                            
+                                            $this->redirect(TenantRequestResource::getUrl('edit', ['record' => $tenantRequest]));
+                                        })
+                                        ->visible(fn () => $this->record->tenant),
                                     Forms\Components\Actions\Action::make('send_tenant')
                                         ->label('Enviar solicitud al inquilino')
                                         ->color('success'),
@@ -467,7 +501,36 @@ class ViewRent extends EditRecord
                                         }),
                                     Forms\Components\Actions\Action::make('edit_owner')
                                         ->label('Editar solicitud del propietario')
-                                        ->color('primary'),
+                                        ->color('primary')
+                                        ->action(function () {
+                                            // Buscar si ya existe una solicitud para este propietario y renta
+                                            $ownerRequest = OwnerRequest::where('owner_id', $this->record->owner_id)
+                                                ->where('rent_id', $this->record->id)
+                                                ->first();
+                                            
+                                            if (!$ownerRequest) {
+                                                // Crear nueva solicitud si no existe
+                                                $ownerRequest = OwnerRequest::create([
+                                                    'owner_id' => $this->record->owner_id,
+                                                    'rent_id' => $this->record->id,
+                                                    'estatus' => 'nueva',
+                                                    // Pre-cargar datos básicos del propietario
+                                                    'nombres' => $this->record->owner->nombres,
+                                                    'primer_apellido' => $this->record->owner->primer_apellido,
+                                                    'segundo_apellido' => $this->record->owner->segundo_apellido,
+                                                    'email' => $this->record->owner->email,
+                                                    'rfc' => $this->record->owner->rfc,
+                                                    'telefono' => $this->record->owner->telefono,
+                                                    'sexo' => $this->record->owner->sexo,
+                                                    'estado_civil' => $this->record->owner->estado_civil,
+                                                    'nacionalidad' => $this->record->owner->nacionalidad,
+                                                    'tipo_identificacion' => $this->record->owner->tipo_identificacion,
+                                                ]);
+                                            }
+                                            
+                                            $this->redirect(OwnerRequestResource::getUrl('edit', ['record' => $ownerRequest]));
+                                        })
+                                        ->visible(fn () => $this->record->owner),
                                     Forms\Components\Actions\Action::make('send_owner')
                                         ->label('Enviar solicitud al propietario')
                                         ->color('success'),
