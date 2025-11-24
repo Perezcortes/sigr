@@ -591,8 +591,8 @@ class TenantRequestResource extends Resource
                     Forms\Components\Radio::make('sustituye_otro_domicilio')
                         ->label('¿Este inmueble sustituirá otro domicilio?')
                         ->options([
-                            false => 'No',
-                            true => 'Sí',
+                            0 => 'No',
+                            1 => 'Sí',
                         ])
                         ->required()
                         ->live(),
@@ -603,56 +603,56 @@ class TenantRequestResource extends Resource
                             Forms\Components\Placeholder::make('domicilio_anterior_info')
                                 ->label('Información del domicilio anterior')
                                 ->content('Complete la información del domicilio anterior')
-                                ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') === true)
+                                ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1)
                                 ->columnSpanFull(),
 
                             Forms\Components\TextInput::make('domicilio_anterior_calle')
                                 ->label('Calle')
-                                ->required(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') === true)
-                                ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') === true)
+                                ->required(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1)
+                                ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1)
                                 ->columnSpanFull(),
 
                             Forms\Components\TextInput::make('domicilio_anterior_numero_exterior')
                                 ->label('Número exterior')
-                                ->required(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') === true)
-                                ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') === true),
+                                ->required(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1)
+                                ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1),
 
                             Forms\Components\TextInput::make('domicilio_anterior_numero_interior')
                                 ->label('Número interior')
-                                ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') === true),
+                                ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1),
 
                             Forms\Components\TextInput::make('domicilio_anterior_codigo_postal')
                                 ->label('Código postal')
-                                ->required(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') === true)
+                                ->required(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1)
                                 ->maxLength(5)
-                                ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') === true),
+                                ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1),
 
                             Forms\Components\TextInput::make('domicilio_anterior_colonia')
                                 ->label('Colonia')
-                                ->required(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') === true)
-                                ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') === true),
+                                ->required(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1)
+                                ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1),
 
                             Forms\Components\TextInput::make('domicilio_anterior_delegacion_municipio')
                                 ->label('Delegación / Municipio')
-                                ->required(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') === true)
-                                ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') === true),
+                                ->required(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1)
+                                ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1),
 
                             Forms\Components\Select::make('domicilio_anterior_estado')
                                 ->label('Estado')
                                 ->options(\App\Helpers\EstadosMexico::getEstados())
-                                ->required(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') === true)
+                                ->required(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1)
                                 ->searchable()
-                                ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') === true),
+                                ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1),
 
                             Forms\Components\Textarea::make('motivo_cambio_domicilio')
                                 ->label('Motivo del cambio de domicilio')
                                 ->rows(3)
-                                ->required(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') === true)
+                                ->required(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1)
                                 ->columnSpanFull()
-                                ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') === true),
+                                ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1),
                         ])
                         ->columns(2)
-                        ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') === true),
+                        ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1),
                 ])
                 ->columns(2),
         ];
@@ -961,61 +961,53 @@ class TenantRequestResource extends Resource
                     Forms\Components\Radio::make('facultades_en_acta')
                         ->label('¿Sus facultades constan en el acta constitutiva de la empresa?')
                         ->options([
-                            false => 'No',
-                            true => 'Sí',
+                            1 => 'No', // 1 activa el formulario
+                            0 => 'Sí',
                         ])
                         ->required()
                         ->live(),
 
-                    // Facultades en Acta (solo si es verdadero)
+                    // Facultades en Acta (solo si es NO = 1)
                     Forms\Components\Group::make()
                         ->schema([
                             Forms\Components\Placeholder::make('facultades_info')
                                 ->label('Facultades en acta')
                                 ->content('Complete la información de las facultades en acta')
-                                ->visible(fn (Forms\Get $get) => $get('facultades_en_acta') === true)
                                 ->columnSpanFull(),
 
                             Forms\Components\TextInput::make('escritura_publica_numero')
                                 ->label('Escritura publica o acta numero')
-                                ->required(fn (Forms\Get $get) => $get('facultades_en_acta') === true)
-                                ->visible(fn (Forms\Get $get) => $get('facultades_en_acta') === true),
+                                ->required(),
 
                             Forms\Components\TextInput::make('notario_numero_facultades')
                                 ->label('Notario numero')
-                                ->required(fn (Forms\Get $get) => $get('facultades_en_acta') === true)
-                                ->visible(fn (Forms\Get $get) => $get('facultades_en_acta') === true),
+                                ->required(),
 
                             Forms\Components\DatePicker::make('fecha_escritura_facultades')
                                 ->label('Fecha de escritura o acta donde consten las facultades')
                                 ->displayFormat('d/m/Y')
-                                ->required(fn (Forms\Get $get) => $get('facultades_en_acta') === true)
-                                ->native(false)
-                                ->visible(fn (Forms\Get $get) => $get('facultades_en_acta') === true),
+                                ->required()
+                                ->native(false),
 
                             Forms\Components\TextInput::make('numero_inscripcion_registro_publico')
                                 ->label('No. de inscripción en el registro publico')
-                                ->required(fn (Forms\Get $get) => $get('facultades_en_acta') === true)
-                                ->visible(fn (Forms\Get $get) => $get('facultades_en_acta') === true),
+                                ->required(),
 
                             Forms\Components\TextInput::make('ciudad_registro_facultades')
                                 ->label('Ciudad de registro')
-                                ->required(fn (Forms\Get $get) => $get('facultades_en_acta') === true)
-                                ->visible(fn (Forms\Get $get) => $get('facultades_en_acta') === true),
+                                ->required(),
 
                             Forms\Components\Select::make('estado_registro_facultades')
                                 ->label('Estado de registro')
                                 ->options(\App\Helpers\EstadosMexico::getEstados())
-                                ->required(fn (Forms\Get $get) => $get('facultades_en_acta') === true)
-                                ->searchable()
-                                ->visible(fn (Forms\Get $get) => $get('facultades_en_acta') === true),
+                                ->required()
+                                ->searchable(),
 
                             Forms\Components\DatePicker::make('fecha_inscripcion_facultades')
                                 ->label('Fecha de inscripción')
                                 ->displayFormat('d/m/Y')
-                                ->required(fn (Forms\Get $get) => $get('facultades_en_acta') === true)
-                                ->native(false)
-                                ->visible(fn (Forms\Get $get) => $get('facultades_en_acta') === true),
+                                ->required()
+                                ->native(false),
 
                             Forms\Components\Select::make('tipo_representacion')
                                 ->label('Tipo de representación')
@@ -1026,9 +1018,8 @@ class TenantRequestResource extends Resource
                                     'Gerente' => 'Gerente',
                                     'Otro' => 'Otro',
                                 ])
-                                ->required(fn (Forms\Get $get) => $get('facultades_en_acta') === true)
-                                ->live()
-                                ->visible(fn (Forms\Get $get) => $get('facultades_en_acta') === true),
+                                ->required()
+                                ->live(), // Necesario para el campo de abajo "Otro"
 
                             Forms\Components\TextInput::make('tipo_representacion_otro')
                                 ->label('Llenar en caso de otro')
@@ -1036,7 +1027,8 @@ class TenantRequestResource extends Resource
                                 ->visible(fn (Forms\Get $get) => $get('tipo_representacion') === 'Otro'),
                         ])
                         ->columns(2)
-                        ->visible(fn (Forms\Get $get) => $get('facultades_en_acta') === true),
+                        // CORRECCIÓN AQUÍ: Usamos == 1 para detectar el "No"
+                        ->visible(fn (Forms\Get $get) => $get('facultades_en_acta') == 1),
                 ])
                 ->columns(2),
         ];
@@ -1082,8 +1074,8 @@ class TenantRequestResource extends Resource
                     Forms\Components\Radio::make('sustituye_otro_domicilio')
                         ->label('¿Este inmueble sustituirá otro domicilio?')
                         ->options([
-                            false => 'No',
-                            true => 'Sí',
+                            0 => 'No',
+                            1 => 'Sí',
                         ])
                         ->required()
                         ->live(),
@@ -1094,56 +1086,56 @@ class TenantRequestResource extends Resource
                             Forms\Components\Placeholder::make('domicilio_anterior_info')
                                 ->label('Información del domicilio anterior')
                                 ->content('Complete la información del domicilio anterior')
-                                ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') === true)
+                                ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1)
                                 ->columnSpanFull(),
 
                             Forms\Components\TextInput::make('domicilio_anterior_calle')
                                 ->label('Calle')
-                                ->required(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') === true)
-                                ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') === true)
+                                ->required(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1)
+                                ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1)
                                 ->columnSpanFull(),
 
                             Forms\Components\TextInput::make('domicilio_anterior_numero_exterior')
                                 ->label('Número exterior')
-                                ->required(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') === true)
-                                ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') === true),
+                                ->required(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1)
+                                ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1),
 
                             Forms\Components\TextInput::make('domicilio_anterior_numero_interior')
                                 ->label('Número interior')
-                                ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') === true),
+                                ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1),
 
                             Forms\Components\TextInput::make('domicilio_anterior_codigo_postal')
                                 ->label('Código postal')
-                                ->required(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') === true)
+                                ->required(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1)
                                 ->maxLength(5)
-                                ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') === true),
+                                ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1),
 
                             Forms\Components\TextInput::make('domicilio_anterior_colonia')
                                 ->label('Colonia')
-                                ->required(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') === true)
-                                ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') === true),
+                                ->required(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1)
+                                ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1),
 
                             Forms\Components\TextInput::make('domicilio_anterior_delegacion_municipio')
                                 ->label('Delegación / Municipio')
-                                ->required(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') === true)
-                                ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') === true),
+                                ->required(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1)
+                                ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1),
 
                             Forms\Components\Select::make('domicilio_anterior_estado')
                                 ->label('Estado')
                                 ->options(\App\Helpers\EstadosMexico::getEstados())
-                                ->required(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') === true)
+                                ->required(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1)
                                 ->searchable()
-                                ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') === true),
+                                ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1),
 
                             Forms\Components\Textarea::make('motivo_cambio_domicilio')
                                 ->label('Motivo del cambio de domicilio')
                                 ->rows(3)
-                                ->required(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') === true)
+                                ->required(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1)
                                 ->columnSpanFull()
-                                ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') === true),
+                                ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1),
                         ])
                         ->columns(2)
-                        ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') === true),
+                        ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1),
                 ])
                 ->columns(2),
         ];
