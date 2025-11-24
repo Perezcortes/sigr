@@ -213,7 +213,8 @@ class TenantRequestResource extends Resource
                         ->label('Teléfono fijo')
                         ->tel(),
                 ])
-                ->columns(2),
+                ->columns(2)
+                ->columnSpanFull(), // Permite que el grupo use todo el ancho
 
             // Datos del Cónyuge (solo si es casado)
             Forms\Components\Group::make()
@@ -221,31 +222,27 @@ class TenantRequestResource extends Resource
                     Forms\Components\Placeholder::make('conyuge_info')
                         ->label('Datos del Cónyuge')
                         ->content('Complete la información del cónyuge')
-                        ->visible(fn (Forms\Get $get) => $get('estado_civil') === 'casado')
                         ->columnSpanFull(),
 
                     Forms\Components\TextInput::make('conyuge_nombres')
                         ->label('Nombre(s)')
-                        ->required(fn (Forms\Get $get) => $get('estado_civil') === 'casado')
-                        ->visible(fn (Forms\Get $get) => $get('estado_civil') === 'casado'),
+                        ->required(),
 
                     Forms\Components\TextInput::make('conyuge_primer_apellido')
                         ->label('Apellido Paterno')
-                        ->required(fn (Forms\Get $get) => $get('estado_civil') === 'casado')
-                        ->visible(fn (Forms\Get $get) => $get('estado_civil') === 'casado'),
+                        ->required(),
 
                     Forms\Components\TextInput::make('conyuge_segundo_apellido')
-                        ->label('Apellido Materno')
-                        ->visible(fn (Forms\Get $get) => $get('estado_civil') === 'casado'),
+                        ->label('Apellido Materno'),
 
                     Forms\Components\TextInput::make('conyuge_telefono')
                         ->label('Teléfono')
                         ->tel()
-                        ->required(fn (Forms\Get $get) => $get('estado_civil') === 'casado')
-                        ->visible(fn (Forms\Get $get) => $get('estado_civil') === 'casado'),
+                        ->required(),
                 ])
                 ->columns(2)
-                ->visible(fn (Forms\Get $get) => $get('estado_civil') === 'casado'),
+                ->visible(fn (Forms\Get $get) => $get('estado_civil') === 'casado')
+                ->columnSpanFull(), // Evita que se aplaste a un lado
 
             // Domicilio Actual
             Forms\Components\Group::make()
@@ -296,7 +293,8 @@ class TenantRequestResource extends Resource
                             'Propietario liberado' => 'Propietario liberado',
                         ])
                         ->required()
-                        ->live(),
+                        ->live()
+                        ->columnSpanFull(), 
 
                     // Datos del Arrendador Actual (solo si es Inquilino)
                     Forms\Components\Group::make()
@@ -304,52 +302,47 @@ class TenantRequestResource extends Resource
                             Forms\Components\Placeholder::make('arrendador_info')
                                 ->label('Datos del arrendador actual')
                                 ->content('Complete la información de su arrendador actual')
-                                ->visible(fn (Forms\Get $get) => $get('situacion_habitacional') === 'Inquilino')
                                 ->columnSpanFull(),
 
                             Forms\Components\TextInput::make('arrendador_actual_nombres')
                                 ->label('Nombre(s)')
-                                ->required(fn (Forms\Get $get) => $get('situacion_habitacional') === 'Inquilino')
-                                ->visible(fn (Forms\Get $get) => $get('situacion_habitacional') === 'Inquilino'),
+                                ->required(),
 
                             Forms\Components\TextInput::make('arrendador_actual_primer_apellido')
                                 ->label('Apellido Paterno')
-                                ->required(fn (Forms\Get $get) => $get('situacion_habitacional') === 'Inquilino')
-                                ->visible(fn (Forms\Get $get) => $get('situacion_habitacional') === 'Inquilino'),
+                                ->required(),
 
                             Forms\Components\TextInput::make('arrendador_actual_segundo_apellido')
-                                ->label('Apellido Materno')
-                                ->visible(fn (Forms\Get $get) => $get('situacion_habitacional') === 'Inquilino'),
+                                ->label('Apellido Materno'),
 
                             Forms\Components\TextInput::make('arrendador_actual_telefono')
                                 ->label('Teléfono')
                                 ->tel()
-                                ->required(fn (Forms\Get $get) => $get('situacion_habitacional') === 'Inquilino')
-                                ->visible(fn (Forms\Get $get) => $get('situacion_habitacional') === 'Inquilino'),
+                                ->required(),
 
                             Forms\Components\TextInput::make('renta_actual')
                                 ->label('Renta que paga actualmente')
                                 ->numeric()
                                 ->prefix('$')
-                                ->required(fn (Forms\Get $get) => $get('situacion_habitacional') === 'Inquilino')
-                                ->visible(fn (Forms\Get $get) => $get('situacion_habitacional') === 'Inquilino'),
+                                ->required(),
 
                             Forms\Components\TextInput::make('ocupa_desde_ano')
                                 ->label('Ocupa el lugar desde (año)')
                                 ->numeric()
                                 ->minValue(1900)
                                 ->maxValue(now()->year)
-                                ->required(fn (Forms\Get $get) => $get('situacion_habitacional') === 'Inquilino')
-                                ->visible(fn (Forms\Get $get) => $get('situacion_habitacional') === 'Inquilino'),
+                                ->required(),
                         ])
                         ->columns(2)
-                        ->visible(fn (Forms\Get $get) => $get('situacion_habitacional') === 'Inquilino'),
+                        ->visible(fn (Forms\Get $get) => $get('situacion_habitacional') === 'Inquilino')
+                        ->columnSpanFull(), 
                 ])
-                ->columns(2),
+                ->columns(2)
+                ->columnSpanFull(), 
         ];
     }
 
-        protected static function getDatosEmpleoSchema(): array
+    protected static function getDatosEmpleoSchema(): array
     {
         return [
             // Información sobre el empleo
@@ -386,7 +379,8 @@ class TenantRequestResource extends Resource
 
                     Forms\Components\TextInput::make('empresa_trabaja')
                         ->label('Empresa donde trabaja')
-                        ->required(),
+                        ->required()
+                        ->columnSpanFull(),
 
                     Forms\Components\TextInput::make('calle_empleo')
                         ->label('Calle')
@@ -425,7 +419,8 @@ class TenantRequestResource extends Resource
                         ->required()
                         ->native(false),
                 ])
-                ->columns(2),
+                ->columns(2)
+                ->columnSpanFull(),
 
             // Jefe inmediato
             Forms\Components\Group::make()
@@ -454,7 +449,8 @@ class TenantRequestResource extends Resource
                     Forms\Components\TextInput::make('jefe_extension')
                         ->label('Número de extensión'),
                 ])
-                ->columns(2),
+                ->columns(2)
+                ->columnSpanFull(), // Hace que este bloque inicie una nueva fila completa
 
             // Ingresos
             Forms\Components\Group::make()
@@ -479,16 +475,18 @@ class TenantRequestResource extends Resource
                         ->label('Número de personas que dependen de usted')
                         ->numeric()
                         ->minValue(0)
-                        ->required(),
+                        ->required()
+                        ->columnSpanFull(),
 
                     Forms\Components\Radio::make('otra_persona_aporta')
                         ->label('¿Alguna otra persona aporta al ingreso familiar?')
                         ->options([
-                            false => 'No',
-                            true => 'Sí',
+                            0 => 'No',
+                            1 => 'Sí',
                         ])
                         ->required()
-                        ->live(),
+                        ->live()
+                        ->columnSpanFull(),
 
                     // Información de persona que aporta (solo si es verdadero)
                     Forms\Components\Group::make()
@@ -496,57 +494,50 @@ class TenantRequestResource extends Resource
                             Forms\Components\Placeholder::make('persona_aporta_info')
                                 ->label('Información de la persona que aporta al ingreso familiar')
                                 ->content('Complete la información de la persona que aporta')
-                                ->visible(fn (Forms\Get $get) => $get('otra_persona_aporta') === true)
                                 ->columnSpanFull(),
 
                             Forms\Components\TextInput::make('numero_personas_aportan')
                                 ->label('Número de personas que aportan al ingreso familiar')
                                 ->numeric()
                                 ->minValue(1)
-                                ->required(fn (Forms\Get $get) => $get('otra_persona_aporta') === true)
-                                ->visible(fn (Forms\Get $get) => $get('otra_persona_aporta') === true),
+                                ->required(),
 
                             Forms\Components\TextInput::make('persona_aporta_nombres')
                                 ->label('Nombre (s)')
-                                ->required(fn (Forms\Get $get) => $get('otra_persona_aporta') === true)
-                                ->visible(fn (Forms\Get $get) => $get('otra_persona_aporta') === true),
+                                ->required(),
 
                             Forms\Components\TextInput::make('persona_aporta_primer_apellido')
                                 ->label('Apellido Paterno')
-                                ->required(fn (Forms\Get $get) => $get('otra_persona_aporta') === true)
-                                ->visible(fn (Forms\Get $get) => $get('otra_persona_aporta') === true),
+                                ->required(),
 
                             Forms\Components\TextInput::make('persona_aporta_segundo_apellido')
-                                ->label('Apellido Materno')
-                                ->visible(fn (Forms\Get $get) => $get('otra_persona_aporta') === true),
+                                ->label('Apellido Materno'),
 
                             Forms\Components\TextInput::make('persona_aporta_parentesco')
                                 ->label('Parentesco')
-                                ->required(fn (Forms\Get $get) => $get('otra_persona_aporta') === true)
-                                ->visible(fn (Forms\Get $get) => $get('otra_persona_aporta') === true),
+                                ->required(),
 
                             Forms\Components\TextInput::make('persona_aporta_telefono')
                                 ->label('Teléfono')
                                 ->tel()
-                                ->required(fn (Forms\Get $get) => $get('otra_persona_aporta') === true)
-                                ->visible(fn (Forms\Get $get) => $get('otra_persona_aporta') === true),
+                                ->required(),
 
                             Forms\Components\TextInput::make('persona_aporta_empresa')
                                 ->label('Empresa donde trabaja')
-                                ->required(fn (Forms\Get $get) => $get('otra_persona_aporta') === true)
-                                ->visible(fn (Forms\Get $get) => $get('otra_persona_aporta') === true),
+                                ->required(),
 
                             Forms\Components\TextInput::make('persona_aporta_ingreso_comprobable')
                                 ->label('Ingreso mensual comprobable')
                                 ->numeric()
                                 ->prefix('$')
-                                ->required(fn (Forms\Get $get) => $get('otra_persona_aporta') === true)
-                                ->visible(fn (Forms\Get $get) => $get('otra_persona_aporta') === true),
+                                ->required(),
                         ])
                         ->columns(2)
-                        ->visible(fn (Forms\Get $get) => $get('otra_persona_aporta') === true),
+                        ->visible(fn (Forms\Get $get) => $get('otra_persona_aporta') == 1)
+                        ->columnSpanFull(), //Hace que el subformulario se expanda bien
                 ])
-                ->columns(2),
+                ->columns(2)
+                ->columnSpanFull(),
         ];
     }
 
@@ -595,66 +586,60 @@ class TenantRequestResource extends Resource
                             1 => 'Sí',
                         ])
                         ->required()
-                        ->live(),
+                        ->live()
+                        ->columnSpanFull(),
 
-                    // Información del domicilio anterior (solo si es verdadero)
+                    // Información del domicilio anterior
                     Forms\Components\Group::make()
                         ->schema([
                             Forms\Components\Placeholder::make('domicilio_anterior_info')
                                 ->label('Información del domicilio anterior')
                                 ->content('Complete la información del domicilio anterior')
-                                ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1)
                                 ->columnSpanFull(),
 
                             Forms\Components\TextInput::make('domicilio_anterior_calle')
                                 ->label('Calle')
-                                ->required(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1)
-                                ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1)
+                                ->required()
                                 ->columnSpanFull(),
 
                             Forms\Components\TextInput::make('domicilio_anterior_numero_exterior')
                                 ->label('Número exterior')
-                                ->required(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1)
-                                ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1),
+                                ->required(),
 
                             Forms\Components\TextInput::make('domicilio_anterior_numero_interior')
-                                ->label('Número interior')
-                                ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1),
+                                ->label('Número interior'),
 
                             Forms\Components\TextInput::make('domicilio_anterior_codigo_postal')
                                 ->label('Código postal')
-                                ->required(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1)
-                                ->maxLength(5)
-                                ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1),
+                                ->required()
+                                ->maxLength(5),
 
                             Forms\Components\TextInput::make('domicilio_anterior_colonia')
                                 ->label('Colonia')
-                                ->required(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1)
-                                ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1),
+                                ->required(),
 
                             Forms\Components\TextInput::make('domicilio_anterior_delegacion_municipio')
                                 ->label('Delegación / Municipio')
-                                ->required(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1)
-                                ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1),
+                                ->required(),
 
                             Forms\Components\Select::make('domicilio_anterior_estado')
                                 ->label('Estado')
                                 ->options(\App\Helpers\EstadosMexico::getEstados())
-                                ->required(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1)
-                                ->searchable()
-                                ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1),
+                                ->required()
+                                ->searchable(),
 
                             Forms\Components\Textarea::make('motivo_cambio_domicilio')
                                 ->label('Motivo del cambio de domicilio')
                                 ->rows(3)
-                                ->required(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1)
-                                ->columnSpanFull()
-                                ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1),
+                                ->required()
+                                ->columnSpanFull(),
                         ])
                         ->columns(2)
-                        ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1),
+                        ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1)
+                        ->columnSpanFull(), //Permite que el domicilio use todo el ancho
                 ])
-                ->columns(2),
+                ->columns(2)
+                ->columnSpanFull(),
         ];
     }
 
@@ -669,57 +654,65 @@ class TenantRequestResource extends Resource
                         ->content('Complete la información de sus referencias personales')
                         ->columnSpanFull(),
 
-                    Forms\Components\Placeholder::make('referencia_personal1_label')
-                        ->label('Referencia personal 1')
+                    // Referencia 1
+                    Forms\Components\Group::make()
+                        ->schema([
+                            Forms\Components\Placeholder::make('referencia_personal1_label')
+                                ->label('Referencia personal 1')
+                                ->columnSpanFull(),
+
+                            Forms\Components\TextInput::make('referencia_personal1_nombres')
+                                ->label('Nombre (s)')
+                                ->required(),
+
+                            Forms\Components\TextInput::make('referencia_personal1_primer_apellido')
+                                ->label('Apellido Paterno')
+                                ->required(),
+
+                            Forms\Components\TextInput::make('referencia_personal1_segundo_apellido')
+                                ->label('Apellido Materno'),
+
+                            Forms\Components\TextInput::make('referencia_personal1_relacion')
+                                ->label('Relación')
+                                ->required(),
+
+                            Forms\Components\TextInput::make('referencia_personal1_telefono')
+                                ->label('Teléfono')
+                                ->tel()
+                                ->required(),
+                        ])
+                        ->columns(2)
+                        ->columnSpanFull(), // Mantiene el bloque unido
+
+                    // Referencia 2
+                    Forms\Components\Group::make()
+                        ->schema([
+                            Forms\Components\Placeholder::make('referencia_personal2_label')
+                                ->label('Referencia personal 2')
+                                ->columnSpanFull(),
+
+                            Forms\Components\TextInput::make('referencia_personal2_nombres')
+                                ->label('Nombre (s)')
+                                ->required(),
+
+                            Forms\Components\TextInput::make('referencia_personal2_primer_apellido')
+                                ->label('Apellido Paterno')
+                                ->required(),
+
+                            Forms\Components\TextInput::make('referencia_personal2_segundo_apellido')
+                                ->label('Apellido Materno'),
+
+                            Forms\Components\TextInput::make('referencia_personal2_relacion')
+                                ->label('Relación')
+                                ->required(),
+
+                            Forms\Components\TextInput::make('referencia_personal2_telefono')
+                                ->label('Teléfono')
+                                ->tel()
+                                ->required(),
+                        ])
+                        ->columns(2)
                         ->columnSpanFull(),
-
-                    Forms\Components\TextInput::make('referencia_personal1_nombres')
-                        ->label('Nombre (s)')
-                        ->required(),
-
-                    Forms\Components\TextInput::make('referencia_personal1_primer_apellido')
-                        ->label('Apellido Paterno')
-                        ->required(),
-
-                    Forms\Components\TextInput::make('referencia_personal1_segundo_apellido')
-                        ->label('Apellido Materno'),
-
-                    Forms\Components\TextInput::make('referencia_personal1_relacion')
-                        ->label('Relación')
-                        ->required(),
-
-                    Forms\Components\TextInput::make('referencia_personal1_telefono')
-                        ->label('Teléfono')
-                        ->tel()
-                        ->required(),
-                ])
-                ->columns(2),
-
-            Forms\Components\Group::make()
-                ->schema([
-                    Forms\Components\Placeholder::make('referencia_personal2_label')
-                        ->label('Referencia personal 2')
-                        ->columnSpanFull(),
-
-                    Forms\Components\TextInput::make('referencia_personal2_nombres')
-                        ->label('Nombre (s)')
-                        ->required(),
-
-                    Forms\Components\TextInput::make('referencia_personal2_primer_apellido')
-                        ->label('Apellido Paterno')
-                        ->required(),
-
-                    Forms\Components\TextInput::make('referencia_personal2_segundo_apellido')
-                        ->label('Apellido Materno'),
-
-                    Forms\Components\TextInput::make('referencia_personal2_relacion')
-                        ->label('Relación')
-                        ->required(),
-
-                    Forms\Components\TextInput::make('referencia_personal2_telefono')
-                        ->label('Teléfono')
-                        ->tel()
-                        ->required(),
                 ])
                 ->columns(2),
 
@@ -731,59 +724,68 @@ class TenantRequestResource extends Resource
                         ->content('Complete la información de sus referencias familiares')
                         ->columnSpanFull(),
 
-                    Forms\Components\Placeholder::make('referencia_familiar1_label')
-                        ->label('Referencia familiar 1')
+                    // Familiar 1
+                    Forms\Components\Group::make()
+                        ->schema([
+                            Forms\Components\Placeholder::make('referencia_familiar1_label')
+                                ->label('Referencia familiar 1')
+                                ->columnSpanFull(),
+
+                            Forms\Components\TextInput::make('referencia_familiar1_nombres')
+                                ->label('Nombre (s)')
+                                ->required(),
+
+                            Forms\Components\TextInput::make('referencia_familiar1_primer_apellido')
+                                ->label('Apellido Paterno')
+                                ->required(),
+
+                            Forms\Components\TextInput::make('referencia_familiar1_segundo_apellido')
+                                ->label('Apellido Materno'),
+
+                            Forms\Components\TextInput::make('referencia_familiar1_relacion')
+                                ->label('Relación')
+                                ->required(),
+
+                            Forms\Components\TextInput::make('referencia_familiar1_telefono')
+                                ->label('Teléfono')
+                                ->tel()
+                                ->required(),
+                        ])
+                        ->columns(2)
                         ->columnSpanFull(),
 
-                    Forms\Components\TextInput::make('referencia_familiar1_nombres')
-                        ->label('Nombre (s)')
-                        ->required(),
+                    // Familiar 2
+                    Forms\Components\Group::make()
+                        ->schema([
+                            Forms\Components\Placeholder::make('referencia_familiar2_label')
+                                ->label('Referencia familiar 2')
+                                ->columnSpanFull(),
 
-                    Forms\Components\TextInput::make('referencia_familiar1_primer_apellido')
-                        ->label('Apellido Paterno')
-                        ->required(),
+                            Forms\Components\TextInput::make('referencia_familiar2_nombres')
+                                ->label('Nombre (s)')
+                                ->required(),
 
-                    Forms\Components\TextInput::make('referencia_familiar1_segundo_apellido')
-                        ->label('Apellido Materno'),
+                            Forms\Components\TextInput::make('referencia_familiar2_primer_apellido')
+                                ->label('Apellido Paterno')
+                                ->required(),
 
-                    Forms\Components\TextInput::make('referencia_familiar1_relacion')
-                        ->label('Relación')
-                        ->required(),
+                            Forms\Components\TextInput::make('referencia_familiar2_segundo_apellido')
+                                ->label('Apellido Materno'),
 
-                    Forms\Components\TextInput::make('referencia_familiar1_telefono')
-                        ->label('Teléfono')
-                        ->tel()
-                        ->required(),
-                ])
-                ->columns(2),
+                            Forms\Components\TextInput::make('referencia_familiar2_relacion')
+                                ->label('Relación')
+                                ->required(),
 
-            Forms\Components\Group::make()
-                ->schema([
-                    Forms\Components\Placeholder::make('referencia_familiar2_label')
-                        ->label('Referencia familiar 2')
+                            Forms\Components\TextInput::make('referencia_familiar2_telefono')
+                                ->label('Teléfono')
+                                ->tel()
+                                ->required(),
+                        ])
+                        ->columns(2)
                         ->columnSpanFull(),
-
-                    Forms\Components\TextInput::make('referencia_familiar2_nombres')
-                        ->label('Nombre (s)')
-                        ->required(),
-
-                    Forms\Components\TextInput::make('referencia_familiar2_primer_apellido')
-                        ->label('Apellido Paterno')
-                        ->required(),
-
-                    Forms\Components\TextInput::make('referencia_familiar2_segundo_apellido')
-                        ->label('Apellido Materno'),
-
-                    Forms\Components\TextInput::make('referencia_familiar2_relacion')
-                        ->label('Relación')
-                        ->required(),
-
-                    Forms\Components\TextInput::make('referencia_familiar2_telefono')
-                        ->label('Teléfono')
-                        ->tel()
-                        ->required(),
                 ])
-                ->columns(2),
+                ->columns(2)
+                ->columnSpanFull(),
         ];
     }
 
@@ -823,7 +825,7 @@ class TenantRequestResource extends Resource
                     Forms\Components\TextInput::make('calle')
                         ->label('Calle')
                         ->required()
-                        ->columnSpanFull(),
+                        ->columnSpanFull(), 
 
                     Forms\Components\TextInput::make('numero_exterior')
                         ->label('Número exterior')
@@ -863,7 +865,8 @@ class TenantRequestResource extends Resource
                         ->required()
                         ->columnSpanFull(),
                 ])
-                ->columns(2),
+                ->columns(2)
+                ->columnSpanFull(),
 
             // Datos del acta constitutiva
             Forms\Components\Group::make()
@@ -916,7 +919,8 @@ class TenantRequestResource extends Resource
                         ->label('Giro comercial')
                         ->required(),
                 ])
-                ->columns(2),
+                ->columns(2)
+                ->columnSpanFull(),
 
             // Apoderado legal y/o representante
             Forms\Components\Group::make()
@@ -965,7 +969,8 @@ class TenantRequestResource extends Resource
                             0 => 'Sí',
                         ])
                         ->required()
-                        ->live(),
+                        ->live()
+                        ->columnSpanFull(),
 
                     // Facultades en Acta (solo si es NO = 1)
                     Forms\Components\Group::make()
@@ -1019,7 +1024,7 @@ class TenantRequestResource extends Resource
                                     'Otro' => 'Otro',
                                 ])
                                 ->required()
-                                ->live(), // Necesario para el campo de abajo "Otro"
+                                ->live(),
 
                             Forms\Components\TextInput::make('tipo_representacion_otro')
                                 ->label('Llenar en caso de otro')
@@ -1027,10 +1032,11 @@ class TenantRequestResource extends Resource
                                 ->visible(fn (Forms\Get $get) => $get('tipo_representacion') === 'Otro'),
                         ])
                         ->columns(2)
-                        // CORRECCIÓN AQUÍ: Usamos == 1 para detectar el "No"
-                        ->visible(fn (Forms\Get $get) => $get('facultades_en_acta') == 1),
+                        ->visible(fn (Forms\Get $get) => $get('facultades_en_acta') == 1)
+                        ->columnSpanFull(), // Permite que el subformulario se muestre completo abajo
                 ])
-                ->columns(2),
+                ->columns(2)
+                ->columnSpanFull(),
         ];
     }
 
@@ -1078,7 +1084,8 @@ class TenantRequestResource extends Resource
                             1 => 'Sí',
                         ])
                         ->required()
-                        ->live(),
+                        ->live()
+                        ->columnSpanFull(),
 
                     // Información del domicilio anterior (solo si es verdadero)
                     Forms\Components\Group::make()
@@ -1086,58 +1093,51 @@ class TenantRequestResource extends Resource
                             Forms\Components\Placeholder::make('domicilio_anterior_info')
                                 ->label('Información del domicilio anterior')
                                 ->content('Complete la información del domicilio anterior')
-                                ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1)
                                 ->columnSpanFull(),
 
                             Forms\Components\TextInput::make('domicilio_anterior_calle')
                                 ->label('Calle')
-                                ->required(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1)
-                                ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1)
+                                ->required()
                                 ->columnSpanFull(),
 
                             Forms\Components\TextInput::make('domicilio_anterior_numero_exterior')
                                 ->label('Número exterior')
-                                ->required(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1)
-                                ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1),
+                                ->required(),
 
                             Forms\Components\TextInput::make('domicilio_anterior_numero_interior')
-                                ->label('Número interior')
-                                ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1),
+                                ->label('Número interior'),
 
                             Forms\Components\TextInput::make('domicilio_anterior_codigo_postal')
                                 ->label('Código postal')
-                                ->required(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1)
-                                ->maxLength(5)
-                                ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1),
+                                ->required()
+                                ->maxLength(5),
 
                             Forms\Components\TextInput::make('domicilio_anterior_colonia')
                                 ->label('Colonia')
-                                ->required(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1)
-                                ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1),
+                                ->required(),
 
                             Forms\Components\TextInput::make('domicilio_anterior_delegacion_municipio')
                                 ->label('Delegación / Municipio')
-                                ->required(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1)
-                                ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1),
+                                ->required(),
 
                             Forms\Components\Select::make('domicilio_anterior_estado')
                                 ->label('Estado')
                                 ->options(\App\Helpers\EstadosMexico::getEstados())
-                                ->required(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1)
-                                ->searchable()
-                                ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1),
+                                ->required()
+                                ->searchable(),
 
                             Forms\Components\Textarea::make('motivo_cambio_domicilio')
                                 ->label('Motivo del cambio de domicilio')
                                 ->rows(3)
-                                ->required(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1)
-                                ->columnSpanFull()
-                                ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1),
+                                ->required()
+                                ->columnSpanFull(),
                         ])
                         ->columns(2)
-                        ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1),
+                        ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1)
+                        ->columnSpanFull(), 
                 ])
-                ->columns(2),
+                ->columns(2)
+                ->columnSpanFull(),
         ];
     }
 
@@ -1151,66 +1151,77 @@ class TenantRequestResource extends Resource
                         ->content('Complete la información de las referencias comerciales')
                         ->columnSpanFull(),
 
-                    Forms\Components\Placeholder::make('referencia_comercial1_label')
-                        ->label('Referencia comercial 1')
+                    // Referencia 1
+                    Forms\Components\Group::make()
+                        ->schema([
+                            Forms\Components\Placeholder::make('referencia_comercial1_label')
+                                ->label('Referencia comercial 1')
+                                ->columnSpanFull(),
+
+                            Forms\Components\TextInput::make('referencia_comercial1_empresa')
+                                ->label('Nombre de la empresa:')
+                                ->required(),
+
+                            Forms\Components\TextInput::make('referencia_comercial1_contacto')
+                                ->label('Nombre del contacto')
+                                ->required(),
+
+                            Forms\Components\TextInput::make('referencia_comercial1_telefono')
+                                ->label('Telefono')
+                                ->tel()
+                                ->required(),
+                        ])
+                        ->columns(2)
                         ->columnSpanFull(),
 
-                    Forms\Components\TextInput::make('referencia_comercial1_empresa')
-                        ->label('Nombre de la empresa:')
-                        ->required(),
+                    // Referencia 2
+                    Forms\Components\Group::make()
+                        ->schema([
+                            Forms\Components\Placeholder::make('referencia_comercial2_label')
+                                ->label('Referencia comercial 2')
+                                ->columnSpanFull(),
 
-                    Forms\Components\TextInput::make('referencia_comercial1_contacto')
-                        ->label('Nombre del contacto')
-                        ->required(),
+                            Forms\Components\TextInput::make('referencia_comercial2_empresa')
+                                ->label('Nombre de la empresa:')
+                                ->required(),
 
-                    Forms\Components\TextInput::make('referencia_comercial1_telefono')
-                        ->label('Telefono')
-                        ->tel()
-                        ->required(),
-                ])
-                ->columns(2),
+                            Forms\Components\TextInput::make('referencia_comercial2_contacto')
+                                ->label('Nombre del contacto')
+                                ->required(),
 
-            Forms\Components\Group::make()
-                ->schema([
-                    Forms\Components\Placeholder::make('referencia_comercial2_label')
-                        ->label('Referencia comercial 2')
+                            Forms\Components\TextInput::make('referencia_comercial2_telefono')
+                                ->label('Telefono')
+                                ->tel()
+                                ->required(),
+                        ])
+                        ->columns(2)
                         ->columnSpanFull(),
 
-                    Forms\Components\TextInput::make('referencia_comercial2_empresa')
-                        ->label('Nombre de la empresa:')
-                        ->required(),
+                    // Referencia 3
+                    Forms\Components\Group::make()
+                        ->schema([
+                            Forms\Components\Placeholder::make('referencia_comercial3_label')
+                                ->label('Referencia comercial 3')
+                                ->columnSpanFull(),
 
-                    Forms\Components\TextInput::make('referencia_comercial2_contacto')
-                        ->label('Nombre del contacto')
-                        ->required(),
+                            Forms\Components\TextInput::make('referencia_comercial3_empresa')
+                                ->label('Nombre de la empresa:')
+                                ->required(),
 
-                    Forms\Components\TextInput::make('referencia_comercial2_telefono')
-                        ->label('Telefono')
-                        ->tel()
-                        ->required(),
-                ])
-                ->columns(2),
+                            Forms\Components\TextInput::make('referencia_comercial3_contacto')
+                                ->label('Nombre del contacto')
+                                ->required(),
 
-            Forms\Components\Group::make()
-                ->schema([
-                    Forms\Components\Placeholder::make('referencia_comercial3_label')
-                        ->label('Referencia comercial 3')
+                            Forms\Components\TextInput::make('referencia_comercial3_telefono')
+                                ->label('Telefono')
+                                ->tel()
+                                ->required(),
+                        ])
+                        ->columns(2)
                         ->columnSpanFull(),
-
-                    Forms\Components\TextInput::make('referencia_comercial3_empresa')
-                        ->label('Nombre de la empresa:')
-                        ->required(),
-
-                    Forms\Components\TextInput::make('referencia_comercial3_contacto')
-                        ->label('Nombre del contacto')
-                        ->required(),
-
-                    Forms\Components\TextInput::make('referencia_comercial3_telefono')
-                        ->label('Telefono')
-                        ->tel()
-                        ->required(),
                 ])
-                ->columns(2),
+                ->columns(2)
+                ->columnSpanFull(),
         ];
     }
 
