@@ -57,3 +57,48 @@
     background-color: var(--color-orange) !important;
     color: var(--color-white) !important;
 }
+
+/* ========== TABS SELECCIONADOS ========== */
+[role="tab"][aria-selected="true"],
+.fi-tabs [role="tab"][aria-selected="true"],
+.fi-fo-tabs [role="tab"][aria-selected="true"],
+button[role="tab"][aria-selected="true"] {
+    background-color: #26cad3 !important;
+    color: #ffffff !important;
+    border-color: #26cad3 !important;
+    border-bottom-color: #26cad3 !important;
+}
+
+[role="tab"][aria-selected="true"] span,
+[role="tab"][aria-selected="true"] svg {
+    color: #ffffff !important;
+}
+
+[role="tab"]:not([aria-selected="true"]):hover {
+    background-color: rgba(38, 202, 211, 0.15) !important;
+    color: #26cad3 !important;
+}
+
+/* ========== SIDEBAR ACTIVO ========== */
+.fi-sidebar-item a[aria-current="page"],
+.fi-sidebar-item button[aria-current="page"],
+.fi-sidebar-nav a[aria-current="page"],
+.fi-sidebar-nav button[aria-current="page"],
+nav a[aria-current="page"],
+.fi-sidebar a.fi-active,
+.fi-sidebar [data-active="true"],
+.fi-sidebar-item-active,
+li[class*="active"] a,
+li[class*="active"] button {
+    background-color: #26cad3 !important;
+    color: #ffffff !important;
+}
+
+.fi-sidebar-item a[aria-current="page"] span,
+.fi-sidebar-item a[aria-current="page"] svg,
+.fi-sidebar-item button[aria-current="page"] span,
+.fi-sidebar-item button[aria-current="page"] svg,
+.fi-sidebar a.fi-active span,
+.fi-sidebar a.fi-active svg {
+    color: #ffffff !important;
+}

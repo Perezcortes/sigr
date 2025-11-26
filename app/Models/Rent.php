@@ -117,4 +117,29 @@ class Rent extends Model
     {
         return $this->hasMany(OwnerRequest::class);
     }
+
+    public function tenantDocuments(): HasMany
+    {
+        return $this->hasMany(TenantDocument::class);
+    }
+
+    public function guarantorDocuments(): HasMany
+    {
+        return $this->hasMany(GuarantorDocument::class);
+    }
+
+    public function ownerDocuments(): HasMany
+    {
+        return $this->hasMany(OwnerDocument::class);
+    }
+
+    public function propertyDocuments(): HasMany
+    {
+        return $this->hasMany(PropertyDocument::class);
+    }
+
+    public function comments(): HasMany
+    {
+        return $this->hasMany(RentComment::class);
+    }
 }
