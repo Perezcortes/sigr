@@ -1,0 +1,11 @@
+{
+    "$schema": "https://schema.railpack.com",
+    "provider": "php",
+    "steps": {
+        "install": {
+            "commands": [
+                "composer install --no-dev --optimize-autoloader"
+            ]
+        }
+    }
+}
