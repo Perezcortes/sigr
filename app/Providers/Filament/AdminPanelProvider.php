@@ -8,6 +8,11 @@ use App\Filament\Resources\RentResource;
 use App\Filament\Resources\TenantResource;
 use App\Filament\Resources\TenantRequestResource;
 use App\Filament\Resources\OwnerRequestResource;
+use App\Filament\Widgets\ResumenDashboardWidget;
+use App\Filament\Widgets\RentasMensualesChartWidget;
+use App\Filament\Widgets\SolicitudesMensualesChartWidget;
+use App\Filament\Widgets\EstatusRentasChartWidget;
+use App\Filament\Widgets\EstatusSolicitudesChartWidget;
 use CWSPS154\UsersRolesPermissions\UsersRolesPermissionsPlugin;
 use Filament\Facades\Filament;
 use Filament\Http\Middleware\Authenticate;
@@ -58,8 +63,11 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
             ->widgets([
-                Widgets\AccountWidget::class,
-                Widgets\FilamentInfoWidget::class,
+                ResumenDashboardWidget::class,
+                RentasMensualesChartWidget::class,
+                SolicitudesMensualesChartWidget::class,
+                EstatusRentasChartWidget::class,
+                EstatusSolicitudesChartWidget::class,
             ])
             ->plugins([
                 UsersRolesPermissionsPlugin::make()
