@@ -202,6 +202,78 @@ class ViewRent extends EditRecord
                                             ->schema([
                                                 Forms\Components\Section::make('Datos del inquilino')
                                                     ->schema([
+
+                                                        // === AQUÍ INICIA LA TABLA DE HISTORIAL DE SOLICITUDES INQUILINO ===
+                                                        Forms\Components\Placeholder::make('historial_solicitudes')
+                                                        ->label('Historial de Solicitudes')
+                                                        ->columnSpanFull()
+                                                        ->content(function () {
+                                                            $tenantId = $this->record->tenant_id;
+                                                            
+                                                            if (!$tenantId) {
+                                                                return 'No hay inquilino asignado para mostrar historial.';
+                                                            }
+
+                                                            // Buscamos las RENTAS del inquilino, no solo las solicitudes creadas.
+                                                            $rents = \App\Models\Rent::where('tenant_id', $tenantId)
+                                                                ->orderBy('created_at', 'desc')
+                                                                ->get();
+
+                                                            if ($rents->isEmpty()) {
+                                                                return 'Este inquilino no tiene rentas registradas.';
+                                                            }
+
+                                                            $html = '<div class="overflow-x-auto border rounded-lg ring-1 ring-gray-950/5 dark:ring-white/10">';
+                                                            $html .= '<table class="w-full text-sm text-left divide-y divide-gray-200 dark:divide-white/5">';
+                                                            $html .= '<thead class="bg-gray-50 dark:bg-white/5">';
+                                                            $html .= '<tr>';
+                                                            $html .= '<th class="px-4 py-3 font-medium text-gray-950 dark:text-white">Folio Renta</th>';
+                                                            $html .= '<th class="px-4 py-3 font-medium text-gray-950 dark:text-white">Fecha Creación</th>';
+                                                            $html .= '<th class="px-4 py-3 font-medium text-gray-950 dark:text-white">Estatus</th>';
+                                                            $html .= '<th class="px-4 py-3 font-medium text-gray-950 dark:text-white">Acción</th>';
+                                                            $html .= '</tr></thead>';
+                                                            $html .= '<tbody class="divide-y divide-gray-200 dark:divide-white/5">';
+
+                                                            foreach ($rents as $rent) {
+                                                                // Buscamos si existe la solicitud para esta renta específica
+                                                                $request = \App\Models\TenantRequest::where('rent_id', $rent->id)->first();
+                                                                
+                                                                $folio = $rent->folio ?? 'N/A';
+                                                                // Usamos la fecha de la solicitud si existe, si no, la de la renta
+                                                                $fecha = $request ? $request->created_at->format('d/m/Y H:i') : $rent->created_at->format('d/m/Y H:i');
+                                                                
+                                                                // Definimos estatus y acción según si existe la solicitud
+                                                                if ($request) {
+                                                                    $estatusLabel = ucfirst($request->estatus);
+                                                                    $estatusColor = 'bg-primary-50 text-primary-700 ring-primary-700/10 dark:bg-primary-400/10 dark:text-primary-400 dark:ring-primary-400/30';
+                                                                    
+                                                                    // Link directo a editar la solicitud existente
+                                                                    $url = TenantRequestResource::getUrl('edit', ['record' => $request->id]);
+                                                                    $accionText = 'Ver Solicitud';
+                                                                } else {
+                                                                    $estatusLabel = 'Sin Solicitud';
+                                                                    $estatusColor = 'bg-gray-50 text-gray-600 ring-gray-500/10 dark:bg-gray-400/10 dark:text-gray-400 dark:ring-gray-400/20';
+                                                                    
+                                                                    // Si no existe solicitud, mandamos a ver la Renta para que ahí la generen
+                                                                    $url = RentResource::getUrl('view', ['record' => $rent->id]);
+                                                                    $accionText = 'Ir a Renta';
+                                                                }
+
+                                                                $html .= '<tr class="hover:bg-gray-50 dark:hover:bg-white/5">';
+                                                                $html .= "<td class=\"px-4 py-3\">{$folio}</td>";
+                                                                $html .= "<td class=\"px-4 py-3\">{$fecha}</td>";
+                                                                $html .= "<td class=\"px-4 py-3\"><span class=\"inline-flex items-center px-2 py-1 rounded-md text-xs font-medium ring-1 ring-inset {$estatusColor}\">{$estatusLabel}</span></td>";
+                                                                $html .= "<td class=\"px-4 py-3\">";
+                                                                $html .= "<a href=\"{$url}\" class=\"font-medium text-primary-600 dark:text-primary-500 hover:underline\">{$accionText}</a>";
+                                                                $html .= "</td></tr>";
+                                                            }
+
+                                                            $html .= '</tbody></table></div>';
+
+                                                            return new \Illuminate\Support\HtmlString($html);
+                                                        }),
+                                                        // === TERMINA LA TABLA DE HISTORIAL ===
+                                                        
                                                         Forms\Components\Placeholder::make('current_tenant_info')
                                                             ->label('Información actual del inquilino')
                                                             ->content(function () {
@@ -339,6 +411,75 @@ class ViewRent extends EditRecord
                                             ->schema([
                                                 Forms\Components\Section::make('Datos del propietario')
                                                     ->schema([
+                                                        // === INICIO HISTORIAL DE SOLICITUDES PROPIETARIO ===
+                                                        Forms\Components\Placeholder::make('historial_solicitudes_propietario')
+                                                            ->label('Historial de Solicitudes')
+                                                            ->columnSpanFull()
+                                                            ->content(function () {
+                                                                $ownerId = $this->record->owner_id;
+                                                                
+                                                                if (!$ownerId) {
+                                                                    return 'No hay propietario asignado para mostrar historial.';
+                                                                }
+
+                                                                // Buscamos las RENTAS del propietario
+                                                                $rents = \App\Models\Rent::where('owner_id', $ownerId)
+                                                                    ->orderBy('created_at', 'desc')
+                                                                    ->get();
+
+                                                                if ($rents->isEmpty()) {
+                                                                    return 'Este propietario no tiene rentas registradas.';
+                                                                }
+
+                                                                $html = '<div class="overflow-x-auto border rounded-lg ring-1 ring-gray-950/5 dark:ring-white/10">';
+                                                                $html .= '<table class="w-full text-sm text-left divide-y divide-gray-200 dark:divide-white/5">';
+                                                                $html .= '<thead class="bg-gray-50 dark:bg-white/5">';
+                                                                $html .= '<tr>';
+                                                                $html .= '<th class="px-4 py-3 font-medium text-gray-950 dark:text-white">Folio Renta</th>';
+                                                                $html .= '<th class="px-4 py-3 font-medium text-gray-950 dark:text-white">Fecha Creación</th>';
+                                                                $html .= '<th class="px-4 py-3 font-medium text-gray-950 dark:text-white">Estatus</th>';
+                                                                $html .= '<th class="px-4 py-3 font-medium text-gray-950 dark:text-white">Acción</th>';
+                                                                $html .= '</tr></thead>';
+                                                                $html .= '<tbody class="divide-y divide-gray-200 dark:divide-white/5">';
+
+                                                                foreach ($rents as $rent) {
+                                                                    // Buscamos si existe la solicitud de PROPIETARIO para esta renta
+                                                                    $request = \App\Models\OwnerRequest::where('rent_id', $rent->id)->first();
+                                                                    
+                                                                    $folio = $rent->folio ?? 'N/A';
+                                                                    // Fecha: de la solicitud si existe, si no, de la renta
+                                                                    $fecha = $request ? $request->created_at->format('d/m/Y H:i') : $rent->created_at->format('d/m/Y H:i');
+                                                                    
+                                                                    // Lógica de estatus y botones
+                                                                    if ($request) {
+                                                                        $estatusLabel = ucfirst($request->estatus);
+                                                                        $estatusColor = 'bg-primary-50 text-primary-700 ring-primary-700/10 dark:bg-primary-400/10 dark:text-primary-400 dark:ring-primary-400/30';
+                                                                        
+                                                                        // Usamos OwnerRequestResource
+                                                                        $url = OwnerRequestResource::getUrl('edit', ['record' => $request->id]);
+                                                                        $accionText = 'Ver Solicitud';
+                                                                    } else {
+                                                                        $estatusLabel = 'Sin Solicitud';
+                                                                        $estatusColor = 'bg-gray-50 text-gray-600 ring-gray-500/10 dark:bg-gray-400/10 dark:text-gray-400 dark:ring-gray-400/20';
+                                                                        
+                                                                        $url = RentResource::getUrl('view', ['record' => $rent->id]);
+                                                                        $accionText = 'Ir a Renta';
+                                                                    }
+
+                                                                    $html .= '<tr class="hover:bg-gray-50 dark:hover:bg-white/5">';
+                                                                    $html .= "<td class=\"px-4 py-3\">{$folio}</td>";
+                                                                    $html .= "<td class=\"px-4 py-3\">{$fecha}</td>";
+                                                                    $html .= "<td class=\"px-4 py-3\"><span class=\"inline-flex items-center px-2 py-1 rounded-md text-xs font-medium ring-1 ring-inset {$estatusColor}\">{$estatusLabel}</span></td>";
+                                                                    $html .= "<td class=\"px-4 py-3\">";
+                                                                    $html .= "<a href=\"{$url}\" class=\"font-medium text-primary-600 dark:text-primary-500 hover:underline\">{$accionText}</a>";
+                                                                    $html .= "</td></tr>";
+                                                                }
+
+                                                                $html .= '</tbody></table></div>';
+
+                                                                return new \Illuminate\Support\HtmlString($html);
+                                                            }),
+                                                        // === FIN HISTORIAL PROPIETARIO ===
                                                         Forms\Components\Placeholder::make('current_owner_info')
                                                             ->label('Información actual del propietario')
                                                             ->content(function () {
