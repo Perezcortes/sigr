@@ -19,7 +19,7 @@ class ApplicationsResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
     protected static ?string $navigationLabel = 'Solicitudes';
-    protected static ?string $navigationGroup = 'Administración';
+    protected static ?string $navigationGroup = 'Rentas';
     protected static ?int $navigationSort = 1;
     protected static ?string $modelLabel = 'Solicitud';
     protected static ?string $pluralModelLabel = 'Solicitudes';
