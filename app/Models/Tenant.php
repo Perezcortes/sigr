@@ -45,6 +45,52 @@ class Tenant extends Model
         'estado',
         'ingreso_mensual_promedio',
         'referencias_ubicacion',
+        // Campos de Empleo
+        'profesion_oficio_puesto',
+        'tipo_empleo',
+        'telefono_empleo',
+        'extension_empleo',
+        'empresa_trabaja',
+        'calle_empleo',
+        'numero_exterior_empleo',
+        'numero_interior_empleo',
+        'codigo_postal_empleo',
+        'colonia_empleo',
+        'delegacion_municipio_empleo',
+        'estado_empleo',
+        'fecha_ingreso',
+        'jefe_nombres',
+        'jefe_primer_apellido',
+        'jefe_segundo_apellido',
+        'jefe_telefono',
+        'jefe_extension',
+        // Campos de Ingresos
+        'ingreso_mensual_comprobable',
+        'ingreso_mensual_no_comprobable',
+        'numero_personas_dependen',
+        'otra_persona_aporta',
+        'numero_personas_aportan',
+        'persona_aporta_nombres',
+        'persona_aporta_primer_apellido',
+        'persona_aporta_segundo_apellido',
+        'persona_aporta_parentesco',
+        'persona_aporta_telefono',
+        'persona_aporta_empresa',
+        'persona_aporta_ingreso_comprobable',
+        // Campos de Uso de Propiedad
+        'tipo_inmueble_desea',
+        'giro_negocio',
+        'experiencia_giro',
+        'propositos_arrendamiento',
+        'sustituye_otro_domicilio',
+        'domicilio_anterior_calle',
+        'domicilio_anterior_numero_exterior',
+        'domicilio_anterior_numero_interior',
+        'domicilio_anterior_codigo_postal',
+        'domicilio_anterior_colonia',
+        'domicilio_anterior_delegacion_municipio',
+        'domicilio_anterior_estado',
+        'motivo_cambio_domicilio',
         // Acta Constitutiva
         'notario_nombres',
         'notario_primer_apellido',
@@ -90,6 +136,15 @@ class Tenant extends Model
         'ingreso_mensual_promedio' => 'decimal:2',
         'apoderado_sexo' => 'string',
         'tipo_representacion' => 'string',
+        // Campos de Empleo
+        'fecha_ingreso' => 'date',
+        // Campos de Ingresos
+        'ingreso_mensual_comprobable' => 'decimal:2',
+        'ingreso_mensual_no_comprobable' => 'decimal:2',
+        'otra_persona_aporta' => 'boolean',
+        'persona_aporta_ingreso_comprobable' => 'decimal:2',
+        // Campos de Uso de Propiedad
+        'sustituye_otro_domicilio' => 'boolean',
     ];
 
     /**
@@ -103,6 +158,14 @@ class Tenant extends Model
     public function tenantRequests(): HasMany
     {
         return $this->hasMany(TenantRequest::class);
+    }
+
+    /**
+     * Relación con Applications
+     */
+    public function applications(): HasMany
+    {
+        return $this->hasMany(Application::class, 'user_id', 'user_id');
     }
 
     /**

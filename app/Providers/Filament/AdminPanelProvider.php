@@ -31,6 +31,7 @@ use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
+use App\Filament\Resources\ApplicationsResource;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -56,6 +57,7 @@ class AdminPanelProvider extends PanelProvider
                 RentResource::class,
                 TenantRequestResource::class,
                 OwnerRequestResource::class,
+                ApplicationsResource::class,
             ])
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
             ->pages([
