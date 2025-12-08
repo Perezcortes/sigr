@@ -6,6 +6,7 @@ use CWSPS154\UsersRolesPermissions\Models\HasRole;
 use Filament\Models\Contracts\FilamentUser;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -95,5 +96,21 @@ class User extends Authenticatable implements HasMedia, HasAvatar, FilamentUser
     public function applications(): HasMany
     {
         return $this->hasMany(Application::class);
+    }
+
+    /**
+     * Relación con Properties
+     */
+    public function properties(): HasMany
+    {
+        return $this->hasMany(Property::class);
+    }
+
+    /**
+     * Relación con Tenant
+     */
+    public function tenant(): HasOne
+    {
+        return $this->hasOne(Tenant::class);
     }
 }

@@ -11,13 +11,18 @@ use App\Models\GuarantorDocument;
 use App\Models\OwnerDocument;
 use App\Models\PropertyDocument;
 use App\Models\RentComment;
+use App\Models\Application;
+use App\Models\Owner;
+use App\Models\Property;
 use App\Filament\Resources\TenantRequestResource;
 use App\Filament\Resources\OwnerRequestResource;
+use App\Filament\Resources\ApplicationsResource;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Database\Eloquent\Builder;
 
 class ViewRent extends EditRecord
 {
@@ -64,6 +69,18 @@ class ViewRent extends EditRecord
             $this->data['owner_razon_social'] = $this->record->owner->razon_social;
             $this->data['owner_rfc'] = $this->record->owner->rfc;
             $this->data['owner_email'] = $this->record->owner->email;
+        }
+
+        if ($this->record->application_id) {
+            $this->data['application_id'] = $this->record->application_id;
+        }
+
+        if ($this->record->owner_id) {
+            $this->data['owner_id'] = $this->record->owner_id;
+        }
+
+        if ($this->record->property_id) {
+            $this->data['property_id'] = $this->record->property_id;
         }
     }
 
@@ -203,76 +220,75 @@ class ViewRent extends EditRecord
                                                 Forms\Components\Section::make('Datos del inquilino')
                                                     ->schema([
 
-                                                        // === AQUÍ INICIA LA TABLA DE HISTORIAL DE SOLICITUDES INQUILINO ===
-                                                        Forms\Components\Placeholder::make('historial_solicitudes')
-                                                        ->label('Historial de Solicitudes')
-                                                        ->columnSpanFull()
-                                                        ->content(function () {
-                                                            $tenantId = $this->record->tenant_id;
-                                                            
-                                                            if (!$tenantId) {
-                                                                return 'No hay inquilino asignado para mostrar historial.';
-                                                            }
-
-                                                            // Buscamos las RENTAS del inquilino, no solo las solicitudes creadas.
-                                                            $rents = \App\Models\Rent::where('tenant_id', $tenantId)
-                                                                ->orderBy('created_at', 'desc')
-                                                                ->get();
-
-                                                            if ($rents->isEmpty()) {
-                                                                return 'Este inquilino no tiene rentas registradas.';
-                                                            }
-
-                                                            $html = '<div class="overflow-x-auto border rounded-lg ring-1 ring-gray-950/5 dark:ring-white/10">';
-                                                            $html .= '<table class="w-full text-sm text-left divide-y divide-gray-200 dark:divide-white/5">';
-                                                            $html .= '<thead class="bg-gray-50 dark:bg-white/5">';
-                                                            $html .= '<tr>';
-                                                            $html .= '<th class="px-4 py-3 font-medium text-gray-950 dark:text-white">Folio Renta</th>';
-                                                            $html .= '<th class="px-4 py-3 font-medium text-gray-950 dark:text-white">Fecha Creación</th>';
-                                                            $html .= '<th class="px-4 py-3 font-medium text-gray-950 dark:text-white">Estatus</th>';
-                                                            $html .= '<th class="px-4 py-3 font-medium text-gray-950 dark:text-white">Acción</th>';
-                                                            $html .= '</tr></thead>';
-                                                            $html .= '<tbody class="divide-y divide-gray-200 dark:divide-white/5">';
-
-                                                            foreach ($rents as $rent) {
-                                                                // Buscamos si existe la solicitud para esta renta específica
-                                                                $request = \App\Models\TenantRequest::where('rent_id', $rent->id)->first();
+                                                        // === SELECT DE APPLICATIONS ACTIVAS ===
+                                                        Forms\Components\Select::make('application_id')
+                                                            ->label('Seleccionar Solicitud Activa')
+                                                            ->options(function () {
+                                                                // Mostrar todas las Applications activas
+                                                                $applications = Application::where('estatus', 'activa')
+                                                                    ->with('user.tenant')
+                                                                    ->orderBy('created_at', 'desc')
+                                                                    ->get();
                                                                 
-                                                                $folio = $rent->folio ?? 'N/A';
-                                                                // Usamos la fecha de la solicitud si existe, si no, la de la renta
-                                                                $fecha = $request ? $request->created_at->format('d/m/Y H:i') : $rent->created_at->format('d/m/Y H:i');
-                                                                
-                                                                // Definimos estatus y acción según si existe la solicitud
-                                                                if ($request) {
-                                                                    $estatusLabel = ucfirst($request->estatus);
-                                                                    $estatusColor = 'bg-primary-50 text-primary-700 ring-primary-700/10 dark:bg-primary-400/10 dark:text-primary-400 dark:ring-primary-400/30';
-                                                                    
-                                                                    // Link directo a editar la solicitud existente
-                                                                    $url = TenantRequestResource::getUrl('edit', ['record' => $request->id]);
-                                                                    $accionText = 'Ver Solicitud';
-                                                                } else {
-                                                                    $estatusLabel = 'Sin Solicitud';
-                                                                    $estatusColor = 'bg-gray-50 text-gray-600 ring-gray-500/10 dark:bg-gray-400/10 dark:text-gray-400 dark:ring-gray-400/20';
-                                                                    
-                                                                    // Si no existe solicitud, mandamos a ver la Renta para que ahí la generen
-                                                                    $url = RentResource::getUrl('view', ['record' => $rent->id]);
-                                                                    $accionText = 'Ir a Renta';
+                                                                $options = [];
+                                                                foreach ($applications as $application) {
+                                                                    $tenant = $application->user->tenant ?? null;
+                                                                    if ($tenant) {
+                                                                        if ($tenant->tipo_persona === 'fisica') {
+                                                                            $nombre = trim(($tenant->nombres ?? '') . ' ' . ($tenant->primer_apellido ?? '') . ' ' . ($tenant->segundo_apellido ?? ''));
+                                                                        } else {
+                                                                            $nombre = $tenant->razon_social ?? '';
+                                                                        }
+                                                                        $label = ($nombre ?: 'Sin nombre') . ' - ' . ($application->folio ?? 'N/A');
+                                                                    } else {
+                                                                        $label = ($application->user->name ?? 'Usuario') . ' - ' . ($application->folio ?? 'N/A');
+                                                                    }
+                                                                    $options[$application->id] = $label;
                                                                 }
-
-                                                                $html .= '<tr class="hover:bg-gray-50 dark:hover:bg-white/5">';
-                                                                $html .= "<td class=\"px-4 py-3\">{$folio}</td>";
-                                                                $html .= "<td class=\"px-4 py-3\">{$fecha}</td>";
-                                                                $html .= "<td class=\"px-4 py-3\"><span class=\"inline-flex items-center px-2 py-1 rounded-md text-xs font-medium ring-1 ring-inset {$estatusColor}\">{$estatusLabel}</span></td>";
-                                                                $html .= "<td class=\"px-4 py-3\">";
-                                                                $html .= "<a href=\"{$url}\" class=\"font-medium text-primary-600 dark:text-primary-500 hover:underline\">{$accionText}</a>";
-                                                                $html .= "</td></tr>";
-                                                            }
-
-                                                            $html .= '</tbody></table></div>';
-
-                                                            return new \Illuminate\Support\HtmlString($html);
-                                                        }),
-                                                        // === TERMINA LA TABLA DE HISTORIAL ===
+                                                                
+                                                                return $options;
+                                                            })
+                                                            ->searchable()
+                                                            ->preload()
+                                                            ->live()
+                                                            ->placeholder('Seleccione una solicitud activa')
+                                                            ->afterStateUpdated(function (Forms\Set $set, $state) {
+                                                                if ($state) {
+                                                                    $application = Application::with('user.tenant')->find($state);
+                                                                    if ($application && $application->user && $application->user->tenant) {
+                                                                        $tenant = $application->user->tenant;
+                                                                        
+                                                                        // Actualizar application_id y tenant_id en la rent
+                                                                        $this->record->update([
+                                                                            'application_id' => $state,
+                                                                            'tenant_id' => $tenant->id,
+                                                                        ]);
+                                                                        
+                                                                        // Recargar la relación tenant
+                                                                        $this->record->load('tenant');
+                                                                        
+                                                                        // Pre-llenar datos básicos del tenant
+                                                                        $set('tenant_tipo_persona', $tenant->tipo_persona);
+                                                                        if ($tenant->tipo_persona === 'fisica') {
+                                                                            $set('tenant_nombres', $tenant->nombres);
+                                                                            $set('tenant_primer_apellido', $tenant->primer_apellido);
+                                                                            $set('tenant_segundo_apellido', $tenant->segundo_apellido);
+                                                                            $set('tenant_sexo', $tenant->sexo);
+                                                                        } else {
+                                                                            $set('tenant_razon_social', $tenant->razon_social);
+                                                                            $set('tenant_rfc', $tenant->rfc);
+                                                                        }
+                                                                        $set('tenant_email', $tenant->email ?? $application->user->email);
+                                                                        
+                                                                        \Filament\Notifications\Notification::make()
+                                                                            ->success()
+                                                                            ->title('Solicitud vinculada')
+                                                                            ->body('Los datos del tenant se han actualizado.')
+                                                                            ->send();
+                                                                    }
+                                                                }
+                                                            }),
+                                                        // === FIN SELECT DE APPLICATIONS ===
                                                         
                                                         Forms\Components\Placeholder::make('current_tenant_info')
                                                             ->label('Información actual del inquilino')
@@ -347,6 +363,20 @@ class ViewRent extends EditRecord
                                                                     $updateData['sexo'] = null;
                                                                 }
                                                                 $this->record->tenant->update($updateData);
+                                                                
+                                                                // Persistir application_id y actualizar tenant_id si está presente
+                                                                if (isset($this->data['application_id'])) {
+                                                                    $application = Application::with('user.tenant')->find($this->data['application_id']);
+                                                                    if ($application && $application->user && $application->user->tenant) {
+                                                                        $this->record->update([
+                                                                            'application_id' => $this->data['application_id'],
+                                                                            'tenant_id' => $application->user->tenant->id,
+                                                                        ]);
+                                                                    } else {
+                                                                        $this->record->update(['application_id' => $this->data['application_id']]);
+                                                                    }
+                                                                }
+                                                                
                                                                 \Filament\Notifications\Notification::make()->success()->title('Inquilino actualizado')->send();
                                                                 $this->redirect(RentResource::getUrl('view', ['record' => $this->record]));
                                                             }
@@ -355,6 +385,13 @@ class ViewRent extends EditRecord
                                                         ->label('Editar solicitud del inquilino')
                                                         ->color('primary')
                                                         ->action(function () {
+                                                            // Si hay una Application vinculada, usar esa
+                                                            if ($this->record->application_id) {
+                                                                $this->redirect(ApplicationsResource::getUrl('edit', ['record' => $this->record->application_id]));
+                                                                return;
+                                                            }
+                                                            
+                                                            // Si no hay Application, usar el flujo anterior con TenantRequest
                                                             $tenantRequest = TenantRequest::where('tenant_id', $this->record->tenant_id)
                                                                 ->where('rent_id', $this->record->id)->first();
                                                             if (!$tenantRequest) {
@@ -411,75 +448,80 @@ class ViewRent extends EditRecord
                                             ->schema([
                                                 Forms\Components\Section::make('Datos del propietario')
                                                     ->schema([
-                                                        // === INICIO HISTORIAL DE SOLICITUDES PROPIETARIO ===
-                                                        Forms\Components\Placeholder::make('historial_solicitudes_propietario')
-                                                            ->label('Historial de Solicitudes')
-                                                            ->columnSpanFull()
-                                                            ->content(function () {
-                                                                $ownerId = $this->record->owner_id;
-                                                                
-                                                                if (!$ownerId) {
-                                                                    return 'No hay propietario asignado para mostrar historial.';
-                                                                }
-
-                                                                // Buscamos las RENTAS del propietario
-                                                                $rents = \App\Models\Rent::where('owner_id', $ownerId)
+                                                        // === SELECT DE OWNERS ===
+                                                        Forms\Components\Select::make('owner_id')
+                                                            ->label('Seleccionar Propietario')
+                                                            ->options(function () {
+                                                                // Mostrar todos los Owners disponibles (usuarios con is_owner = true)
+                                                                $owners = Owner::with('user')
+                                                                    ->whereHas('user', function (Builder $query) {
+                                                                        $query->where('is_owner', true);
+                                                                    })
                                                                     ->orderBy('created_at', 'desc')
                                                                     ->get();
-
-                                                                if ($rents->isEmpty()) {
-                                                                    return 'Este propietario no tiene rentas registradas.';
-                                                                }
-
-                                                                $html = '<div class="overflow-x-auto border rounded-lg ring-1 ring-gray-950/5 dark:ring-white/10">';
-                                                                $html .= '<table class="w-full text-sm text-left divide-y divide-gray-200 dark:divide-white/5">';
-                                                                $html .= '<thead class="bg-gray-50 dark:bg-white/5">';
-                                                                $html .= '<tr>';
-                                                                $html .= '<th class="px-4 py-3 font-medium text-gray-950 dark:text-white">Folio Renta</th>';
-                                                                $html .= '<th class="px-4 py-3 font-medium text-gray-950 dark:text-white">Fecha Creación</th>';
-                                                                $html .= '<th class="px-4 py-3 font-medium text-gray-950 dark:text-white">Estatus</th>';
-                                                                $html .= '<th class="px-4 py-3 font-medium text-gray-950 dark:text-white">Acción</th>';
-                                                                $html .= '</tr></thead>';
-                                                                $html .= '<tbody class="divide-y divide-gray-200 dark:divide-white/5">';
-
-                                                                foreach ($rents as $rent) {
-                                                                    // Buscamos si existe la solicitud de PROPIETARIO para esta renta
-                                                                    $request = \App\Models\OwnerRequest::where('rent_id', $rent->id)->first();
-                                                                    
-                                                                    $folio = $rent->folio ?? 'N/A';
-                                                                    // Fecha: de la solicitud si existe, si no, de la renta
-                                                                    $fecha = $request ? $request->created_at->format('d/m/Y H:i') : $rent->created_at->format('d/m/Y H:i');
-                                                                    
-                                                                    // Lógica de estatus y botones
-                                                                    if ($request) {
-                                                                        $estatusLabel = ucfirst($request->estatus);
-                                                                        $estatusColor = 'bg-primary-50 text-primary-700 ring-primary-700/10 dark:bg-primary-400/10 dark:text-primary-400 dark:ring-primary-400/30';
-                                                                        
-                                                                        // Usamos OwnerRequestResource
-                                                                        $url = OwnerRequestResource::getUrl('edit', ['record' => $request->id]);
-                                                                        $accionText = 'Ver Solicitud';
+                                                                
+                                                                $options = [];
+                                                                foreach ($owners as $owner) {
+                                                                    if ($owner->tipo_persona === 'fisica') {
+                                                                        $nombre = trim(($owner->nombres ?? '') . ' ' . ($owner->primer_apellido ?? '') . ' ' . ($owner->segundo_apellido ?? ''));
                                                                     } else {
-                                                                        $estatusLabel = 'Sin Solicitud';
-                                                                        $estatusColor = 'bg-gray-50 text-gray-600 ring-gray-500/10 dark:bg-gray-400/10 dark:text-gray-400 dark:ring-gray-400/20';
-                                                                        
-                                                                        $url = RentResource::getUrl('view', ['record' => $rent->id]);
-                                                                        $accionText = 'Ir a Renta';
+                                                                        $nombre = $owner->razon_social ?? '';
                                                                     }
-
-                                                                    $html .= '<tr class="hover:bg-gray-50 dark:hover:bg-white/5">';
-                                                                    $html .= "<td class=\"px-4 py-3\">{$folio}</td>";
-                                                                    $html .= "<td class=\"px-4 py-3\">{$fecha}</td>";
-                                                                    $html .= "<td class=\"px-4 py-3\"><span class=\"inline-flex items-center px-2 py-1 rounded-md text-xs font-medium ring-1 ring-inset {$estatusColor}\">{$estatusLabel}</span></td>";
-                                                                    $html .= "<td class=\"px-4 py-3\">";
-                                                                    $html .= "<a href=\"{$url}\" class=\"font-medium text-primary-600 dark:text-primary-500 hover:underline\">{$accionText}</a>";
-                                                                    $html .= "</td></tr>";
+                                                                    $label = ($nombre ?: 'Sin nombre') . ' - ' . ($owner->email ?? '');
+                                                                    $options[$owner->id] = $label;
                                                                 }
-
-                                                                $html .= '</tbody></table></div>';
-
-                                                                return new \Illuminate\Support\HtmlString($html);
+                                                                
+                                                                return $options;
+                                                            })
+                                                            ->getOptionLabelUsing(function ($value) {
+                                                                if (!$value) return null;
+                                                                $owner = Owner::find($value);
+                                                                if (!$owner) return $value;
+                                                                
+                                                                if ($owner->tipo_persona === 'fisica') {
+                                                                    $nombre = trim(($owner->nombres ?? '') . ' ' . ($owner->primer_apellido ?? '') . ' ' . ($owner->segundo_apellido ?? ''));
+                                                                } else {
+                                                                    $nombre = $owner->razon_social ?? '';
+                                                                }
+                                                                return ($nombre ?: 'Sin nombre') . ' - ' . ($owner->email ?? '');
+                                                            })
+                                                            ->searchable()
+                                                            ->preload()
+                                                            ->live()
+                                                            ->placeholder('Seleccione un propietario')
+                                                            ->afterStateUpdated(function (Forms\Set $set, $state) {
+                                                                if ($state) {
+                                                                    $owner = Owner::find($state);
+                                                                    if ($owner) {
+                                                                        // Actualizar owner_id en la rent
+                                                                        $this->record->update(['owner_id' => $state]);
+                                                                        
+                                                                        // Recargar la relación owner
+                                                                        $this->record->load('owner');
+                                                                        
+                                                                        // Pre-llenar datos básicos del owner
+                                                                        $set('owner_tipo_persona', $owner->tipo_persona);
+                                                                        if ($owner->tipo_persona === 'fisica') {
+                                                                            $set('owner_nombres', $owner->nombres);
+                                                                            $set('owner_primer_apellido', $owner->primer_apellido);
+                                                                            $set('owner_segundo_apellido', $owner->segundo_apellido);
+                                                                            $set('owner_sexo', $owner->sexo);
+                                                                        } else {
+                                                                            $set('owner_razon_social', $owner->razon_social);
+                                                                            $set('owner_rfc', $owner->rfc);
+                                                                        }
+                                                                        $set('owner_email', $owner->email);
+                                                                        
+                                                                        \Filament\Notifications\Notification::make()
+                                                                            ->success()
+                                                                            ->title('Propietario vinculado')
+                                                                            ->body('Los datos del propietario se han actualizado.')
+                                                                            ->send();
+                                                                    }
+                                                                }
                                                             }),
-                                                        // === FIN HISTORIAL PROPIETARIO ===
+                                                        // === FIN SELECT DE OWNERS ===
+                                                        
                                                         Forms\Components\Placeholder::make('current_owner_info')
                                                             ->label('Información actual del propietario')
                                                             ->content(function () {
@@ -553,6 +595,12 @@ class ViewRent extends EditRecord
                                                                     $updateData['sexo'] = null;
                                                                 }
                                                                 $this->record->owner->update($updateData);
+                                                                
+                                                                // Persistir owner_id si está presente
+                                                                if (isset($this->data['owner_id'])) {
+                                                                    $this->record->update(['owner_id' => $this->data['owner_id']]);
+                                                                }
+                                                                
                                                                 \Filament\Notifications\Notification::make()->success()->title('Propietario actualizado')->send();
                                                                 $this->redirect(RentResource::getUrl('view', ['record' => $this->record]));
                                                             }
@@ -590,6 +638,64 @@ class ViewRent extends EditRecord
                                             ->schema([
                                                 Forms\Components\Section::make('Datos de la propiedad')
                                                     ->schema([
+                                                        // === SELECT DE PROPERTIES DISPONIBLES ===
+                                                        Forms\Components\Select::make('property_id')
+                                                            ->label('Seleccionar Propiedad Disponible')
+                                                            ->options(function () {
+                                                                // Mostrar solo Properties con estatus "disponible"
+                                                                $properties = Property::where('estatus', 'disponible')
+                                                                    ->orderBy('created_at', 'desc')
+                                                                    ->get();
+                                                                
+                                                                $options = [];
+                                                                foreach ($properties as $property) {
+                                                                    $direccion = trim(($property->calle ?? '') . ' ' . ($property->numero_exterior ?? ''));
+                                                                    $label = ($property->folio ?? 'N/A') . ' - ' . ($direccion ?: 'Sin dirección');
+                                                                    $options[$property->id] = $label;
+                                                                }
+                                                                
+                                                                return $options;
+                                                            })
+                                                            ->getOptionLabelUsing(function ($value) {
+                                                                if (!$value) return null;
+                                                                $property = Property::find($value);
+                                                                if (!$property) return $value;
+                                                                
+                                                                $direccion = trim(($property->calle ?? '') . ' ' . ($property->numero_exterior ?? ''));
+                                                                return ($property->folio ?? 'N/A') . ' - ' . ($direccion ?: 'Sin dirección');
+                                                            })
+                                                            ->searchable()
+                                                            ->preload()
+                                                            ->live()
+                                                            ->placeholder('Seleccione una propiedad disponible')
+                                                            ->afterStateUpdated(function (Forms\Set $set, $state) {
+                                                                if ($state) {
+                                                                    $property = Property::find($state);
+                                                                    if ($property) {
+                                                                        // Actualizar property_id en la rent
+                                                                        $this->record->update(['property_id' => $state]);
+                                                                        
+                                                                        // Copiar todos los datos de la propiedad a los campos de la rent
+                                                                        $set('tipo_propiedad', $property->tipo_inmueble ?? '');
+                                                                        $set('calle', $property->calle ?? '');
+                                                                        $set('numero_exterior', $property->numero_exterior ?? '');
+                                                                        $set('numero_interior', $property->numero_interior ?? '');
+                                                                        $set('codigo_postal', $property->codigo_postal ?? '');
+                                                                        $set('colonia', $property->colonia ?? '');
+                                                                        $set('municipio', $property->delegacion_municipio ?? '');
+                                                                        $set('estado', $property->estado ?? '');
+                                                                        $set('referencias_ubicacion', $property->referencias_ubicacion ?? '');
+                                                                        
+                                                                        \Filament\Notifications\Notification::make()
+                                                                            ->success()
+                                                                            ->title('Propiedad seleccionada')
+                                                                            ->body('Los datos de la propiedad se han cargado. Haga clic en Guardar para persistir los cambios.')
+                                                                            ->send();
+                                                                    }
+                                                                }
+                                                            }),
+                                                        // === FIN SELECT DE PROPERTIES ===
+                                                        
                                                         Forms\Components\Select::make('tipo_propiedad')
                                                             ->label('Tipo de Propiedad')
                                                             ->options([
@@ -603,15 +709,20 @@ class ViewRent extends EditRecord
                                                                 'terreno' => 'Terreno',
                                                             ])
                                                             ->placeholder('Seleccione'),
-                                                        Forms\Components\TextInput::make('calle')->label('Calle'),
-                                                        Forms\Components\TextInput::make('numero_exterior')->label('Núm Ext'),
-                                                        Forms\Components\TextInput::make('numero_interior')->label('Núm Int'),
+                                                        Forms\Components\TextInput::make('calle')
+                                                            ->label('Calle'),
+                                                        Forms\Components\TextInput::make('numero_exterior')
+                                                            ->label('Núm Ext'),
+                                                        Forms\Components\TextInput::make('numero_interior')
+                                                            ->label('Núm Int'),
                                                         Forms\Components\Textarea::make('referencias_ubicacion')
                                                             ->label('Referencias Ubicación')
                                                             ->rows(2)
                                                             ->columnSpanFull(),
-                                                        Forms\Components\TextInput::make('colonia')->label('Colonia'),
-                                                        Forms\Components\TextInput::make('municipio')->label('Municipio/Alcaldía'),
+                                                        Forms\Components\TextInput::make('colonia')
+                                                            ->label('Colonia'),
+                                                        Forms\Components\TextInput::make('municipio')
+                                                            ->label('Municipio/Alcaldía'),
                                                         Forms\Components\Select::make('estado')
                                                             ->label('Estado')
                                                             ->options([
@@ -638,6 +749,11 @@ class ViewRent extends EditRecord
                                                         ->color('primary')
                                                         ->icon('heroicon-o-check')
                                                         ->action(function () {
+                                                            // Persistir property_id si está presente
+                                                            if (isset($this->data['property_id'])) {
+                                                                $this->record->update(['property_id' => $this->data['property_id']]);
+                                                            }
+                                                            
                                                             $this->save();
                                                             \Filament\Notifications\Notification::make()->success()->title('Datos de propiedad guardados')->send();
                                                         }),
