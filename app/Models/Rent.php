@@ -16,6 +16,7 @@ class Rent extends Model
         'tenant_id',
         'owner_id',
         'application_id',
+        'property_id',
         'start_date',
         'end_date',
         'amount',
@@ -147,5 +148,10 @@ class Rent extends Model
     public function application(): BelongsTo
     {
         return $this->belongsTo(Application::class);
+    }
+
+    public function property(): BelongsTo
+    {
+        return $this->belongsTo(Property::class);
     }
 }
