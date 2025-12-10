@@ -32,9 +32,21 @@ php artisan view:cache
 echo "🔍 Verificando rutas de login..."
 php artisan route:list | grep -i "admin/login" || echo "⚠️  No se encontraron rutas admin/login"
 
+# Limpiar assets antiguos de Filament
+echo "🗑️  Limpiando assets antiguos de Filament..."
+rm -rf public/css/filament
+rm -rf public/js/filament
+
 # Actualizar assets de Filament
-echo "🎨 Actualizando assets de Filament..."
+echo "🎨 Publicando assets de Filament..."
 php artisan filament:assets --force
+
+# Verificar que los assets se publicaron correctamente
+if [ ! -f "public/js/filament/filament/app.js" ]; then
+    echo "⚠️  ADVERTENCIA: Los assets de Filament no se publicaron correctamente"
+else
+    echo "✅ Assets de Filament publicados correctamente"
+fi
 
 # Ejecutar migraciones si hay nuevas
 echo "🗄️  Ejecutando migraciones..."
