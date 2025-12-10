@@ -41,6 +41,7 @@ class AdminPanelProvider extends PanelProvider
         return $panel
             ->default()
             ->id('admin')
+            ->domain('app.rentas.com')
             ->path('admin')
             ->login()
             ->colors([
