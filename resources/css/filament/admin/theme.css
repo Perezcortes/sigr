@@ -1,0 +1,150 @@
+@import '../../../../vendor/filament/filament/resources/css/theme.css';
+@config './tailwind.config.js';
+
+/* =========================================
+   FONDO Y ESTRUCTURA GENERAL
+   ========================================= */
+.fi-body {
+    /* Fondo general un poco más oscuro para que resalten las tarjetas */
+    @apply bg-gray-100 dark:bg-gray-950 font-sans;
+}
+
+/* =========================================
+   SIDEBAR (Barra Lateral)
+   ========================================= */
+.fi-sidebar {
+    @apply bg-[#161848] border-r-0 ring-0 shadow-xl dark:border-r dark:border-white/5;
+}
+
+.fi-sidebar-header {
+    @apply bg-[#161848] border-b border-white/5;
+}
+
+.fi-sidebar-item-label {
+    @apply text-gray-300 font-medium tracking-wide;
+}
+
+.fi-sidebar-item-icon {
+    @apply text-gray-400;
+}
+
+.fi-sidebar-item:hover, 
+.fi-sidebar-item-button:hover {
+    @apply bg-white/10 text-white;
+}
+
+.fi-sidebar-item-active {
+    @apply bg-[#26cad3]/10 relative; 
+}
+
+.fi-sidebar-item-active .fi-sidebar-item-label {
+    @apply text-[#26cad3] font-bold;
+}
+
+.fi-sidebar-item-active .fi-sidebar-item-icon {
+    @apply text-[#26cad3];
+}
+
+.fi-sidebar-item-active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    height: 100%;
+    width: 4px;
+    background-color: #26cad3;
+    border-top-right-radius: 4px;
+    border-bottom-right-radius: 4px;
+}
+
+/* =========================================
+   TARJETAS Y SECCIONES
+   ========================================= */
+.fi-section, 
+.fi-ta { 
+    /* Sombra efecto "flotante" */
+    @apply rounded-xl shadow-md border border-gray-200 bg-white overflow-hidden
+           dark:bg-gray-900 dark:border-gray-800 dark:shadow-black/50;
+}
+
+.fi-header-heading,
+.fi-section-header-heading {
+    @apply text-[#161848] dark:text-white font-bold text-lg tracking-tight;
+}
+
+.fi-header-subheading,
+.fi-section-header-description {
+    @apply text-gray-500 dark:text-gray-400;
+}
+
+/* =========================================
+   FORMULARIOS E INPUTS
+   ========================================= */
+.fi-input, 
+.fi-select-input {
+    @apply border-gray-300 bg-white text-gray-950 rounded-lg transition-all duration-200
+           dark:bg-gray-950 dark:border-gray-700 dark:text-white;
+}
+
+.fi-input-wrp:focus-within {
+    @apply ring-2 ring-[#26cad3]/50 border-[#26cad3] bg-white dark:bg-gray-900;
+}
+
+.fi-fo-field-wrp-label {
+    @apply text-[#161848] dark:text-[#26cad3] font-semibold text-sm;
+}
+
+/* =========================================
+   BOTONES
+   ========================================= */
+.fi-btn-primary {
+    @apply bg-[#161848] text-white shadow-md hover:bg-[#161848]/90
+           dark:bg-[#26cad3] dark:text-[#161848] dark:hover:bg-[#26cad3]/90; 
+}
+
+.fi-ta-actions .fi-link {
+    @apply text-[#26cad3] font-medium hover:text-[#161848] hover:underline transition-colors
+           dark:hover:text-white;
+}
+
+/* =========================================
+   6. TABLAS "No muy blancas"
+   ========================================= */
+.fi-ta-header-cell {
+    /* Fondo gris claro en encabezados para diferenciar del cuerpo */
+    @apply bg-gray-100 text-[#161848] font-bold uppercase text-xs tracking-wider border-b border-gray-200
+           dark:bg-gray-800 dark:text-white dark:border-gray-700;
+}
+
+/* Efecto Zebra (Filas alternadas) */
+.fi-ta-row:nth-child(even) {
+    @apply bg-gray-50/60 dark:bg-white/[0.02];
+}
+
+/* Hover más notorio */
+.fi-ta-row:hover {
+    @apply bg-[#26cad3]/10 dark:bg-white/5 transition-colors;
+}
+
+/* Texto de las celdas */
+.fi-ta-cell {
+    @apply text-gray-700 dark:text-gray-300;
+}
+
+/* =========================================
+   TABS (Pestañas)
+   ========================================= */
+.fi-tabs {
+    @apply bg-gray-50 dark:bg-gray-900 rounded-t-lg shadow-sm border-b border-gray-200 dark:border-gray-800;
+}
+
+.fi-tabs-item-active {
+    @apply border-b-2 border-[#26cad3] bg-white dark:bg-gray-800;
+}
+
+.fi-tabs-item-active .fi-tabs-item-label {
+    @apply text-[#26cad3] font-bold;
+}
+
+.fi-tabs-item-active .fi-tabs-item-icon {
+    @apply text-[#26cad3];
+}
