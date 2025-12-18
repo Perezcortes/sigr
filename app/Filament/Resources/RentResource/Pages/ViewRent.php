@@ -606,7 +606,7 @@ class ViewRent extends EditRecord
                                                             }
                                                         }),
                                                     Forms\Components\Actions\Action::make('edit_owner')
-                                                        ->label('Editar solicitud del propietario')
+                                                        ->label('Ver solicitud del propietario')
                                                         ->color('primary')
                                                         ->action(function () {
                                                             $ownerRequest = OwnerRequest::where('owner_id', $this->record->owner_id)
