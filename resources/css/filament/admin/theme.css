@@ -161,3 +161,33 @@
 .fi-tabs-item-active .fi-tabs-item-icon {
     @apply text-[#26cad3];
 }
+
+/* =========================================
+   CORRECCIÓN DE CAMPOS DESHABILITADOS (DISABLED)
+   Evita que se vean "grises opacos" y los hace legibles
+   ========================================= */
+
+input:disabled, 
+select:disabled, 
+textarea:disabled,
+.fi-input:disabled, 
+.fi-select-input:disabled {
+    @apply opacity-100 !important;
+
+    /* MODO OSCURO  */
+    /* Fondo semi-transparente claro + Texto Blanco Brillante + Borde sutil */
+    @apply dark:text-white dark:bg-white/10 dark:border-white/20;
+
+    /* MODO CLARO */
+    /* Fondo gris más oscuro que el input normal para denotar bloqueo + Texto oscuro */
+    @apply text-gray-600 bg-gray-200 border-gray-300;
+
+    /* Cursor de prohibido para reforzar UX */
+    @apply cursor-not-allowed;
+}
+
+/* Ajuste específico para el contenedor del Select en modo disabled */
+.fi-select-input-wrp:has(select:disabled) {
+    @apply opacity-100 !important;
+    @apply dark:bg-white/10;
+}
