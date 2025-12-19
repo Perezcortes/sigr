@@ -24,7 +24,7 @@ class TenantResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Inquilinos';
 
-    protected static ?string $navigationGroup = 'Clientes';
+    protected static ?string $navigationGroup = 'Rentas';
 
     protected static ?int $navigationSort = 1;
 

@@ -24,7 +24,7 @@ class OwnerResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Propietarios';
 
-    protected static ?string $navigationGroup = 'Clientes';
+    protected static ?string $navigationGroup = 'Rentas';
 
     protected static ?int $navigationSort = 2;
 

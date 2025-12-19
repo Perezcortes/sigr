@@ -6,6 +6,8 @@ use App\Filament\Resources\RentResource\Pages;
 use App\Models\Rent;
 use App\Models\Tenant;
 use App\Models\Owner;
+use App\Models\Application;
+use App\Models\User;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -22,7 +24,7 @@ class RentResource extends Resource
     protected static ?string $navigationLabel = 'Mis rentas';
     protected static ?string $modelLabel = 'Renta';
     protected static ?string $pluralModelLabel = 'Mis rentas';
-    protected static ?string $navigationGroup = 'Clientes';
+    protected static ?string $navigationGroup = 'Rentas';
     protected static ?int $navigationSort = 3;
 
     public static function getCluster(): ?string
@@ -51,7 +53,34 @@ class RentResource extends Resource
                             ->required()
                             ->label('Seleccionar Inquilino')
                             ->createOptionForm(fn (Form $form) => self::getTenantCreationForm($form))
-                            ->createOptionModalHeading('Crear Nuevo Inquilino'),
+                            ->createOptionModalHeading('Crear Nuevo Inquilino')
+                            ->live()
+                            ->afterStateUpdated(fn (Forms\Set $set) => $set('application_id', null)),
+                        
+                        Select::make('application_id')
+                            ->label('Solicitud Activa')
+                            ->options(function (Forms\Get $get) {
+                                $tenantId = $get('tenant_id');
+                                if (!$tenantId) {
+                                    return [];
+                                }
+                                
+                                $tenant = Tenant::find($tenantId);
+                                if (!$tenant || !$tenant->user_id) {
+                                    return [];
+                                }
+                                
+                                return Application::where('user_id', $tenant->user_id)
+                                    ->where('estatus', 'activa')
+                                    ->get()
+                                    ->mapWithKeys(fn ($app) => [$app->id => $app->folio . ' - ' . ($app->user->name ?? '')])
+                                    ->toArray();
+                            })
+                            ->searchable()
+                            ->preload()
+                            ->label('Seleccionar Solicitud Activa')
+                            ->helperText('Seleccione una solicitud activa del tenant para vincular los datos de empleo, ingresos y uso de propiedad')
+                            ->visible(fn (Forms\Get $get) => !empty($get('tenant_id'))),
                         
                         Select::make('owner_id')
                             ->relationship('owner', 'nombres')
