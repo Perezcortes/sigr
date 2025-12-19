@@ -98,6 +98,7 @@ class RentResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn (Builder $query) => $query->with(['tenant', 'owner']))
             ->columns([
                 TextColumn::make('folio')
                     ->label('Folio')
