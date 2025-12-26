@@ -541,13 +541,14 @@ class TenantRequestResource extends Resource
         ];
     }
 
-    protected static function getUsoPropiedadSchema(): array
+    protected static function getUsoPropiedadSchema(): array //Uso de Propiedad - Persona Física
     {
         return [
+            // GRUPO 1: USO COMERCIAL
             Forms\Components\Group::make()
                 ->schema([
                     Forms\Components\Placeholder::make('uso_comercial_info')
-                        ->label('Datos del uso comercial')
+                        ->label('DATOS DEL USO COMERCIAL')
                         ->content('Complete la información sobre el uso que dará al inmueble')
                         ->columnSpanFull(),
 
@@ -576,69 +577,103 @@ class TenantRequestResource extends Resource
                         ->label('Propósitos del arrendamiento')
                         ->rows(3)
                         ->required()
-                        ->helperText('Establecer sucursal, oficina matriz, domicilio fiscal, centro de operaciones, almacén, punto de venta, etc.')
+                        ->helperText('Establecer sucursal, oficina matriz, domicilio fiscal, etc.')
                         ->columnSpanFull(),
 
                     Forms\Components\Radio::make('sustituye_otro_domicilio')
                         ->label('¿Este inmueble sustituirá otro domicilio?')
-                        ->options([
-                            0 => 'No',
-                            1 => 'Sí',
-                        ])
+                        ->options([0 => 'No', 1 => 'Sí'])
                         ->required()
                         ->live()
                         ->columnSpanFull(),
 
-                    // Información del domicilio anterior
+                    // Domicilio anterior (Solo visible si sustituye es Sí)
                     Forms\Components\Group::make()
                         ->schema([
-                            Forms\Components\Placeholder::make('domicilio_anterior_info')
-                                ->label('Información del domicilio anterior')
-                                ->content('Complete la información del domicilio anterior')
-                                ->columnSpanFull(),
-
-                            Forms\Components\TextInput::make('domicilio_anterior_calle')
-                                ->label('Calle')
-                                ->required()
-                                ->columnSpanFull(),
-
-                            Forms\Components\TextInput::make('domicilio_anterior_numero_exterior')
-                                ->label('Número exterior')
-                                ->required(),
-
-                            Forms\Components\TextInput::make('domicilio_anterior_numero_interior')
-                                ->label('Número interior'),
-
-                            Forms\Components\TextInput::make('domicilio_anterior_codigo_postal')
-                                ->label('Código postal')
-                                ->required()
-                                ->maxLength(5),
-
-                            Forms\Components\TextInput::make('domicilio_anterior_colonia')
-                                ->label('Colonia')
-                                ->required(),
-
-                            Forms\Components\TextInput::make('domicilio_anterior_delegacion_municipio')
-                                ->label('Delegación / Municipio')
-                                ->required(),
-
+                            Forms\Components\Placeholder::make('dom_ant_label')->label('Información del domicilio anterior')->columnSpanFull(),
+                            Forms\Components\TextInput::make('domicilio_anterior_calle')->label('Calle')->required()->columnSpanFull(),
+                            Forms\Components\TextInput::make('domicilio_anterior_numero_exterior')->label('Núm Ext')->required(),
+                            Forms\Components\TextInput::make('domicilio_anterior_numero_interior')->label('Núm Int'),
+                            Forms\Components\TextInput::make('domicilio_anterior_codigo_postal')->label('C.P.')->required()->maxLength(5),
+                            Forms\Components\TextInput::make('domicilio_anterior_colonia')->label('Colonia')->required(),
+                            Forms\Components\TextInput::make('domicilio_anterior_delegacion_municipio')->label('Municipio')->required(),
                             Forms\Components\Select::make('domicilio_anterior_estado')
                                 ->label('Estado')
                                 ->options(\App\Helpers\EstadosMexico::getEstados())
                                 ->required()
                                 ->searchable(),
-
-                            Forms\Components\Textarea::make('motivo_cambio_domicilio')
-                                ->label('Motivo del cambio de domicilio')
-                                ->rows(3)
-                                ->required()
-                                ->columnSpanFull(),
+                            Forms\Components\Textarea::make('motivo_cambio_domicilio')->label('Motivo del cambio')->required()->columnSpanFull(),
                         ])
                         ->columns(2)
                         ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1)
-                        ->columnSpanFull(), //Permite que el domicilio use todo el ancho
                 ])
-                ->columns(2)
+                // Solo si la renta vinculada es 'comercial' 
+                ->visible(function ($record) {
+                    // Si no hay registro o renta, no mostrar
+                    if (!$record || !$record->rent) return false;
+                                        return $record->rent->tipo_inmueble === 'comercial'; 
+                })
+                ->columnSpanFull(),
+
+            // GRUPO 2: USO RESIDENCIAL 
+            Forms\Components\Group::make()
+                ->schema([
+                    Forms\Components\Placeholder::make('uso_residencial_info')
+                        ->label('DATOS RESIDENCIALES')
+                        ->content('Información sobre los habitantes y mascotas.')
+                        ->columnSpanFull(),
+
+                    Forms\Components\Section::make('Ocupantes')
+                        ->schema([
+                            Forms\Components\TextInput::make('numero_adultos')
+                                ->label('Número de adultos que ocuparán el inmueble')
+                                ->numeric()
+                                ->required(),
+
+                            Forms\Components\Grid::make(2)
+                                ->schema([
+                                    Forms\Components\TextInput::make('nombre_adulto_1')->label('Nombre completo adulto 1'),
+                                    Forms\Components\TextInput::make('nombre_adulto_2')->label('Nombre completo adulto 2'),
+                                    Forms\Components\TextInput::make('nombre_adulto_3')->label('Nombre completo adulto 3'),
+                                    Forms\Components\TextInput::make('nombre_adulto_4')->label('Nombre completo adulto 4'),
+                                ]),
+
+                            Forms\Components\Radio::make('tiene_menores')
+                                ->label('¿Hay menores de 18 años?')
+                                ->options([0 => 'No', 1 => 'Sí'])
+                                ->required()
+                                ->inline()
+                                ->live(),
+
+                            Forms\Components\TextInput::make('cuantos_menores')
+                                ->label('¿Cuántos?')
+                                ->numeric()
+                                ->required(fn (Forms\Get $get) => $get('tiene_menores') == 1)
+                                ->visible(fn (Forms\Get $get) => $get('tiene_menores') == 1),
+                        ]),
+
+                    Forms\Components\Section::make('Mascotas')
+                        ->schema([
+                            Forms\Components\Radio::make('tiene_mascotas')
+                                ->label('¿Tiene mascotas?')
+                                ->options([0 => 'No', 1 => 'Sí'])
+                                ->required()
+                                ->inline()
+                                ->live(),
+
+                            Forms\Components\TextInput::make('especificar_mascotas')
+                                ->label('Especifique (Tipo, raza, cantidad)')
+                                ->placeholder('Ej: 2 perros, 1 gato')
+                                ->required(fn (Forms\Get $get) => $get('tiene_mascotas') == 1)
+                                ->visible(fn (Forms\Get $get) => $get('tiene_mascotas') == 1)
+                                ->columnSpanFull(),
+                        ]),
+                ])
+                // Solo si la renta vinculada es 'residencial'
+                ->visible(function ($record) {
+                    if (!$record || !$record->rent) return false;
+                    return $record->rent->tipo_inmueble === 'residencial';
+                })
                 ->columnSpanFull(),
         ];
     }

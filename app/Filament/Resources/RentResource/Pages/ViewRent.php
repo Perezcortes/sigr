@@ -151,7 +151,7 @@ class ViewRent extends EditRecord
                                             ->default('nueva')
                                             ->required(),
                                         Forms\Components\Select::make('tipo_inmueble')
-                                            ->label('Tipo de inmueble*')
+                                            ->label('Tipo de inmueble')
                                             ->options([
                                                 'residencial' => 'Inmuebles Residenciales',
                                                 'comercial' => 'Inmuebles Comerciales',
