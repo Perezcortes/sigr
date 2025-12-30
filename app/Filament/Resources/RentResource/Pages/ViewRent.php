@@ -151,7 +151,7 @@ class ViewRent extends EditRecord
                                             ->default('nueva')
                                             ->required(),
                                         Forms\Components\Select::make('tipo_inmueble')
-                                            ->label('Tipo de inmueble*')
+                                            ->label('Tipo de inmueble')
                                             ->options([
                                                 'residencial' => 'Inmuebles Residenciales',
                                                 'comercial' => 'Inmuebles Comerciales',
@@ -606,7 +606,7 @@ class ViewRent extends EditRecord
                                                             }
                                                         }),
                                                     Forms\Components\Actions\Action::make('edit_owner')
-                                                        ->label('Editar solicitud del propietario')
+                                                        ->label('Ver solicitud del propietario')
                                                         ->color('primary')
                                                         ->action(function () {
                                                             $ownerRequest = OwnerRequest::where('owner_id', $this->record->owner_id)
@@ -726,16 +726,42 @@ class ViewRent extends EditRecord
                                                         Forms\Components\Select::make('estado')
                                                             ->label('Estado')
                                                             ->options([
-                                                                'aguascalientes' => 'Aguascalientes',
-                                                                'baja_california' => 'Baja California',
-                                                                'cdmx' => 'Ciudad de México',
-                                                                'jalisco' => 'Jalisco',
-                                                                'mexico' => 'Estado de México',
-                                                                'nuevo_leon' => 'Nuevo León',
-                                                                'puebla' => 'Puebla',
-                                                                'queretaro' => 'Querétaro',
+                                                                'Aguascalientes' => 'Aguascalientes',
+                                                                'Baja California' => 'Baja California',
+                                                                'Baja California Sur' => 'Baja California Sur',
+                                                                'Campeche' => 'Campeche',
+                                                                'Chiapas' => 'Chiapas',
+                                                                'Chihuahua' => 'Chihuahua',
+                                                                'Ciudad de México' => 'Ciudad de México',
+                                                                'Coahuila' => 'Coahuila',
+                                                                'Colima' => 'Colima',
+                                                                'Durango' => 'Durango',
+                                                                'Estado de México' => 'Estado de México',
+                                                                'Guanajuato' => 'Guanajuato',
+                                                                'Guerrero' => 'Guerrero',
+                                                                'Hidalgo' => 'Hidalgo',
+                                                                'Jalisco' => 'Jalisco',
+                                                                'Michoacán' => 'Michoacán',
+                                                                'Morelos' => 'Morelos',
+                                                                'Nayarit' => 'Nayarit',
+                                                                'Nuevo León' => 'Nuevo León',
+                                                                'Oaxaca' => 'Oaxaca',
+                                                                'Puebla' => 'Puebla',
+                                                                'Querétaro' => 'Querétaro',
+                                                                'Quintana Roo' => 'Quintana Roo',
+                                                                'San Luis Potosí' => 'San Luis Potosí',
+                                                                'Sinaloa' => 'Sinaloa',
+                                                                'Sonora' => 'Sonora',
+                                                                'Tabasco' => 'Tabasco',
+                                                                'Tamaulipas' => 'Tamaulipas',
+                                                                'Tlaxcala' => 'Tlaxcala',
+                                                                'Veracruz' => 'Veracruz',
+                                                                'Yucatán' => 'Yucatán',
+                                                                'Zacatecas' => 'Zacatecas',
                                                             ])
-                                                            ->placeholder('Seleccione'),
+                                                            ->disabled()   
+                                                            ->dehydrated() 
+                                                            ->required(),
                                                         Forms\Components\TextInput::make('codigo_postal')
                                                             ->label('CP')
                                                             ->numeric()
@@ -769,250 +795,386 @@ class ViewRent extends EditRecord
                                 Forms\Components\Tabs::make('DocumentosTabs')
                                     ->columnSpanFull()
                                     ->tabs([
-                                        // Documentos Inquilino
+                                        
+                                        // === PESTAÑA: INQUILINO ===
                                         Forms\Components\Tabs\Tab::make('Inquilino')
                                             ->icon('heroicon-o-user')
                                             ->schema([
-                                                Forms\Components\Section::make('Documentos del Inquilino')
+                                                Forms\Components\Section::make('Expediente del Inquilino')
                                                     ->description(fn () => $this->record->tenant?->tipo_persona === 'moral' 
-                                                        ? 'Documentos requeridos para Persona Moral' 
-                                                        : 'Documentos requeridos para Persona Física')
+                                                        ? 'Documentación fiscal y legal (Persona Moral)' 
+                                                        : 'Documentación de identidad (Persona Física)')
+                                                    ->headerActions([
+                                                        Forms\Components\Actions\Action::make('subir_doc_inquilino')
+                                                            ->label('Nuevo Documento')
+                                                            ->color('primary')
+                                                            ->icon('heroicon-o-arrow-up-tray')
+                                                            ->form([
+                                                                Forms\Components\Select::make('tag')
+                                                                    ->label('Tipo de Documento')
+                                                                    ->options(fn () => $this->record->tenant?->tipo_persona === 'moral' 
+                                                                        ? TenantDocument::tiposPersonaMoral() 
+                                                                        : TenantDocument::tiposPersonaFisica())
+                                                                    ->required(),
+                                                                Forms\Components\FileUpload::make('file')
+                                                                    ->label('Seleccionar Archivo')
+                                                                    ->directory('tenant-documents')
+                                                                    ->acceptedFileTypes(['application/pdf', 'image/*'])
+                                                                    ->maxSize(10240)
+                                                                    ->required(),
+                                                            ])
+                                                            ->action(function (array $data) {
+                                                                TenantDocument::create([
+                                                                    'rent_id' => $this->record->id,
+                                                                    'user_id' => auth()->id(),
+                                                                    'user_name' => auth()->user()->name,
+                                                                    'tag' => $data['tag'],
+                                                                    'path_file' => $data['file'],
+                                                                    'mime' => Storage::disk('public')->mimeType($data['file']) ?? 'application/octet-stream',
+                                                                ]);
+                                                                \Filament\Notifications\Notification::make()->success()->title('Documento cargado')->send();
+                                                            }),
+                                                    ])
                                                     ->schema([
-                                                        Forms\Components\Placeholder::make('tenant_docs_list')
-                                                            ->label('Documentos cargados')
+                                                        Forms\Components\Placeholder::make('tenant_docs_grid')
+                                                            ->hiddenLabel()
                                                             ->content(function () {
                                                                 $docs = $this->record->tenantDocuments;
-                                                                if ($docs->isEmpty()) return 'No hay documentos cargados';
+                                                                if ($docs->isEmpty()) {
+                                                                    return new \Illuminate\Support\HtmlString('
+                                                                        <div class="flex flex-col items-center justify-center p-6 border-2 border-dashed border-gray-300 rounded-xl dark:border-gray-700">
+                                                                            <div class="p-3 bg-gray-100 rounded-full dark:bg-gray-800">
+                                                                                <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                                                            </div>
+                                                                            <p class="mt-2 text-sm text-gray-500">No hay documentos cargados aún.</p>
+                                                                        </div>
+                                                                    ');
+                                                                }
+
                                                                 $tipos = $this->record->tenant?->tipo_persona === 'moral' 
                                                                     ? TenantDocument::tiposPersonaMoral() 
                                                                     : TenantDocument::tiposPersonaFisica();
-                                                                return new \Illuminate\Support\HtmlString(
-                                                                    $docs->map(function ($doc) use ($tipos) {
-                                                                        $label = ($tipos[$doc->tag] ?? $doc->tag) . ' - ' . basename($doc->path_file);
-                                                                        $url = Storage::disk('public')->url($doc->path_file);
-                                                                        return "<div class='flex items-center gap-2 py-1'>
-                                                                            <span class='flex-1'>{$label}</span>
-                                                                            <a href='{$url}' target='_blank' class='text-blue-500 hover:text-blue-700' title='Ver'><svg class='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M15 12a3 3 0 11-6 0 3 3 0 016 0z'></path><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z'></path></svg></a>
-                                                                            <a href='{$url}' download class='text-green-500 hover:text-green-700' title='Descargar'><svg class='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4'></path></svg></a>
-                                                                            <button type='button' onclick=\"confirmDelete({$doc->id}, 'tenant')\" class='text-red-500 hover:text-red-700' title='Eliminar'><svg class='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16'></path></svg></button>
-                                                                        </div>";
-                                                                    })->implode('')
-                                                                );
-                                                            })
-                                                            ->columnSpanFull(),
+
+                                                                $html = '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">';
+                                                                foreach ($docs as $doc) {
+                                                                    $url = Storage::disk('public')->url($doc->path_file);
+                                                                    $name = basename($doc->path_file);
+                                                                    $typeLabel = $tipos[$doc->tag] ?? $doc->tag;
+                                                                    $isPdf = str_ends_with(strtolower($doc->path_file), '.pdf');
+                                                                    
+                                                                    // NOTA: Aquí corregí las comillas dentro del SVG (ahora son simples ' ')
+                                                                    $icon = $isPdf 
+                                                                        ? '<svg class="w-8 h-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>'
+                                                                        : '<svg class="w-8 h-8 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>';
+
+                                                                    $html .= "
+                                                                    <div class='relative group bg-white border border-gray-200 rounded-xl p-4 hover:shadow-lg transition-all duration-200 dark:bg-gray-800 dark:border-gray-700'>
+                                                                        <div class='flex items-start justify-between'>
+                                                                            <div class='flex items-center gap-3'>
+                                                                                <div class='p-2 bg-gray-50 rounded-lg dark:bg-gray-700'>{$icon}</div>
+                                                                                <div class='overflow-hidden'>
+                                                                                    <h4 class='text-sm font-bold text-[#161848] dark:text-white truncate' title='{$typeLabel}'>{$typeLabel}</h4>
+                                                                                    <p class='text-xs text-gray-500 truncate mt-0.5' title='{$name}'>{$name}</p>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div class='flex items-center justify-end gap-2 mt-4 pt-3 border-t border-gray-100 dark:border-gray-700'>
+                                                                            <a href='{$url}' target='_blank' class='p-1.5 text-gray-500 hover:text-[#26cad3] hover:bg-[#26cad3]/10 rounded-lg transition-colors' title='Ver'>
+                                                                                <svg class='w-4 h-4' fill='none' viewBox='0 0 24 24' stroke='currentColor'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M15 12a3 3 0 11-6 0 3 3 0 016 0z' /><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z' /></svg>
+                                                                            </a>
+                                                                            <a href='{$url}' download class='p-1.5 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors' title='Descargar'>
+                                                                                <svg class='w-4 h-4' fill='none' viewBox='0 0 24 24' stroke='currentColor'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4' /></svg>
+                                                                            </a>
+                                                                            <button onclick=\"confirmDelete({$doc->id}, 'tenant')\" class='p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors' title='Eliminar'>
+                                                                                <svg class='w-4 h-4' fill='none' viewBox='0 0 24 24' stroke='currentColor'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16' /></svg>
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>";
+                                                                }
+                                                                $html .= '</div>';
+                                                                return new \Illuminate\Support\HtmlString($html);
+                                                            }),
                                                     ]),
-                                                Forms\Components\Actions::make([
-                                                    Forms\Components\Actions\Action::make('subir_doc_inquilino')
-                                                        ->label('Subir Documento')
-                                                        ->color('primary')
-                                                        ->icon('heroicon-o-arrow-up-tray')
-                                                        ->form([
-                                                            Forms\Components\Select::make('tag')
-                                                                ->label('Tipo de Documento')
-                                                                ->options(fn () => $this->record->tenant?->tipo_persona === 'moral' 
-                                                                    ? TenantDocument::tiposPersonaMoral() 
-                                                                    : TenantDocument::tiposPersonaFisica())
-                                                                ->required(),
-                                                            Forms\Components\FileUpload::make('file')
-                                                                ->label('Archivo')
-                                                                ->directory('tenant-documents')
-                                                                ->acceptedFileTypes(['application/pdf', 'image/*'])
-                                                                ->maxSize(5120)
-                                                                ->required(),
-                                                        ])
-                                                        ->action(function (array $data) {
-                                                            TenantDocument::create([
-                                                                'rent_id' => $this->record->id,
-                                                                'user_id' => auth()->id(),
-                                                                'user_name' => auth()->user()->name,
-                                                                'tag' => $data['tag'],
-                                                                'path_file' => $data['file'],
-                                                                'mime' => Storage::disk('public')->mimeType($data['file']) ?? 'application/octet-stream',
-                                                            ]);
-                                                            \Filament\Notifications\Notification::make()->success()->title('Documento subido correctamente')->send();
-                                                        }),
-                                                ]),
                                             ]),
 
-                                        // Documentos Fiador
+                                        // === PESTAÑA: FIADOR ===
                                         Forms\Components\Tabs\Tab::make('Fiador')
                                             ->icon('heroicon-o-hand-raised')
                                             ->schema([
-                                                Forms\Components\Section::make('Documentos del Fiador')
+                                                Forms\Components\Section::make('Expediente del Fiador')
+                                                    ->description('Documentos de garantía y respaldo')
+                                                    ->headerActions([
+                                                        Forms\Components\Actions\Action::make('subir_doc_fiador')
+                                                            ->label('Nuevo Documento')
+                                                            ->color('primary')
+                                                            ->icon('heroicon-o-arrow-up-tray')
+                                                            ->form([
+                                                                Forms\Components\Select::make('tag')
+                                                                    ->label('Tipo de Documento')
+                                                                    ->options(GuarantorDocument::tiposPersonaFisica())
+                                                                    ->required(),
+                                                                Forms\Components\FileUpload::make('file')
+                                                                    ->label('Seleccionar Archivo')
+                                                                    ->directory('guarantor-documents')
+                                                                    ->acceptedFileTypes(['application/pdf', 'image/*'])
+                                                                    ->maxSize(10240)
+                                                                    ->required(),
+                                                            ])
+                                                            ->action(function (array $data) {
+                                                                GuarantorDocument::create([
+                                                                    'rent_id' => $this->record->id,
+                                                                    'user_id' => auth()->id(),
+                                                                    'user_name' => auth()->user()->name,
+                                                                    'tag' => $data['tag'],
+                                                                    'path_file' => $data['file'],
+                                                                    'mime' => Storage::disk('public')->mimeType($data['file']) ?? 'application/octet-stream',
+                                                                ]);
+                                                                \Filament\Notifications\Notification::make()->success()->title('Documento cargado')->send();
+                                                            }),
+                                                    ])
                                                     ->schema([
-                                                        Forms\Components\Placeholder::make('guarantor_docs_list')
-                                                            ->label('Documentos cargados')
+                                                        Forms\Components\Placeholder::make('guarantor_docs_grid')
+                                                            ->hiddenLabel()
                                                             ->content(function () {
                                                                 $docs = $this->record->guarantorDocuments;
-                                                                if ($docs->isEmpty()) return 'No hay documentos cargados';
+                                                                if ($docs->isEmpty()) {
+                                                                    return new \Illuminate\Support\HtmlString('
+                                                                        <div class="flex flex-col items-center justify-center p-6 border-2 border-dashed border-gray-300 rounded-xl dark:border-gray-700">
+                                                                            <div class="p-3 bg-gray-100 rounded-full dark:bg-gray-800">
+                                                                                <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                                                            </div>
+                                                                            <p class="mt-2 text-sm text-gray-500">No hay documentos de fiador cargados.</p>
+                                                                        </div>
+                                                                    ');
+                                                                }
                                                                 $tipos = GuarantorDocument::tiposPersonaFisica();
-                                                                return new \Illuminate\Support\HtmlString(
-                                                                    $docs->map(function ($doc) use ($tipos) {
-                                                                        $label = ($tipos[$doc->tag] ?? $doc->tag) . ' - ' . basename($doc->path_file);
-                                                                        $url = Storage::disk('public')->url($doc->path_file);
-                                                                        return "<div class='flex items-center gap-2 py-1'>
-                                                                            <span class='flex-1'>{$label}</span>
-                                                                            <a href='{$url}' target='_blank' class='text-blue-500 hover:text-blue-700' title='Ver'><svg class='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M15 12a3 3 0 11-6 0 3 3 0 016 0z'></path><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z'></path></svg></a>
-                                                                            <a href='{$url}' download class='text-green-500 hover:text-green-700' title='Descargar'><svg class='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4'></path></svg></a>
-                                                                            <button type='button' onclick=\"confirmDelete({$doc->id}, 'guarantor')\" class='text-red-500 hover:text-red-700' title='Eliminar'><svg class='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16'></path></svg></button>
-                                                                        </div>";
-                                                                    })->implode('')
-                                                                );
-                                                            })
-                                                            ->columnSpanFull(),
+                                                                $html = '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">';
+                                                                foreach ($docs as $doc) {
+                                                                    $url = Storage::disk('public')->url($doc->path_file);
+                                                                    $name = basename($doc->path_file);
+                                                                    $typeLabel = $tipos[$doc->tag] ?? $doc->tag;
+                                                                    $isPdf = str_ends_with(strtolower($doc->path_file), '.pdf');
+                                                                    
+                                                                    $icon = $isPdf 
+                                                                        ? '<svg class="w-8 h-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>'
+                                                                        : '<svg class="w-8 h-8 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>';
+
+                                                                    $html .= "
+                                                                    <div class='relative group bg-white border border-gray-200 rounded-xl p-4 hover:shadow-lg transition-all duration-200 dark:bg-gray-800 dark:border-gray-700'>
+                                                                        <div class='flex items-start justify-between'>
+                                                                            <div class='flex items-center gap-3'>
+                                                                                <div class='p-2 bg-gray-50 rounded-lg dark:bg-gray-700'>{$icon}</div>
+                                                                                <div class='overflow-hidden'>
+                                                                                    <h4 class='text-sm font-bold text-[#161848] dark:text-white truncate' title='{$typeLabel}'>{$typeLabel}</h4>
+                                                                                    <p class='text-xs text-gray-500 truncate mt-0.5' title='{$name}'>{$name}</p>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div class='flex items-center justify-end gap-2 mt-4 pt-3 border-t border-gray-100 dark:border-gray-700'>
+                                                                            <a href='{$url}' target='_blank' class='p-1.5 text-gray-500 hover:text-[#26cad3] hover:bg-[#26cad3]/10 rounded-lg transition-colors' title='Ver'>
+                                                                                <svg class='w-4 h-4' fill='none' viewBox='0 0 24 24' stroke='currentColor'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M15 12a3 3 0 11-6 0 3 3 0 016 0z' /><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z' /></svg>
+                                                                            </a>
+                                                                            <a href='{$url}' download class='p-1.5 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors' title='Descargar'>
+                                                                                <svg class='w-4 h-4' fill='none' viewBox='0 0 24 24' stroke='currentColor'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4' /></svg>
+                                                                            </a>
+                                                                            <button onclick=\"confirmDelete({$doc->id}, 'guarantor')\" class='p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors' title='Eliminar'>
+                                                                                <svg class='w-4 h-4' fill='none' viewBox='0 0 24 24' stroke='currentColor'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16' /></svg>
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>";
+                                                                }
+                                                                $html .= '</div>';
+                                                                return new \Illuminate\Support\HtmlString($html);
+                                                            }),
                                                     ]),
-                                                Forms\Components\Actions::make([
-                                                    Forms\Components\Actions\Action::make('subir_doc_fiador')
-                                                        ->label('Subir Documento')
-                                                        ->color('primary')
-                                                        ->icon('heroicon-o-arrow-up-tray')
-                                                        ->form([
-                                                            Forms\Components\Select::make('tag')
-                                                                ->label('Tipo de Documento')
-                                                                ->options(GuarantorDocument::tiposPersonaFisica())
-                                                                ->required(),
-                                                            Forms\Components\FileUpload::make('file')
-                                                                ->label('Archivo')
-                                                                ->directory('guarantor-documents')
-                                                                ->acceptedFileTypes(['application/pdf', 'image/*'])
-                                                                ->maxSize(5120)
-                                                                ->required(),
-                                                        ])
-                                                        ->action(function (array $data) {
-                                                            GuarantorDocument::create([
-                                                                'rent_id' => $this->record->id,
-                                                                'user_id' => auth()->id(),
-                                                                'user_name' => auth()->user()->name,
-                                                                'tag' => $data['tag'],
-                                                                'path_file' => $data['file'],
-                                                                'mime' => Storage::disk('public')->mimeType($data['file']) ?? 'application/octet-stream',
-                                                            ]);
-                                                            \Filament\Notifications\Notification::make()->success()->title('Documento subido correctamente')->send();
-                                                        }),
-                                                ]),
                                             ]),
 
-                                        // Documentos Propietario
+                                        // === PESTAÑA: PROPIETARIO ===
                                         Forms\Components\Tabs\Tab::make('Propietario')
                                             ->icon('heroicon-o-home')
                                             ->schema([
-                                                Forms\Components\Section::make('Documentos del Propietario')
-                                                    ->description(fn () => $this->record->owner?->tipo_persona === 'moral' 
-                                                        ? 'Documentos requeridos para Persona Moral' 
-                                                        : 'Documentos requeridos para Persona Física')
+                                                Forms\Components\Section::make('Expediente del Propietario')
+                                                    ->description('Documentación legal de la propiedad y dueño')
+                                                    ->headerActions([
+                                                        Forms\Components\Actions\Action::make('subir_doc_propietario')
+                                                            ->label('Nuevo Documento')
+                                                            ->color('primary')
+                                                            ->icon('heroicon-o-arrow-up-tray')
+                                                            ->form([
+                                                                Forms\Components\Select::make('tag')
+                                                                    ->label('Tipo de Documento')
+                                                                    ->options(fn () => $this->record->owner?->tipo_persona === 'moral' 
+                                                                        ? OwnerDocument::tiposPersonaMoral() 
+                                                                        : OwnerDocument::tiposPersonaFisica())
+                                                                    ->required(),
+                                                                Forms\Components\FileUpload::make('file')
+                                                                    ->label('Seleccionar Archivo')
+                                                                    ->directory('owner-documents')
+                                                                    ->acceptedFileTypes(['application/pdf', 'image/*'])
+                                                                    ->maxSize(10240)
+                                                                    ->required(),
+                                                            ])
+                                                            ->action(function (array $data) {
+                                                                OwnerDocument::create([
+                                                                    'rent_id' => $this->record->id,
+                                                                    'user_id' => auth()->id(),
+                                                                    'user_name' => auth()->user()->name,
+                                                                    'tag' => $data['tag'],
+                                                                    'path_file' => $data['file'],
+                                                                    'mime' => Storage::disk('public')->mimeType($data['file']) ?? 'application/octet-stream',
+                                                                ]);
+                                                                \Filament\Notifications\Notification::make()->success()->title('Documento cargado')->send();
+                                                            }),
+                                                    ])
                                                     ->schema([
-                                                        Forms\Components\Placeholder::make('owner_docs_list')
-                                                            ->label('Documentos cargados')
+                                                        Forms\Components\Placeholder::make('owner_docs_grid')
+                                                            ->hiddenLabel()
                                                             ->content(function () {
                                                                 $docs = $this->record->ownerDocuments;
-                                                                if ($docs->isEmpty()) return 'No hay documentos cargados';
+                                                                if ($docs->isEmpty()) {
+                                                                    return new \Illuminate\Support\HtmlString('
+                                                                        <div class="flex flex-col items-center justify-center p-6 border-2 border-dashed border-gray-300 rounded-xl dark:border-gray-700">
+                                                                            <div class="p-3 bg-gray-100 rounded-full dark:bg-gray-800">
+                                                                                <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                                                            </div>
+                                                                            <p class="mt-2 text-sm text-gray-500">No hay documentos cargados aún.</p>
+                                                                        </div>
+                                                                    ');
+                                                                }
                                                                 $tipos = $this->record->owner?->tipo_persona === 'moral' 
                                                                     ? OwnerDocument::tiposPersonaMoral() 
                                                                     : OwnerDocument::tiposPersonaFisica();
-                                                                return new \Illuminate\Support\HtmlString(
-                                                                    $docs->map(function ($doc) use ($tipos) {
-                                                                        $label = ($tipos[$doc->tag] ?? $doc->tag) . ' - ' . basename($doc->path_file);
-                                                                        $url = Storage::disk('public')->url($doc->path_file);
-                                                                        return "<div class='flex items-center gap-2 py-1'>
-                                                                            <span class='flex-1'>{$label}</span>
-                                                                            <a href='{$url}' target='_blank' class='text-blue-500 hover:text-blue-700' title='Ver'><svg class='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M15 12a3 3 0 11-6 0 3 3 0 016 0z'></path><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z'></path></svg></a>
-                                                                            <a href='{$url}' download class='text-green-500 hover:text-green-700' title='Descargar'><svg class='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4'></path></svg></a>
-                                                                            <button type='button' onclick=\"confirmDelete({$doc->id}, 'owner')\" class='text-red-500 hover:text-red-700' title='Eliminar'><svg class='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16'></path></svg></button>
-                                                                        </div>";
-                                                                    })->implode('')
-                                                                );
-                                                            })
-                                                            ->columnSpanFull(),
+                                                                $html = '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">';
+                                                                foreach ($docs as $doc) {
+                                                                    $url = Storage::disk('public')->url($doc->path_file);
+                                                                    $name = basename($doc->path_file);
+                                                                    $typeLabel = $tipos[$doc->tag] ?? $doc->tag;
+                                                                    $isPdf = str_ends_with(strtolower($doc->path_file), '.pdf');
+                                                                    
+                                                                    $icon = $isPdf 
+                                                                        ? '<svg class="w-8 h-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>'
+                                                                        : '<svg class="w-8 h-8 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>';
+
+                                                                    $html .= "
+                                                                    <div class='relative group bg-white border border-gray-200 rounded-xl p-4 hover:shadow-lg transition-all duration-200 dark:bg-gray-800 dark:border-gray-700'>
+                                                                        <div class='flex items-start justify-between'>
+                                                                            <div class='flex items-center gap-3'>
+                                                                                <div class='p-2 bg-gray-50 rounded-lg dark:bg-gray-700'>{$icon}</div>
+                                                                                <div class='overflow-hidden'>
+                                                                                    <h4 class='text-sm font-bold text-[#161848] dark:text-white truncate' title='{$typeLabel}'>{$typeLabel}</h4>
+                                                                                    <p class='text-xs text-gray-500 truncate mt-0.5' title='{$name}'>{$name}</p>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div class='flex items-center justify-end gap-2 mt-4 pt-3 border-t border-gray-100 dark:border-gray-700'>
+                                                                            <a href='{$url}' target='_blank' class='p-1.5 text-gray-500 hover:text-[#26cad3] hover:bg-[#26cad3]/10 rounded-lg transition-colors' title='Ver'>
+                                                                                <svg class='w-4 h-4' fill='none' viewBox='0 0 24 24' stroke='currentColor'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M15 12a3 3 0 11-6 0 3 3 0 016 0z' /><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z' /></svg>
+                                                                            </a>
+                                                                            <a href='{$url}' download class='p-1.5 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors' title='Descargar'>
+                                                                                <svg class='w-4 h-4' fill='none' viewBox='0 0 24 24' stroke='currentColor'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4' /></svg>
+                                                                            </a>
+                                                                            <button onclick=\"confirmDelete({$doc->id}, 'owner')\" class='p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors' title='Eliminar'>
+                                                                                <svg class='w-4 h-4' fill='none' viewBox='0 0 24 24' stroke='currentColor'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16' /></svg>
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>";
+                                                                }
+                                                                $html .= '</div>';
+                                                                return new \Illuminate\Support\HtmlString($html);
+                                                            }),
                                                     ]),
-                                                Forms\Components\Actions::make([
-                                                    Forms\Components\Actions\Action::make('subir_doc_propietario')
-                                                        ->label('Subir Documento')
-                                                        ->color('primary')
-                                                        ->icon('heroicon-o-arrow-up-tray')
-                                                        ->form([
-                                                            Forms\Components\Select::make('tag')
-                                                                ->label('Tipo de Documento')
-                                                                ->options(fn () => $this->record->owner?->tipo_persona === 'moral' 
-                                                                    ? OwnerDocument::tiposPersonaMoral() 
-                                                                    : OwnerDocument::tiposPersonaFisica())
-                                                                ->required(),
-                                                            Forms\Components\FileUpload::make('file')
-                                                                ->label('Archivo')
-                                                                ->directory('owner-documents')
-                                                                ->acceptedFileTypes(['application/pdf', 'image/*'])
-                                                                ->maxSize(5120)
-                                                                ->required(),
-                                                        ])
-                                                        ->action(function (array $data) {
-                                                            OwnerDocument::create([
-                                                                'rent_id' => $this->record->id,
-                                                                'user_id' => auth()->id(),
-                                                                'user_name' => auth()->user()->name,
-                                                                'tag' => $data['tag'],
-                                                                'path_file' => $data['file'],
-                                                                'mime' => Storage::disk('public')->mimeType($data['file']) ?? 'application/octet-stream',
-                                                            ]);
-                                                            \Filament\Notifications\Notification::make()->success()->title('Documento subido correctamente')->send();
-                                                        }),
-                                                ]),
                                             ]),
 
-                                        // Documentos Propiedad
+                                        // === PESTAÑA: PROPIEDAD ===
                                         Forms\Components\Tabs\Tab::make('Propiedad')
                                             ->icon('heroicon-o-building-office')
                                             ->schema([
-                                                Forms\Components\Section::make('Documentos de la Propiedad')
+                                                Forms\Components\Section::make('Expediente del Inmueble')
+                                                    ->description('Documentos técnicos y legales de la propiedad')
+                                                    ->headerActions([
+                                                        Forms\Components\Actions\Action::make('subir_doc_propiedad')
+                                                            ->label('Nuevo Documento')
+                                                            ->color('primary')
+                                                            ->icon('heroicon-o-arrow-up-tray')
+                                                            ->form([
+                                                                Forms\Components\Select::make('tag')
+                                                                    ->label('Tipo de Documento')
+                                                                    ->options(PropertyDocument::tipos())
+                                                                    ->required(),
+                                                                Forms\Components\FileUpload::make('file')
+                                                                    ->label('Seleccionar Archivo')
+                                                                    ->directory('property-documents')
+                                                                    ->acceptedFileTypes(['application/pdf', 'image/*'])
+                                                                    ->maxSize(10240)
+                                                                    ->required(),
+                                                            ])
+                                                            ->action(function (array $data) {
+                                                                PropertyDocument::create([
+                                                                    'rent_id' => $this->record->id,
+                                                                    'user_id' => auth()->id(),
+                                                                    'user_name' => auth()->user()->name,
+                                                                    'tag' => $data['tag'],
+                                                                    'path_file' => $data['file'],
+                                                                    'mime' => Storage::disk('public')->mimeType($data['file']) ?? 'application/octet-stream',
+                                                                ]);
+                                                                \Filament\Notifications\Notification::make()->success()->title('Documento cargado')->send();
+                                                            }),
+                                                    ])
                                                     ->schema([
-                                                        Forms\Components\Placeholder::make('property_docs_list')
-                                                            ->label('Documentos cargados')
+                                                        Forms\Components\Placeholder::make('property_docs_grid')
+                                                            ->hiddenLabel()
                                                             ->content(function () {
                                                                 $docs = $this->record->propertyDocuments;
-                                                                if ($docs->isEmpty()) return 'No hay documentos cargados';
+                                                                if ($docs->isEmpty()) {
+                                                                    return new \Illuminate\Support\HtmlString('
+                                                                        <div class="flex flex-col items-center justify-center p-6 border-2 border-dashed border-gray-300 rounded-xl dark:border-gray-700">
+                                                                            <div class="p-3 bg-gray-100 rounded-full dark:bg-gray-800">
+                                                                                <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                                                            </div>
+                                                                            <p class="mt-2 text-sm text-gray-500">No hay documentos de la propiedad cargados.</p>
+                                                                        </div>
+                                                                    ');
+                                                                }
                                                                 $tipos = PropertyDocument::tipos();
-                                                                return new \Illuminate\Support\HtmlString(
-                                                                    $docs->map(function ($doc) use ($tipos) {
-                                                                        $label = ($tipos[$doc->tag] ?? $doc->tag) . ' - ' . basename($doc->path_file);
-                                                                        $url = Storage::disk('public')->url($doc->path_file);
-                                                                        return "<div class='flex items-center gap-2 py-1'>
-                                                                            <span class='flex-1'>{$label}</span>
-                                                                            <a href='{$url}' target='_blank' class='text-blue-500 hover:text-blue-700' title='Ver'><svg class='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M15 12a3 3 0 11-6 0 3 3 0 016 0z'></path><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z'></path></svg></a>
-                                                                            <a href='{$url}' download class='text-green-500 hover:text-green-700' title='Descargar'><svg class='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4'></path></svg></a>
-                                                                            <button type='button' onclick=\"confirmDelete({$doc->id}, 'property')\" class='text-red-500 hover:text-red-700' title='Eliminar'><svg class='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16'></path></svg></button>
-                                                                        </div>";
-                                                                    })->implode('')
-                                                                );
-                                                            })
-                                                            ->columnSpanFull(),
+                                                                $html = '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">';
+                                                                foreach ($docs as $doc) {
+                                                                    $url = Storage::disk('public')->url($doc->path_file);
+                                                                    $name = basename($doc->path_file);
+                                                                    $typeLabel = $tipos[$doc->tag] ?? $doc->tag;
+                                                                    $isPdf = str_ends_with(strtolower($doc->path_file), '.pdf');
+                                                                    
+                                                                    $icon = $isPdf 
+                                                                        ? '<svg class="w-8 h-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>'
+                                                                        : '<svg class="w-8 h-8 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>';
+
+                                                                    $html .= "
+                                                                    <div class='relative group bg-white border border-gray-200 rounded-xl p-4 hover:shadow-lg transition-all duration-200 dark:bg-gray-800 dark:border-gray-700'>
+                                                                        <div class='flex items-start justify-between'>
+                                                                            <div class='flex items-center gap-3'>
+                                                                                <div class='p-2 bg-gray-50 rounded-lg dark:bg-gray-700'>{$icon}</div>
+                                                                                <div class='overflow-hidden'>
+                                                                                    <h4 class='text-sm font-bold text-[#161848] dark:text-white truncate' title='{$typeLabel}'>{$typeLabel}</h4>
+                                                                                    <p class='text-xs text-gray-500 truncate mt-0.5' title='{$name}'>{$name}</p>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div class='flex items-center justify-end gap-2 mt-4 pt-3 border-t border-gray-100 dark:border-gray-700'>
+                                                                            <a href='{$url}' target='_blank' class='p-1.5 text-gray-500 hover:text-[#26cad3] hover:bg-[#26cad3]/10 rounded-lg transition-colors' title='Ver'>
+                                                                                <svg class='w-4 h-4' fill='none' viewBox='0 0 24 24' stroke='currentColor'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M15 12a3 3 0 11-6 0 3 3 0 016 0z' /><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z' /></svg>
+                                                                            </a>
+                                                                            <a href='{$url}' download class='p-1.5 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors' title='Descargar'>
+                                                                                <svg class='w-4 h-4' fill='none' viewBox='0 0 24 24' stroke='currentColor'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4' /></svg>
+                                                                            </a>
+                                                                            <button onclick=\"confirmDelete({$doc->id}, 'property')\" class='p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors' title='Eliminar'>
+                                                                                <svg class='w-4 h-4' fill='none' viewBox='0 0 24 24' stroke='currentColor'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16' /></svg>
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>";
+                                                                }
+                                                                $html .= '</div>';
+                                                                return new \Illuminate\Support\HtmlString($html);
+                                                            }),
                                                     ]),
-                                                Forms\Components\Actions::make([
-                                                    Forms\Components\Actions\Action::make('subir_doc_propiedad')
-                                                        ->label('Subir Documento')
-                                                        ->color('primary')
-                                                        ->icon('heroicon-o-arrow-up-tray')
-                                                        ->form([
-                                                            Forms\Components\Select::make('tag')
-                                                                ->label('Tipo de Documento')
-                                                                ->options(PropertyDocument::tipos())
-                                                                ->required(),
-                                                            Forms\Components\FileUpload::make('file')
-                                                                ->label('Archivo')
-                                                                ->directory('property-documents')
-                                                                ->acceptedFileTypes(['application/pdf', 'image/*'])
-                                                                ->maxSize(5120)
-                                                                ->required(),
-                                                        ])
-                                                        ->action(function (array $data) {
-                                                            PropertyDocument::create([
-                                                                'rent_id' => $this->record->id,
-                                                                'user_id' => auth()->id(),
-                                                                'user_name' => auth()->user()->name,
-                                                                'tag' => $data['tag'],
-                                                                'path_file' => $data['file'],
-                                                                'mime' => Storage::disk('public')->mimeType($data['file']) ?? 'application/octet-stream',
-                                                            ]);
-                                                            \Filament\Notifications\Notification::make()->success()->title('Documento subido correctamente')->send();
-                                                        }),
-                                                ]),
                                             ]),
                                     ]),
                             ]),
@@ -1039,42 +1201,118 @@ class ViewRent extends EditRecord
                         Forms\Components\Tabs\Tab::make('Comentarios')
                             ->icon('heroicon-o-chat-bubble-left-right')
                             ->schema([
-                                Forms\Components\Section::make('Comentarios de la Renta')
+                                Forms\Components\Section::make('Comentarios')
+                                    ->description('Bitácora de seguimiento y notas internas.')
                                     ->schema([
+                                        
+                                        // === LISTA DE COMENTARIOS CON ESTILO CHAT ===
                                         Forms\Components\Placeholder::make('comments_list')
-                                            ->label('')
+                                            ->label('') // Sin etiqueta para limpieza visual
+                                            ->columnSpanFull()
                                             ->content(function () {
-                                                $comments = $this->record->comments()->with('user')->orderBy('created_at', 'desc')->get();
-                                                if ($comments->isEmpty()) return 'No hay comentarios';
-                                                return $comments->map(function ($comment) {
-                                                    $date = $comment->created_at->format('d/m/Y H:i');
-                                                    $user = $comment->user?->name ?? 'Usuario';
-                                                    return "[{$date}] {$user}: {$comment->comment}";
-                                                })->implode("\n\n");
-                                            })
-                                            ->columnSpanFull(),
+                                                $comments = $this->record->comments()
+                                                    ->with('user')
+                                                    ->orderBy('created_at', 'desc') // Los más nuevos arriba
+                                                    ->get();
+
+                                                if ($comments->isEmpty()) {
+                                                    // DISEÑO DE ESTADO VACÍO (EMPTY STATE)
+                                                    return new \Illuminate\Support\HtmlString('
+                                                        <div class="flex flex-col items-center justify-center p-8 text-center bg-gray-50 border border-gray-200 border-dashed rounded-xl dark:bg-white/5 dark:border-white/10">
+                                                            <div class="p-3 bg-white rounded-full shadow-sm dark:bg-gray-800">
+                                                                <svg class="w-8 h-8 text-[#26cad3]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
+                                                                </svg>
+                                                            </div>
+                                                            <h3 class="mt-2 text-sm font-semibold text-[#161848] dark:text-white">Sin comentarios aún</h3>
+                                                            <p class="text-sm text-gray-500 dark:text-gray-400">Inicie la conversación agregando una nota abajo.</p>
+                                                        </div>
+                                                    ');
+                                                }
+
+                                                // CONSTRUCCIÓN DEL CHAT
+                                                $html = '<div class="space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">';
+                                                
+                                                foreach ($comments as $comment) {
+                                                    $user = $comment->user;
+                                                    $userName = $user ? $user->name : 'Sistema';
+                                                    // Obtener iniciales
+                                                    $initials = collect(explode(' ', $userName))->map(fn($w) => strtoupper(substr($w, 0, 1)))->take(2)->implode('');
+                                                    $date = $comment->created_at->format('d M Y, h:i A');
+                                                    $isCurrentUser = $user && $user->id === auth()->id();
+                                                                                                        
+                                                    $html .= '
+                                                    <div class="flex items-start gap-3 group">
+                                                        <div class="flex-shrink-0">
+                                                            <div class="flex items-center justify-center w-10 h-10 rounded-full bg-[#161848] text-white text-xs font-bold shadow-md ring-2 ring-white dark:ring-gray-800">
+                                                                '.$initials.'
+                                                            </div>
+                                                        </div>
+                                                        <div class="flex-1 min-w-0">
+                                                            <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg rounded-tl-none shadow-sm p-4 hover:shadow-md transition-shadow duration-200 relative">
+                                                                
+                                                                <div class="absolute left-0 top-2 bottom-2 w-1 bg-[#26cad3] rounded-r"></div>
+
+                                                                <div class="flex items-center justify-between mb-1 ml-2">
+                                                                    <h4 class="text-sm font-bold text-[#161848] dark:text-[#26cad3]">
+                                                                        '.$userName.'
+                                                                    </h4>
+                                                                    <span class="text-xs text-gray-400 font-medium flex items-center gap-1">
+                                                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                                                        '.$date.'
+                                                                    </span>
+                                                                </div>
+                                                                <p class="text-sm text-gray-600 dark:text-gray-300 ml-2 whitespace-pre-wrap leading-relaxed">'.$comment->comment.'</p>
+                                                            </div>
+                                                        </div>
+                                                    </div>';
+                                                }
+                                                
+                                                $html .= '</div>';
+
+                                                return new \Illuminate\Support\HtmlString($html);
+                                            }),
+
+                                        // === ÁREA DE TEXTO MEJORADA ===
+                                        Forms\Components\Group::make()
+                                            ->schema([
+                                                Forms\Components\Textarea::make('new_comment_content') // Cambié el nombre para no chocar
+                                                    ->label('Escribir nuevo comentario')
+                                                    ->placeholder('Escriba aquí los detalles, observaciones o seguimiento...')
+                                                    ->rows(3)
+                                                    //->required()
+                                                    // Estilo extra para que el textarea se vea integrado
+                                                    ->extraInputAttributes(['class' => 'resize-none border-gray-300 focus:border-[#26cad3] focus:ring-[#26cad3]']),
+                                                    
+                                                Forms\Components\Actions::make([
+                                                    Forms\Components\Actions\Action::make('guardar_comentario')
+                                                        ->label('Publicar Comentario')
+                                                        ->color('primary')
+                                                        ->icon('heroicon-m-paper-airplane') // Icono de enviar
+                                                        ->action(function (Forms\Get $get, Forms\Set $set) {
+                                                            $content = $get('new_comment_content');
+                                                            if (!$content) return;
+
+                                                            RentComment::create([
+                                                                'rent_id' => $this->record->id,
+                                                                'user_id' => auth()->id(),
+                                                                'comment' => $content,
+                                                                'status' => 'activo',
+                                                            ]);
+
+                                                            // Limpiar el campo y notificar
+                                                            $set('new_comment_content', '');
+                                                            \Filament\Notifications\Notification::make()
+                                                                ->success()
+                                                                ->title('Comentario registrado')
+                                                                ->body('Se ha agregado la nota al historial.')
+                                                                ->send();
+                                                        }),
+                                                ])->alignRight(), // Botón a la derecha
+                                            ])
+                                            ->columnSpanFull()
+                                            ->extraAttributes(['class' => 'bg-gray-50 dark:bg-white/5 p-4 rounded-xl border border-gray-200 dark:border-gray-700 mt-4']),
                                     ]),
-                                Forms\Components\Actions::make([
-                                    Forms\Components\Actions\Action::make('agregar_comentario')
-                                        ->label('Agregar Comentario')
-                                        ->color('primary')
-                                        ->icon('heroicon-o-plus')
-                                        ->form([
-                                            Forms\Components\Textarea::make('comment')
-                                                ->label('Comentario')
-                                                ->required()
-                                                ->rows(4),
-                                        ])
-                                        ->action(function (array $data) {
-                                            RentComment::create([
-                                                'rent_id' => $this->record->id,
-                                                'user_id' => auth()->id(),
-                                                'comment' => $data['comment'],
-                                                'status' => 'activo',
-                                            ]);
-                                            \Filament\Notifications\Notification::make()->success()->title('Comentario agregado')->send();
-                                        }),
-                                ]),
                             ]),
                     ]),
             ]);

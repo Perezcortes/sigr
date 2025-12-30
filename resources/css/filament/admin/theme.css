@@ -1,0 +1,193 @@
+@import '../../../../vendor/filament/filament/resources/css/theme.css';
+@config './tailwind.config.js';
+
+/* =========================================
+   FONDO Y ESTRUCTURA GENERAL
+   ========================================= */
+.fi-body {
+    /* Fondo un poco más oscuro (Gris 100) para que las tarjetas blancas resalten */
+    @apply bg-gray-100 dark:bg-gray-950 font-sans;
+}
+
+/* =========================================
+   SIDEBAR (Barra Lateral - Azul Marino)
+   ========================================= */
+.fi-sidebar {
+    @apply bg-[#161848] border-r-0 ring-0 shadow-2xl dark:border-r dark:border-white/5;
+}
+
+.fi-sidebar-header {
+    @apply bg-[#161848] border-b border-white/10;
+}
+
+.fi-sidebar-item-label {
+    @apply text-gray-300 font-medium tracking-wide;
+}
+
+.fi-sidebar-item-icon {
+    @apply text-gray-400;
+}
+
+.fi-sidebar-item:hover, 
+.fi-sidebar-item-button:hover {
+    @apply bg-white/10 text-white;
+}
+
+.fi-sidebar-item-active {
+    @apply bg-[#26cad3]/10 relative; 
+}
+
+.fi-sidebar-item-active .fi-sidebar-item-label {
+    @apply text-[#26cad3] font-bold;
+}
+
+.fi-sidebar-item-active .fi-sidebar-item-icon {
+    @apply text-[#26cad3];
+}
+
+/* Línea lateral del activo */
+.fi-sidebar-item-active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    height: 100%;
+    width: 4px;
+    background-color: #26cad3;
+    border-top-right-radius: 4px;
+    border-bottom-right-radius: 4px;
+}
+
+/* =========================================
+   TARJETAS, SECCIONES Y "FAQ"
+   ========================================= */
+.fi-section, 
+.fi-ta { 
+    /* MODO CLARO: Borde superior CIAN grueso para identidad + Sombra */
+    @apply border-t-4 border-t-[#26cad3] shadow-lg rounded-xl bg-white border-x border-b border-gray-200
+           /* MODO OSCURO: Sin borde de color chillón, más sobrio */
+           dark:border-t dark:border-gray-800 dark:bg-gray-900 dark:shadow-black/50;
+}
+
+/* Títulos de las secciones */
+.fi-header-heading,
+.fi-section-header-heading {
+    @apply text-[#161848] dark:text-white font-extrabold text-xl tracking-tight;
+}
+
+.fi-header-subheading,
+.fi-section-header-description {
+    @apply text-gray-500 dark:text-gray-400;
+}
+
+/* Estilos específicos para Placeholders (Vistas tipo FAQ o Info) */
+.fi-in-placeholder {
+    @apply bg-gray-50 rounded-lg p-4 border border-gray-200 dark:bg-white/5 dark:border-white/10;
+}
+
+/* =========================================
+   FORMULARIOS E INPUTS (Quitar blancura)
+   ========================================= */
+.fi-input, 
+.fi-select-input {
+    /* MODO CLARO: Fondo GRIS SUAVE (no blanco) para diferenciar del contenedor */
+    @apply bg-gray-50 border-gray-300 text-[#161848] font-medium rounded-lg shadow-sm
+           dark:bg-gray-950 dark:border-gray-700 dark:text-white;
+}
+
+/* Efecto Focus (Cuando escribes) */
+.fi-input-wrp:focus-within {
+    @apply ring-2 ring-[#26cad3] border-[#26cad3] bg-white dark:bg-gray-900 transition-all;
+}
+
+/* Etiquetas (Labels) */
+.fi-fo-field-wrp-label {
+    @apply text-[#161848] dark:text-[#26cad3] font-bold text-sm uppercase tracking-wide;
+}
+
+/* =========================================
+   BOTONES
+   ========================================= */
+.fi-btn-primary {
+    @apply bg-[#161848] text-white font-bold shadow-md hover:bg-[#161848]/90 transform hover:scale-[1.02] transition-all
+           dark:bg-[#26cad3] dark:text-[#161848] dark:hover:bg-[#26cad3]/90; 
+}
+
+/* Links de acción */
+.fi-ta-actions .fi-link {
+    @apply text-[#26cad3] font-semibold hover:text-[#161848] transition-colors
+           dark:hover:text-white;
+}
+
+/* =========================================
+   TABLAS 
+   ========================================= */
+.fi-ta-header-cell {
+    /* MODO CLARO: Encabezado GRIS (Estilo Premium/Enterprise) */
+    @apply bg-[#EEEEEE] text-white font-bold uppercase text-xs tracking-wider border-b-0
+           /* MODO OSCURO: Mantiene gris oscuro */
+           dark:bg-gray-800 dark:text-white dark:border-b dark:border-gray-700;
+}
+
+/* Filas alternadas (Zebra) más notorio */
+.fi-ta-row:nth-child(even) {
+    @apply bg-gray-50/80 dark:bg-white/[0.02];
+}
+
+/* Hover en filas */
+.fi-ta-row:hover {
+    @apply bg-[#26cad3]/10 dark:bg-white/5 transition-colors;
+}
+
+/* Texto de las celdas */
+.fi-ta-cell {
+    @apply text-[#161848] font-medium dark:text-gray-300;
+}
+
+/* =========================================
+    TABS (Pestañas)
+   ========================================= */
+.fi-tabs {
+    @apply bg-white dark:bg-gray-900 rounded-t-lg shadow-sm border-b border-gray-200 dark:border-gray-800;
+}
+
+.fi-tabs-item {
+    @apply font-medium text-gray-500;
+}
+
+.fi-tabs-item-active {
+    @apply border-b-4 border-[#26cad3] bg-gray-50 text-[#161848] dark:bg-gray-800 dark:text-[#26cad3];
+}
+
+.fi-tabs-item-active .fi-tabs-item-icon {
+    @apply text-[#26cad3];
+}
+
+/* =========================================
+   CORRECCIÓN DE CAMPOS DESHABILITADOS (DISABLED)
+   Evita que se vean "grises opacos" y los hace legibles
+   ========================================= */
+
+input:disabled, 
+select:disabled, 
+textarea:disabled,
+.fi-input:disabled, 
+.fi-select-input:disabled {
+    @apply opacity-100 !important;
+
+    /* MODO OSCURO  */
+    /* Fondo semi-transparente claro + Texto Blanco Brillante + Borde sutil */
+    @apply dark:text-white dark:bg-white/10 dark:border-white/20;
+
+    /* MODO CLARO */
+    /* Fondo gris más oscuro que el input normal para denotar bloqueo + Texto oscuro */
+    @apply text-gray-600 bg-gray-200 border-gray-300;
+
+    /* Cursor de prohibido para reforzar UX */
+    @apply cursor-not-allowed;
+}
+
+/* Ajuste específico para el contenedor del Select en modo disabled */
+.fi-select-input-wrp:has(select:disabled) {
+    @apply opacity-100 !important;
+    @apply dark:bg-white/10;
+}

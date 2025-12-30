@@ -77,7 +77,7 @@ class Tenant extends Model
         'persona_aporta_telefono',
         'persona_aporta_empresa',
         'persona_aporta_ingreso_comprobable',
-        // Campos de Uso de Propiedad
+        // Campos de Uso de Propiedad inmueble comercial
         'tipo_inmueble_desea',
         'giro_negocio',
         'experiencia_giro',
@@ -91,6 +91,16 @@ class Tenant extends Model
         'domicilio_anterior_delegacion_municipio',
         'domicilio_anterior_estado',
         'motivo_cambio_domicilio',
+        // Campos para uso Residencial
+        'numero_adultos',
+        'nombre_adulto_1',
+        'nombre_adulto_2',
+        'nombre_adulto_3',
+        'nombre_adulto_4',
+        'tiene_menores',
+        'cuantos_menores',
+        'tiene_mascotas',
+        'especificar_mascotas',
         // Acta Constitutiva
         'notario_nombres',
         'notario_primer_apellido',
