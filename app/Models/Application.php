@@ -12,6 +12,8 @@ class Application extends Model
         'user_id',
         'folio',
         'estatus',
+        'tipo_persona',
+        'tipo_inmueble',
         // Campos de Empleo
         'profesion_oficio_puesto',
         'tipo_empleo',
@@ -58,6 +60,16 @@ class Application extends Model
         'domicilio_anterior_delegacion_municipio',
         'domicilio_anterior_estado',
         'motivo_cambio_domicilio',
+        // Referencias Comerciales (para persona moral)
+        'referencia_comercial1_empresa',
+        'referencia_comercial1_contacto',
+        'referencia_comercial1_telefono',
+        'referencia_comercial2_empresa',
+        'referencia_comercial2_contacto',
+        'referencia_comercial2_telefono',
+        'referencia_comercial3_empresa',
+        'referencia_comercial3_contacto',
+        'referencia_comercial3_telefono',
     ];
 
     protected $casts = [
@@ -123,5 +135,13 @@ class Application extends Model
     public function rents(): HasMany
     {
         return $this->hasMany(Rent::class);
+    }
+
+    /**
+     * Relación con ApplicationDocuments
+     */
+    public function documents(): HasMany
+    {
+        return $this->hasMany(ApplicationDocument::class);
     }
 }

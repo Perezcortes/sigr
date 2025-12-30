@@ -151,3 +151,5 @@ Después de aplicar las soluciones, verifica:
    chown -R www-data:www-data storage bootstrap/cache
    ```
 
+
+

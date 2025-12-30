@@ -36,3 +36,5 @@ chmod +x deploy.sh
 ## Nota
 Después de ejecutar estos comandos, el login debería funcionar correctamente ya que las rutas POST de Filament se registrarán correctamente.
 
+
+

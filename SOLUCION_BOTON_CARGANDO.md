@@ -130,3 +130,5 @@ Si usas un CDN (Cloudflare, etc.) o un proxy, también necesitas:
 1. Limpiar el caché del CDN/proxy
 2. O invalidar el caché para los archivos de Filament
 
+
+
