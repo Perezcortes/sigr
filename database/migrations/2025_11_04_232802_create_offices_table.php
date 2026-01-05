@@ -35,7 +35,8 @@ return new class extends Migration
 
             // --- Claves Foráneas (Relaciones) ---
             // city_id int [ref: > cities.id]
-            $table->foreignId('city_id')->constrained('cities')->onDelete('restrict');
+            //$table->foreignId('city_id')->constrained('cities')->onDelete('restrict');
+            $table->string('ciudad'); // Texto libre para la ciudad
 
             // estate_id int [ref: > estates.id]
             $table->foreignId('estate_id')->constrained('estates')->onDelete('restrict');
