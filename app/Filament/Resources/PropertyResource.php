@@ -273,9 +273,14 @@ class PropertyResource extends Resource
                     ]),
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\ViewAction::make(),
+                Tables\Actions\EditAction::make()
+                    ->iconButton() // Convierte el botón a solo icono
+                    ->tooltip('Editar'),
+                Tables\Actions\ViewAction::make()
+                    ->iconButton() // Convierte el botón a solo icono
+                    ->tooltip('Ver'),
             ])
+            ->actionsColumnLabel('ACCIONES')
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),

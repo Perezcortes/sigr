@@ -8,6 +8,7 @@ use App\Filament\Resources\RentResource;
 use App\Filament\Resources\TenantResource;
 use App\Filament\Resources\TenantRequestResource;
 use App\Filament\Resources\OwnerRequestResource;
+use App\Filament\Resources\UserResource;
 use App\Filament\Widgets\ResumenDashboardWidget;
 use App\Filament\Widgets\RentasMensualesChartWidget;
 use App\Filament\Widgets\SolicitudesMensualesChartWidget;
@@ -42,6 +43,7 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
+            ->profile()
             // CONFIGURACIÓN DE COLORES (Rentas.com)
             ->colors([
                 'primary' => Color::hex('#161848'),   // Azul Marino
@@ -78,6 +80,7 @@ class AdminPanelProvider extends PanelProvider
                 OwnerRequestResource::class,
                 ApplicationsResource::class,
                 PropertyResource::class,
+                UserResource::class,
             ])
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
             ->pages([

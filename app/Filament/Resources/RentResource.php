@@ -177,11 +177,18 @@ class RentResource extends Resource
             ])
             ->actions([
                 Tables\Actions\ViewAction::make()
-                    ->url(fn ($record) => static::getUrl('view', ['record' => $record->hash_id])),
+                    ->url(fn ($record) => static::getUrl('view', ['record' => $record->hash_id]))
+                    ->iconButton() // Convierte el botón a solo icono
+                    ->tooltip('Ver'), // (Opcional) Muestra texto al pasar el mouse
                 Tables\Actions\EditAction::make()
-                    ->url(fn ($record) => static::getUrl('edit', ['record' => $record->hash_id])),
-                Tables\Actions\DeleteAction::make(),
+                    ->url(fn ($record) => static::getUrl('edit', ['record' => $record->hash_id]))
+                    ->iconButton() // Convierte el botón a solo icono
+                    ->tooltip('Editar'),
+                Tables\Actions\DeleteAction::make()
+                    ->iconButton() // Convierte el botón a solo icono
+                    ->tooltip('Borrar'),
             ])
+            ->actionsColumnLabel('ACCIONES') 
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),

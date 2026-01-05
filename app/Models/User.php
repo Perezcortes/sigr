@@ -37,7 +37,9 @@ class User extends Authenticatable implements HasMedia, HasAvatar, FilamentUser
         'password',
         //'role_id',
         'last_seen',
-        'is_active'
+        'is_active',
+        'is_owner',
+        'is_tenant',
     ];
 
     /**
@@ -61,6 +63,8 @@ class User extends Authenticatable implements HasMedia, HasAvatar, FilamentUser
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_active' => 'boolean',
+            'is_owner' => 'boolean',
+            'is_tenant' => 'boolean',
         ];
     }
 
@@ -85,7 +89,7 @@ class User extends Authenticatable implements HasMedia, HasAvatar, FilamentUser
     public function getFilamentAvatarUrl(): ?string
     {
         try {
-            $avatarUrl = $this->getFirstMediaUrl('profile-images', 'avatar');
+            $avatarUrl = $this->getFirstMediaUrl('profile-images');
             
             // Si no hay avatar, usar imagen por defecto
             if (empty($avatarUrl)) {
