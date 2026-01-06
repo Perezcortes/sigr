@@ -19,6 +19,12 @@ class UserResource extends Resource
     protected static ?string $navigationLabel = 'Usuarios';
     protected static ?string $modelLabel = 'Usuario';
 
+    public static function canViewAny(): bool
+    {
+        // Solo puede ver el menú si es Administrador
+        return auth()->user()->hasRole('Administrador');
+    }
+
     public static function form(Form $form): Form
     {
         return $form
@@ -82,6 +88,15 @@ class UserResource extends Resource
                                 Forms\Components\Toggle::make('is_owner')->label('Es Propietario'),
                                 Forms\Components\Toggle::make('is_tenant')->label('Es Inquilino'),
                             ]),
+
+                        Forms\Components\Select::make('office_id')
+                            ->label('Oficina Asignada')
+                            ->relationship('office', 'nombre') // Asegúrate que tu modelo Office tenga columna 'nombre' o 'name'
+                            ->searchable()
+                            ->preload()
+                            // Solo mostramos esto si el usuario actual es Admin, 
+                            // o dejamos que se vea siempre si esa es la regla.
+                            ->visible(fn () => auth()->user()->hasRole('Administrador')),
 
                         // Imagen de Perfil
                         SpatieMediaLibraryFileUpload::make('avatar')

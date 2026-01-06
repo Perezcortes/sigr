@@ -10,6 +10,7 @@ class Tenant extends Model
 {
     protected $fillable = [
         'user_id',
+        'asesor_id',
         'tipo_persona',
         // Persona Física
         'nombres',
@@ -176,6 +177,14 @@ class Tenant extends Model
     public function applications(): HasMany
     {
         return $this->hasMany(Application::class, 'user_id', 'user_id');
+    }
+
+    /**
+     * Relación con el Asesor que creó el Tenant
+     */
+    public function asesor(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(User::class, 'asesor_id');
     }
 
     /**

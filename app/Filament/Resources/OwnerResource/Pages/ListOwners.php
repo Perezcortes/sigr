@@ -69,6 +69,9 @@ class ListOwners extends ListRecords
                 // Guardar tanto en owners como en users
                 ->using(function (array $data, string $model): \Illuminate\Database\Eloquent\Model {
                     
+                    // Asignar el asesor actual
+                    $data['asesor_id'] = auth()->id();
+
                     // 1. Construir el nombre completo para el Usuario
                     if ($data['tipo_persona'] === 'fisica') {
                         $name = $data['nombres'] . ' ' . $data['primer_apellido'] . ' ' . ($data['segundo_apellido'] ?? '');
