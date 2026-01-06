@@ -11,8 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('role_permissions', function (Blueprint $table) {
-            $table->foreignUuid('permission_id')->constrained('permissions')->cascadeOnDelete();
+        Schema::table('users', function (Blueprint $table) {
+            $table->foreignId('office_id')
+                ->nullable() // Nullable porque el Super Admin igual no tiene oficina
+                ->constrained('offices')
+                ->nullOnDelete();
         });
     }
 
@@ -21,6 +24,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('role_permissions');
+        Schema::table('users', function (Blueprint $table) {
+            //
+        });
     }
 };

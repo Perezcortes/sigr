@@ -439,6 +439,25 @@ class TenantResource extends Resource
         ];
     }
 
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+        $user = auth()->user();
+
+        // Si es Admin, ve todo.
+        if ($user->hasRole('Administrador')) {
+            return $query;
+        }
+
+        // Si es Asesor, solo ve los registros donde él es el 'asesor_id'
+        if ($user->hasRole('Asesor')) {
+            return $query->where('asesor_id', $user->id);
+        }
+
+        // Por defecto, restringir o mostrar todo según el caso
+        return $query;
+    }
+
     public static function table(Table $table): Table
     {
         return $table
@@ -510,9 +529,14 @@ class TenantResource extends Resource
                     ]),
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\EditAction::make()
+                    ->iconButton() // Convierte el botón a solo icono
+                    ->tooltip('Editar'),
+                Tables\Actions\DeleteAction::make()
+                    ->iconButton() // Convierte el botón a solo icono
+                    ->tooltip('Eliminar'),
             ])
+            ->actionsColumnLabel('ACCIONES') 
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),

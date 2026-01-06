@@ -10,6 +10,7 @@ class Owner extends Model
 {
     protected $fillable = [
         'user_id',
+        'asesor_id',
         'tipo_persona',
         // Persona Física - Información Personal
         'nombres',
