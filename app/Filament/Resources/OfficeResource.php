@@ -3,8 +3,8 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\OfficeResource\Pages;
-use App\Filament\Resources\OfficeResource\RelationManagers;
 use App\Models\Office;
+use App\Models\City; 
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -12,6 +12,9 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Filament\Forms\Get; 
+use Filament\Forms\Set; 
+use Illuminate\Support\Collection; 
 
 class OfficeResource extends Resource
 {
@@ -44,7 +47,7 @@ class OfficeResource extends Resource
                             ->required()
                             ->maxLength(255)
                             ->label('Nombre'),
-                        Forms\Components\TextInput::make('teléfono')
+                        Forms\Components\TextInput::make('telefono')
                             ->tel()
                             ->maxLength(20)
                             ->label('Teléfono'),
@@ -97,18 +100,23 @@ class OfficeResource extends Resource
                         Forms\Components\TextInput::make('codigo_postal')
                             ->maxLength(10)
                             ->label('Código Postal'),
+
+                        // === SELECTS DEPENDIENTES (ESTADO -> CIUDAD) ===
+                        
                         Forms\Components\Select::make('estate_id')
                             ->relationship('estate', 'nombre')
-                            ->required()
+                            ->label('Estado')
                             ->searchable()
                             ->preload()
-                            ->label('Estado'),
-                        Forms\Components\Select::make('city_id')
-                            ->relationship('city', 'nombre')
+                            ->live() // Hace reactivo el campo
+                            ->required(),
+
+                        Forms\Components\TextInput::make('ciudad')
+                            ->label('Ciudad')
                             ->required()
-                            ->searchable()
-                            ->preload()
-                            ->label('Ciudad'),
+                            ->maxLength(100),
+                        // ===============================================
+
                     ])->columns(2),
 
                 Forms\Components\Section::make('Geolocalización')
@@ -151,14 +159,16 @@ class OfficeResource extends Resource
                 Tables\Columns\IconColumn::make('estatus_recibir_leads')
                     ->boolean()
                     ->label('Recibir Leads'),
-                Tables\Columns\TextColumn::make('city.nombre')
-                    ->searchable()
-                    ->sortable()
-                    ->label('Ciudad'),
+                
+                // Columnas de relación corregidas
+                Tables\Columns\TextColumn::make('ciudad')
+                    ->label('Ciudad')
+                    ->searchable(),
                 Tables\Columns\TextColumn::make('estate.nombre')
                     ->searchable()
                     ->sortable()
                     ->label('Estado'),
+                
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
@@ -227,6 +237,6 @@ class OfficeResource extends Resource
             ->withoutGlobalScopes([
                 SoftDeletingScope::class,
             ])
-            ->with(['city', 'estate']); // Eager loading para evitar N+1 queries
+            ->with(['city', 'estate']); // Eager loading para optimizar consultas
     }
 }

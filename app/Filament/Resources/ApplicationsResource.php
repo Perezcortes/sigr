@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\ApplicationsResource\Pages;
 use App\Models\Application;
+use App\Models\ApplicationDocument;
 use App\Models\Tenant;
 use App\Models\User;
 use Filament\Forms;
@@ -12,6 +13,7 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Storage;
 
 class ApplicationsResource extends Resource
 {
@@ -49,6 +51,9 @@ class ApplicationsResource extends Resource
                                     if ($user && $user->is_tenant) {
                                         $tenant = Tenant::where('user_id', $user->id)->first();
                                         if ($tenant) {
+                                            // Pre-llenar tipo_persona desde el tenant
+                                            $set('tipo_persona', $tenant->tipo_persona ?? 'fisica');
+                                            
                                             // Pre-llenar campos de empleo
                                             $set('profesion_oficio_puesto', $tenant->profesion_oficio_puesto);
                                             $set('tipo_empleo', $tenant->tipo_empleo);
@@ -102,6 +107,29 @@ class ApplicationsResource extends Resource
                                 }
                             }),
 
+                        Forms\Components\Select::make('tipo_persona')
+                            ->label('Tipo de Persona')
+                            ->options([
+                                'fisica' => 'Persona Física',
+                                'moral' => 'Persona Moral',
+                            ])
+                            ->required()
+                            ->live()
+                            ->default('fisica')
+                            ->afterStateUpdated(function (Forms\Set $set, $state) {
+                                // Limpiar campos cuando cambia el tipo de persona si es necesario
+                            }),
+
+                        Forms\Components\Select::make('tipo_inmueble')
+                            ->label('Tipo de Inmueble')
+                            ->options([
+                                'residencial' => 'Inmuebles Residenciales',
+                                'comercial' => 'Inmuebles Comerciales',
+                            ])
+                            ->required()
+                            ->live()
+                            ->default('residencial'),
+
                         Forms\Components\Placeholder::make('folio')
                             ->label('Folio')
                             ->content(fn ($record) => $record?->folio ?? 'Se generará automáticamente')
@@ -122,19 +150,125 @@ class ApplicationsResource extends Resource
                     ])
                     ->columns(2),
 
-                // SECCIÓN: DATOS DE EMPLEO E INGRESOS
+                // SECCIÓN: DATOS DE EMPLEO E INGRESOS (solo para persona física)
                 Forms\Components\Section::make('Datos de Empleo e Ingresos')
                     ->description('Información sobre el empleo y situación económica')
                     ->schema(self::getDatosEmpleoSchema())
                     ->columns(2)
-                    ->collapsible(),
+                    ->collapsible()
+                    ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica'),
 
-                // SECCIÓN: USO DE PROPIEDAD
+                // SECCIÓN: REFERENCIAS COMERCIALES (solo para persona moral)
+                Forms\Components\Section::make('Referencias Comerciales')
+                    ->description('Referencias comerciales de la empresa')
+                    ->schema(self::getReferenciasComercialesSchema())
+                    ->columns(2)
+                    ->collapsible()
+                    ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'moral'),
+
+                // SECCIÓN: USO DE PROPIEDAD (solo para inmuebles comerciales)
                 Forms\Components\Section::make('Uso de Propiedad')
                     ->description('Información sobre el uso que dará al inmueble')
                     ->schema(self::getUsoPropiedadSchema())
                     ->columns(2)
-                    ->collapsible(),
+                    ->collapsible()
+                    ->visible(fn (Forms\Get $get) => $get('tipo_inmueble') === 'comercial'),
+
+                // SECCIÓN: DOCUMENTOS DEL INQUILINO
+                Forms\Components\Section::make('Documentos del Inquilino')
+                    ->description(fn (Forms\Get $get) => $get('tipo_persona') === 'moral' 
+                        ? 'Documentos requeridos para Persona Moral' 
+                        : 'Documentos requeridos para Persona Física')
+                    ->schema([
+                        Forms\Components\Placeholder::make('application_docs_list')
+                            ->label('Documentos cargados')
+                            ->content(function ($record, $livewire) {
+                                if (!$record || !($livewire instanceof Pages\EditApplications)) {
+                                    return 'Guarde la solicitud primero para poder cargar documentos';
+                                }
+                                
+                                $docs = $record->documents ?? collect();
+                                if ($docs->isEmpty()) return 'No hay documentos cargados';
+                                
+                                $tipoPersona = $record->tipo_persona ?? 'fisica';
+                                $tipos = $tipoPersona === 'moral' 
+                                    ? ApplicationDocument::tiposPersonaMoral() 
+                                    : ApplicationDocument::tiposPersonaFisica();
+                                
+                                return new \Illuminate\Support\HtmlString(
+                                    $docs->map(function ($doc) use ($tipos, $livewire) {
+                                        $label = ($tipos[$doc->tag] ?? $doc->tag) . ' - ' . basename($doc->path_file);
+                                        $url = Storage::disk('public')->url($doc->path_file);
+                                        return "<div class='flex items-center gap-2 py-1'>
+                                            <span class='flex-1'>{$label}</span>
+                                            <a href='{$url}' target='_blank' class='text-blue-500 hover:text-blue-700' title='Ver'><svg class='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M15 12a3 3 0 11-6 0 3 3 0 016 0z'></path><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z'></path></svg></a>
+                                            <a href='{$url}' download class='text-green-500 hover:text-green-700' title='Descargar'><svg class='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4'></path></svg></a>
+                                            <button type='button' wire:click=\"deleteApplicationDocument({$doc->id})\" class='text-red-500 hover:text-red-700' title='Eliminar'><svg class='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16'></path></svg></button>
+                                        </div>";
+                                    })->implode('')
+                                );
+                            })
+                            ->columnSpanFull(),
+                    ])
+                    ->collapsible()
+                    ->visible(fn (Forms\Get $get) => $get('tipo_persona') !== null),
+
+                // Acción para subir documentos (solo en edición)
+                Forms\Components\Actions::make([
+                    Forms\Components\Actions\Action::make('subir_documento')
+                        ->label('Subir Documento')
+                        ->color('primary')
+                        ->icon('heroicon-o-arrow-up-tray')
+                        ->form([
+                            Forms\Components\Select::make('tag')
+                                ->label('Tipo de Documento')
+                                ->options(function (Forms\Get $get, $livewire) {
+                                    $tipoPersona = $get('tipo_persona');
+                                    if (!$tipoPersona && $livewire instanceof Pages\EditApplications) {
+                                        $tipoPersona = $livewire->record->tipo_persona ?? 'fisica';
+                                    }
+                                    return ($tipoPersona === 'moral') 
+                                        ? ApplicationDocument::tiposPersonaMoral() 
+                                        : ApplicationDocument::tiposPersonaFisica();
+                                })
+                                ->required(),
+                            Forms\Components\FileUpload::make('file')
+                                ->label('Archivo')
+                                ->directory('application-documents')
+                                ->acceptedFileTypes(['application/pdf', 'image/*'])
+                                ->maxSize(5120)
+                                ->required(),
+                        ])
+                        ->action(function (array $data, $livewire) {
+                            if (!($livewire instanceof Pages\EditApplications) || !$livewire->record) {
+                                \Filament\Notifications\Notification::make()
+                                    ->danger()
+                                    ->title('Error')
+                                    ->body('Debe guardar la solicitud primero')
+                                    ->send();
+                                return;
+                            }
+                            
+                            ApplicationDocument::create([
+                                'application_id' => $livewire->record->id,
+                                'user_id' => auth()->id(),
+                                'user_name' => auth()->user()->name,
+                                'tag' => $data['tag'],
+                                'path_file' => $data['file'],
+                                'mime' => Storage::disk('public')->mimeType($data['file']) ?? 'application/octet-stream',
+                            ]);
+                            
+                            // Recargar la relación de documentos
+                            $livewire->record->load('documents');
+                            
+                            \Filament\Notifications\Notification::make()
+                                ->success()
+                                ->title('Documento subido correctamente')
+                                ->send();
+                        })
+                        ->visible(fn ($livewire) => $livewire instanceof Pages\EditApplications),
+                ])
+                ->visible(fn (Forms\Get $get, $livewire) => $livewire instanceof Pages\EditApplications && $get('tipo_persona') !== null),
             ]);
     }
 
@@ -202,9 +336,14 @@ class ApplicationsResource extends Resource
                     ]),
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\ViewAction::make(),
+                Tables\Actions\EditAction::make()
+                    ->iconButton() // Convierte el botón a solo icono
+                    ->tooltip('Editar'),
+                Tables\Actions\ViewAction::make()
+                    ->iconButton() // Convierte el botón a solo icono
+                    ->tooltip('Ver'),
             ])
+            ->actionsColumnLabel('ACCIONES')
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
@@ -224,7 +363,6 @@ class ApplicationsResource extends Resource
     {
         return [
             'index' => Pages\ListApplications::route('/'),
-            'create' => Pages\CreateApplications::route('/create'),
             'edit' => Pages\EditApplications::route('/{record}/edit'),
         ];
     }
@@ -523,6 +661,90 @@ class ApplicationsResource extends Resource
                         ])
                         ->columns(2)
                         ->visible(fn (Forms\Get $get) => $get('sustituye_otro_domicilio') == 1)
+                        ->columnSpanFull(),
+                ])
+                ->columns(2)
+                ->columnSpanFull(),
+        ];
+    }
+
+    protected static function getReferenciasComercialesSchema(): array
+    {
+        return [
+            Forms\Components\Group::make()
+                ->schema([
+                    Forms\Components\Placeholder::make('referencias_comerciales_info')
+                        ->label('Referencias comerciales')
+                        ->content('Complete la información de las referencias comerciales')
+                        ->columnSpanFull(),
+
+                    // Referencia 1
+                    Forms\Components\Group::make()
+                        ->schema([
+                            Forms\Components\Placeholder::make('referencia_comercial1_label')
+                                ->label('Referencia comercial 1')
+                                ->columnSpanFull(),
+
+                            Forms\Components\TextInput::make('referencia_comercial1_empresa')
+                                ->label('Nombre de la empresa')
+                                ->required(),
+
+                            Forms\Components\TextInput::make('referencia_comercial1_contacto')
+                                ->label('Nombre del contacto')
+                                ->required(),
+
+                            Forms\Components\TextInput::make('referencia_comercial1_telefono')
+                                ->label('Teléfono')
+                                ->tel()
+                                ->required(),
+                        ])
+                        ->columns(2)
+                        ->columnSpanFull(),
+
+                    // Referencia 2
+                    Forms\Components\Group::make()
+                        ->schema([
+                            Forms\Components\Placeholder::make('referencia_comercial2_label')
+                                ->label('Referencia comercial 2')
+                                ->columnSpanFull(),
+
+                            Forms\Components\TextInput::make('referencia_comercial2_empresa')
+                                ->label('Nombre de la empresa')
+                                ->required(),
+
+                            Forms\Components\TextInput::make('referencia_comercial2_contacto')
+                                ->label('Nombre del contacto')
+                                ->required(),
+
+                            Forms\Components\TextInput::make('referencia_comercial2_telefono')
+                                ->label('Teléfono')
+                                ->tel()
+                                ->required(),
+                        ])
+                        ->columns(2)
+                        ->columnSpanFull(),
+
+                    // Referencia 3
+                    Forms\Components\Group::make()
+                        ->schema([
+                            Forms\Components\Placeholder::make('referencia_comercial3_label')
+                                ->label('Referencia comercial 3')
+                                ->columnSpanFull(),
+
+                            Forms\Components\TextInput::make('referencia_comercial3_empresa')
+                                ->label('Nombre de la empresa')
+                                ->required(),
+
+                            Forms\Components\TextInput::make('referencia_comercial3_contacto')
+                                ->label('Nombre del contacto')
+                                ->required(),
+
+                            Forms\Components\TextInput::make('referencia_comercial3_telefono')
+                                ->label('Teléfono')
+                                ->tel()
+                                ->required(),
+                        ])
+                        ->columns(2)
                         ->columnSpanFull(),
                 ])
                 ->columns(2)

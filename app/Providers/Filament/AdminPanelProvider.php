@@ -8,12 +8,12 @@ use App\Filament\Resources\RentResource;
 use App\Filament\Resources\TenantResource;
 use App\Filament\Resources\TenantRequestResource;
 use App\Filament\Resources\OwnerRequestResource;
+use App\Filament\Resources\UserResource;
 use App\Filament\Widgets\ResumenDashboardWidget;
 use App\Filament\Widgets\RentasMensualesChartWidget;
 use App\Filament\Widgets\SolicitudesMensualesChartWidget;
 use App\Filament\Widgets\EstatusRentasChartWidget;
 use App\Filament\Widgets\EstatusSolicitudesChartWidget;
-use CWSPS154\UsersRolesPermissions\UsersRolesPermissionsPlugin;
 use Filament\Facades\Filament;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -43,6 +43,7 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
+            ->profile()
             // CONFIGURACIÓN DE COLORES (Rentas.com)
             ->colors([
                 'primary' => Color::hex('#161848'),   // Azul Marino
@@ -79,6 +80,7 @@ class AdminPanelProvider extends PanelProvider
                 OwnerRequestResource::class,
                 ApplicationsResource::class,
                 PropertyResource::class,
+                UserResource::class,
             ])
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
             ->pages([
@@ -91,9 +93,6 @@ class AdminPanelProvider extends PanelProvider
                 SolicitudesMensualesChartWidget::class,
                 EstatusRentasChartWidget::class,
                 EstatusSolicitudesChartWidget::class,
-            ])
-            ->plugins([
-                UsersRolesPermissionsPlugin::make()
             ])
             ->middleware([
                 EncryptCookies::class,

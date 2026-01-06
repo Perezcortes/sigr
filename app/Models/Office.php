@@ -24,7 +24,7 @@ class Office extends Model
         'colonia',
         'delegacion_municipio',
         'codigo_postal',
-        'city_id',
+        'ciudad',
         'estate_id',
         'lat',
         'lng',

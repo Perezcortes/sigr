@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\PropertyResource\Pages;
 use App\Models\Property;
+use App\Models\PropertyImage;
 use App\Models\Owner;
 use App\Models\User;
 use Filament\Forms;
@@ -12,6 +13,7 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Storage;
 
 class PropertyResource extends Resource
 {
@@ -85,6 +87,101 @@ class PropertyResource extends Resource
                     ->schema(self::getDireccionInmuebleSchema())
                     ->columns(2)
                     ->collapsible(),
+
+                // SECCIÓN: IMÁGENES DE LA PROPIEDAD
+                Forms\Components\Section::make('Imágenes de la Propiedad')
+                    ->description('Cargue las imágenes de la propiedad. Seleccione una como portada.')
+                    ->schema([
+                        Forms\Components\Placeholder::make('property_images_list')
+                            ->label('Imágenes cargadas')
+                            ->content(function ($record, $livewire) {
+                                if (!$record || !($livewire instanceof Pages\EditProperty)) {
+                                    return 'Guarde la propiedad primero para poder cargar imágenes';
+                                }
+                                
+                                $images = $record->images()->orderBy('is_portada', 'desc')->orderBy('order')->get();
+                                if ($images->isEmpty()) return 'No hay imágenes cargadas';
+                                
+                                return new \Illuminate\Support\HtmlString(
+                                    '<div class="grid grid-cols-2 md:grid-cols-4 gap-4">' .
+                                    $images->map(function ($image) use ($livewire) {
+                                        $url = Storage::disk('public')->url($image->path_file);
+                                        $portadaBadge = $image->is_portada 
+                                            ? '<span class="absolute top-2 right-2 bg-green-500 text-white text-xs px-2 py-1 rounded font-bold">⭐ Portada</span>' 
+                                            : '';
+                                        $portadaButton = $image->is_portada
+                                            ? '<button type="button" disabled class="flex-1 text-center text-xs bg-green-500 text-white px-2 py-1 rounded cursor-not-allowed" title="Ya es la imagen portada">Es Portada</button>'
+                                            : '<button type="button" wire:click="setPortada(' . $image->id . ')" class="flex-1 text-center text-xs bg-purple-500 text-white hover:bg-purple-600 px-2 py-1 rounded font-semibold" title="Marcar como portada">⭐ Portada</button>';
+                                        
+                                        return "<div class='relative border-2 " . ($image->is_portada ? 'border-green-500' : 'border-gray-300') . " rounded-lg overflow-hidden shadow-md'>
+                                            <img src='{$url}' alt='Imagen' class='w-full h-32 object-cover'>
+                                            {$portadaBadge}
+                                            <div class='p-2 bg-gray-50 space-y-1'>
+                                                <div class='flex gap-1'>
+                                                    <a href='{$url}' target='_blank' class='flex-1 text-center text-xs bg-blue-500 text-white hover:bg-blue-600 px-2 py-1 rounded' title='Ver'>Ver</a>
+                                                    <a href='{$url}' download class='flex-1 text-center text-xs bg-green-500 text-white hover:bg-green-600 px-2 py-1 rounded' title='Descargar'>Descargar</a>
+                                                </div>
+                                                <div class='flex gap-1'>
+                                                    {$portadaButton}
+                                                </div>
+                                                <div class='flex gap-1'>
+                                                    <button type='button' wire:click=\"deletePropertyImage({$image->id})\" class='w-full text-center text-xs bg-red-500 text-white hover:bg-red-600 px-2 py-1 rounded font-semibold' title='Eliminar imagen'>🗑️ Eliminar</button>
+                                                </div>
+                                            </div>
+                                        </div>";
+                                    })->implode('') .
+                                    '</div>'
+                                );
+                            })
+                            ->columnSpanFull(),
+                    ])
+                    ->collapsible()
+                    ->visible(fn ($livewire) => $livewire instanceof Pages\EditProperty),
+
+                // Acción para subir imágenes (solo en edición)
+                Forms\Components\Actions::make([
+                    Forms\Components\Actions\Action::make('subir_imagen')
+                        ->label('Subir Imagen')
+                        ->color('primary')
+                        ->icon('heroicon-o-photo')
+                        ->form([
+                            Forms\Components\FileUpload::make('file')
+                                ->label('Imagen')
+                                ->directory('property-images')
+                                ->acceptedFileTypes(['image/*'])
+                                ->maxSize(5120)
+                                ->image()
+                                ->required(),
+                        ])
+                        ->action(function (array $data, $livewire) {
+                            if (!($livewire instanceof Pages\EditProperty) || !$livewire->record) {
+                                \Filament\Notifications\Notification::make()
+                                    ->danger()
+                                    ->title('Error')
+                                    ->body('Debe guardar la propiedad primero')
+                                    ->send();
+                                return;
+                            }
+                            
+                            PropertyImage::create([
+                                'property_id' => $livewire->record->id,
+                                'user_id' => auth()->id(),
+                                'user_name' => auth()->user()->name,
+                                'path_file' => $data['file'],
+                                'is_portada' => $livewire->record->images()->count() === 0, // Primera imagen es portada por defecto
+                            ]);
+                            
+                            // Recargar la relación de imágenes
+                            $livewire->record->load('images');
+                            
+                            \Filament\Notifications\Notification::make()
+                                ->success()
+                                ->title('Imagen subida correctamente')
+                                ->send();
+                        })
+                        ->visible(fn ($livewire) => $livewire instanceof Pages\EditProperty),
+                ])
+                ->visible(fn ($livewire) => $livewire instanceof Pages\EditProperty),
             ]);
     }
 
@@ -176,9 +273,14 @@ class PropertyResource extends Resource
                     ]),
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\ViewAction::make(),
+                Tables\Actions\EditAction::make()
+                    ->iconButton() // Convierte el botón a solo icono
+                    ->tooltip('Editar'),
+                Tables\Actions\ViewAction::make()
+                    ->iconButton() // Convierte el botón a solo icono
+                    ->tooltip('Ver'),
             ])
+            ->actionsColumnLabel('ACCIONES')
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),

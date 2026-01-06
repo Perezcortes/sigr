@@ -29,7 +29,6 @@ class ListOwners extends ListRecords
                         ->live()
                         ->columnSpanFull(),
 
-                    // Campos Persona Física
                     Forms\Components\TextInput::make('nombres')
                         ->label('Nombre(s)')
                         ->required(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica')
@@ -47,11 +46,18 @@ class ListOwners extends ListRecords
                         ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica')
                         ->maxLength(255),
 
+                    Forms\Components\TextInput::make('razon_social')
+                        ->label('Razón Social')
+                        ->required(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
+                        ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
+                        ->maxLength(255),
+
                     Forms\Components\TextInput::make('email')
                         ->label('Correo')
                         ->email()
                         ->required()
-                        ->unique(ignoreRecord: true)
+                        // IMPORTANTE: Validar único en la tabla USERS, no solo en owners
+                        ->unique('users', 'email') 
                         ->maxLength(255),
 
                     Forms\Components\TextInput::make('telefono')
@@ -59,26 +65,44 @@ class ListOwners extends ListRecords
                         ->tel()
                         ->required()
                         ->maxLength(20),
-
-                    // Campos Persona Moral
-                    Forms\Components\TextInput::make('razon_social')
-                        ->label('Razón Social')
-                        ->required(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
-                        ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
-                        ->maxLength(255),
                 ])
-                ->mutateFormDataUsing(function (array $data): array {
-                    // Si es persona moral, asegurar que nombres sea null
-                    if ($data['tipo_persona'] === 'moral') {
+                // Guardar tanto en owners como en users
+                ->using(function (array $data, string $model): \Illuminate\Database\Eloquent\Model {
+                    
+                    // 1. Construir el nombre completo para el Usuario
+                    if ($data['tipo_persona'] === 'fisica') {
+                        $name = $data['nombres'] . ' ' . $data['primer_apellido'] . ' ' . ($data['segundo_apellido'] ?? '');
+                    } else {
+                        $name = $data['razon_social'];
+                        // Limpiamos campos de persona física para la BD de owners
                         $data['nombres'] = null;
                         $data['primer_apellido'] = null;
                         $data['segundo_apellido'] = null;
                     }
-                    // Si es persona física, asegurar que razon_social sea null
-                    if ($data['tipo_persona'] === 'fisica') {
-                        $data['razon_social'] = null;
+
+                    // 2. Crear (o buscar) el Usuario en la tabla `users`
+                    // Usamos firstOrCreate por seguridad, aunque la validación unique debería prevenirlo
+                    $user = \App\Models\User::firstOrCreate(
+                        ['email' => $data['email']],
+                        [
+                            'name' => trim($name),
+                            'password' => \Illuminate\Support\Facades\Hash::make('password123'), // Contraseña temporal
+                            'is_active' => true,
+                            'is_owner' => true,  // <--- ACTIVAMOS EL FLAG
+                            'is_tenant' => false,
+                        ]
+                    );
+
+                    // Si el usuario ya existía (por ejemplo era inquilino), aseguramos que sea owner también
+                    if (!$user->is_owner) {
+                        $user->update(['is_owner' => true]);
                     }
-                    return $data;
+
+                    // 3. Crear el registro en `owners` vinculado al usuario
+                    // El modelo Owner debe tener 'user_id' en su $fillable
+                    $data['user_id'] = $user->id;
+
+                    return $model::create($data);
                 }),
         ];
     }

@@ -2,23 +2,28 @@
 
 namespace App\Models;
 
-use CWSPS154\UsersRolesPermissions\Models\HasRole;
+//use CWSPS154\UsersRolesPermissions\Models\HasRole;
 use Filament\Models\Contracts\FilamentUser;
+use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Spatie\Permission\Traits\HasRoles;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
 use Filament\Models\Contracts\HasAvatar;
 
 
 class User extends Authenticatable implements HasMedia, HasAvatar, FilamentUser
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable, HasRole, HasApiTokens;
+    use HasFactory, Notifiable, HasApiTokens;
+    use HasRoles;
+    use InteractsWithMedia;
 
     /**
      * The attributes that are mass assignable.
@@ -30,9 +35,11 @@ class User extends Authenticatable implements HasMedia, HasAvatar, FilamentUser
         'email',
         'mobile',
         'password',
-        'role_id',
+        //'role_id',
         'last_seen',
-        'is_active'
+        'is_active',
+        'is_owner',
+        'is_tenant',
     ];
 
     /**
@@ -55,7 +62,19 @@ class User extends Authenticatable implements HasMedia, HasAvatar, FilamentUser
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_active' => 'boolean',
+            'is_owner' => 'boolean',
+            'is_tenant' => 'boolean',
         ];
+    }
+
+    public function canAccessPanel(Panel $panel): bool
+    {
+        // Aquí defines quién puede entrar al admin.
+        // Por ahora retornamos true si el usuario está activo.
+        // Opcionalmente se puede validar: return $this->hasRole('Administrador') && $this->is_active;
+        
+        return true; 
     }
 
     /**
@@ -70,7 +89,7 @@ class User extends Authenticatable implements HasMedia, HasAvatar, FilamentUser
     public function getFilamentAvatarUrl(): ?string
     {
         try {
-            $avatarUrl = $this->getFirstMediaUrl('profile-images', 'avatar');
+            $avatarUrl = $this->getFirstMediaUrl('profile-images');
             
             // Si no hay avatar, usar imagen por defecto
             if (empty($avatarUrl)) {

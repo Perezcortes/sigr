@@ -134,4 +134,20 @@ class Property extends Model
     {
         return $this->hasMany(Rent::class);
     }
+
+    /**
+     * Relación con PropertyImages
+     */
+    public function images(): HasMany
+    {
+        return $this->hasMany(PropertyImage::class);
+    }
+
+    /**
+     * Obtiene la imagen portada
+     */
+    public function getPortadaAttribute()
+    {
+        return $this->images()->where('is_portada', true)->first();
+    }
 }
