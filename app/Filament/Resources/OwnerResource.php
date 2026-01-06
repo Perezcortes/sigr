@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\OwnerResource\Pages;
+use App\Filament\Resources\PropertyResource;
 use App\Helpers\EstadosMexico;
 use App\Models\Owner;
 use Filament\Forms;
@@ -738,6 +739,17 @@ class OwnerResource extends Resource
                     ]),
             ])
             ->actions([
+                Tables\Actions\Action::make('verPropiedades')
+                    ->icon('heroicon-o-building-library')
+                    ->iconButton() // Convierte el botón a solo icono
+                    ->tooltip('Ver propiedades')
+                    ->url(fn ($record) => PropertyResource::getUrl('index', [
+                        'tableFilters' => [
+                            'user_id' => [
+                                'value' => $record->user_id, // Filtramos por el ID del Usuario vinculado al Owner
+                            ],
+                        ],
+                    ])),
                 Tables\Actions\EditAction::make()
                     ->iconButton() // Convierte el botón a solo icono
                     ->tooltip('Editar'),

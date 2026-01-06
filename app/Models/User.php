@@ -40,6 +40,7 @@ class User extends Authenticatable implements HasMedia, HasAvatar, FilamentUser
         'is_active',
         'is_owner',
         'is_tenant',
+        'office_id',
     ];
 
     /**
@@ -131,5 +132,22 @@ class User extends Authenticatable implements HasMedia, HasAvatar, FilamentUser
     public function tenant(): HasOne
     {
         return $this->hasOne(Tenant::class);
+    }
+
+    /**
+     * Relación con Office
+     */
+    public function office(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(Office::class);
+    }
+
+    /**
+     * Relación con Owner (Propietario)
+     * Necesaria para que funcione el filtro "whereHas('owner')"
+     */
+    public function owner(): HasOne
+    {
+        return $this->hasOne(Owner::class);
     }
 }

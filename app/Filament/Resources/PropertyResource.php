@@ -19,6 +19,8 @@ class PropertyResource extends Resource
 {
     protected static ?string $model = Property::class;
 
+    protected static bool $shouldRegisterNavigation = false;
+
     protected static ?string $navigationIcon = 'heroicon-o-building-office';
     protected static ?string $navigationLabel = 'Propiedades';
     protected static ?string $navigationGroup = 'Rentas';
@@ -506,5 +508,30 @@ class PropertyResource extends Resource
                 ->columnSpanFull()
                 ->helperText('Describa el inventario con el que cuenta el inmueble, por ejemplo, cortinas, muebles, hidroneumático, etc.'),
         ];
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+        $user = auth()->user();
+
+        if ($user->hasRole('Administrador')) {
+            return $query;
+        }
+
+        if ($user->hasRole('Asesor')) {
+            // Filtrar propiedades donde el Propietario (Owner) esté asignado a este Asesor
+            // Asumiendo que Property tiene 'user_id' (el dueño) 
+            // y Owner tiene 'user_id' y 'asesor_id'.
+            
+            return $query->whereHas('user', function ($q) use ($user) {
+                // Buscamos en la tabla users -> owners
+                $q->whereHas('owner', function ($q2) use ($user) {
+                    $q2->where('asesor_id', $user->id);
+                });
+            });
+        }
+
+        return $query;
     }
 }

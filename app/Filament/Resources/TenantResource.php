@@ -439,6 +439,26 @@ class TenantResource extends Resource
         ];
     }
 
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+        $user = auth()->user();
+
+        // Si es Admin, ve todo.
+        if ($user->hasRole('Administrador')) {
+            return $query;
+        }
+
+        // Si es Asesor, solo ve los registros donde él es el 'asesor_id'
+        // OJO: Si usas created_by cambia 'asesor_id' por 'created_by'
+        if ($user->hasRole('Asesor')) {
+            return $query->where('asesor_id', $user->id);
+        }
+
+        // Por defecto, restringir o mostrar todo según el caso
+        return $query;
+    }
+
     public static function table(Table $table): Table
     {
         return $table

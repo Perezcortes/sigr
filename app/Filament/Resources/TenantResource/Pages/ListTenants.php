@@ -82,7 +82,8 @@ class ListTenants extends ListRecords
                 ])
                 // === LÓGICA DE VINCULACIÓN ===
                 ->using(function (array $data, string $model): Model {
-                    
+
+                    $data['asesor_id'] = auth()->id(); // Guardamos quién lo creó
                     // 1. Determinar el nombre para el usuario y limpiar datos
                     if ($data['tipo_persona'] === 'fisica') {
                         $nombreUsuario = $data['nombres'] . ' ' . $data['primer_apellido'] . ' ' . ($data['segundo_apellido'] ?? '');
