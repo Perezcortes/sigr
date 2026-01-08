@@ -8,6 +8,7 @@ use App\Models\User;
 use Filament\Actions;
 use Filament\Forms;
 use Filament\Resources\Pages\ListRecords;
+use Filament\Support\Enums\MaxWidth; 
 use Illuminate\Database\Eloquent\Builder;
 
 class ListProperties extends ListRecords
@@ -43,5 +44,10 @@ class ListProperties extends ListRecords
                     return redirect(PropertyResource::getUrl('edit', ['record' => $property->id]));
                 }),
         ];
+    }
+
+    public function getMaxContentWidth(): \Filament\Support\Enums\MaxWidth | string | null
+    {
+        return 'full'; 
     }
 }
