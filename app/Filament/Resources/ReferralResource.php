@@ -17,8 +17,8 @@ class ReferralResource extends Resource
     protected static ?string $navigationLabel = 'Intetesados';
     protected static ?string $modelLabel = 'Interesado';
     protected static ?string $pluralModelLabel = 'Interesados';
-    protected static ?string $navigationGroup = 'Rentas';
-    protected static ?int $navigationSort = 6;
+    protected static ?string $navigationGroup = 'Interesados';
+    protected static ?int $navigationSort = 1;
 
     public static function form(Form $form): Form
     {
