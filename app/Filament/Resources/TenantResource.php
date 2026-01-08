@@ -450,7 +450,6 @@ class TenantResource extends Resource
         }
 
         // Si es Asesor, solo ve los registros donde él es el 'asesor_id'
-        // OJO: Si usas created_by cambia 'asesor_id' por 'created_by'
         if ($user->hasRole('Asesor')) {
             return $query->where('asesor_id', $user->id);
         }

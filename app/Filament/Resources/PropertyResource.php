@@ -95,47 +95,65 @@ class PropertyResource extends Resource
                     ->description('Cargue las imágenes de la propiedad. Seleccione una como portada.')
                     ->schema([
                         Forms\Components\Placeholder::make('property_images_list')
-                            ->label('Imágenes cargadas')
-                            ->content(function ($record, $livewire) {
-                                if (!$record || !($livewire instanceof Pages\EditProperty)) {
-                                    return 'Guarde la propiedad primero para poder cargar imágenes';
-                                }
-                                
-                                $images = $record->images()->orderBy('is_portada', 'desc')->orderBy('order')->get();
-                                if ($images->isEmpty()) return 'No hay imágenes cargadas';
-                                
+                        ->label('')
+                        ->content(function ($record, $livewire) {
+                            // Validaciones iniciales
+                            if (!$record || !($livewire instanceof Pages\EditProperty)) {
                                 return new \Illuminate\Support\HtmlString(
-                                    '<div class="grid grid-cols-2 md:grid-cols-4 gap-4">' .
-                                    $images->map(function ($image) use ($livewire) {
-                                        $url = Storage::disk('public')->url($image->path_file);
-                                        $portadaBadge = $image->is_portada 
-                                            ? '<span class="absolute top-2 right-2 bg-green-500 text-white text-xs px-2 py-1 rounded font-bold">⭐ Portada</span>' 
-                                            : '';
-                                        $portadaButton = $image->is_portada
-                                            ? '<button type="button" disabled class="flex-1 text-center text-xs bg-green-500 text-white px-2 py-1 rounded cursor-not-allowed" title="Ya es la imagen portada">Es Portada</button>'
-                                            : '<button type="button" wire:click="setPortada(' . $image->id . ')" class="flex-1 text-center text-xs bg-purple-500 text-white hover:bg-purple-600 px-2 py-1 rounded font-semibold" title="Marcar como portada">⭐ Portada</button>';
-                                        
-                                        return "<div class='relative border-2 " . ($image->is_portada ? 'border-green-500' : 'border-gray-300') . " rounded-lg overflow-hidden shadow-md'>
-                                            <img src='{$url}' alt='Imagen' class='w-full h-32 object-cover'>
-                                            {$portadaBadge}
-                                            <div class='p-2 bg-gray-50 space-y-1'>
-                                                <div class='flex gap-1'>
-                                                    <a href='{$url}' target='_blank' class='flex-1 text-center text-xs bg-blue-500 text-white hover:bg-blue-600 px-2 py-1 rounded' title='Ver'>Ver</a>
-                                                    <a href='{$url}' download class='flex-1 text-center text-xs bg-green-500 text-white hover:bg-green-600 px-2 py-1 rounded' title='Descargar'>Descargar</a>
-                                                </div>
-                                                <div class='flex gap-1'>
-                                                    {$portadaButton}
-                                                </div>
-                                                <div class='flex gap-1'>
-                                                    <button type='button' wire:click=\"deletePropertyImage({$image->id})\" class='w-full text-center text-xs bg-red-500 text-white hover:bg-red-600 px-2 py-1 rounded font-semibold' title='Eliminar imagen'>🗑️ Eliminar</button>
-                                                </div>
-                                            </div>
-                                        </div>";
-                                    })->implode('') .
-                                    '</div>'
+                                    '<div class="p-4 text-sm text-yellow-800 rounded-lg bg-yellow-50 dark:bg-gray-800 dark:text-yellow-300">
+                                        <span class="font-medium">Atención:</span> Guarde la propiedad primero para cargar imágenes.
+                                    </div>'
                                 );
-                            })
-                            ->columnSpanFull(),
+                            }
+                            
+                            $images = $record->images()->orderBy('is_portada', 'desc')->orderBy('order')->get();
+                            
+                            if ($images->isEmpty()) {
+                                return new \Illuminate\Support\HtmlString('<div class="text-center text-gray-500 py-4">No hay imágenes cargadas aún.</div>');
+                            }
+                            
+                            $html = '<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">';
+                            
+                            foreach ($images as $image) {
+                                $url = Storage::disk('public')->url($image->path_file);
+                                $isPortada = $image->is_portada;
+                                
+                                // Estilos dinámicos según si es portada
+                                $borderColor = $isPortada ? 'border-success-500 ring-2 ring-success-500' : 'border-gray-200 dark:border-gray-700';
+                                $badge = $isPortada ? '<div class="absolute top-2 right-2 bg-success-500 text-white text-xs font-bold px-2 py-1 rounded shadow-sm">Portada</div>' : '';
+                                
+                                // Botones de acción
+                                $btnPortada = $isPortada 
+                                    ? '<button disabled class="w-full text-xs py-1.5 rounded bg-gray-100 text-gray-400 cursor-not-allowed font-medium dark:bg-gray-700">Es Portada</button>'
+                                    : '<button wire:click="setPortada('.$image->id.')" class="w-full text-xs py-1.5 rounded bg-primary-600 text-white hover:bg-primary-500 transition font-medium">★ Hacer Portada</button>';
+                                
+                                $btnEliminar = '<button wire:click="deletePropertyImage('.$image->id.')" class="text-danger-500 hover:text-danger-600 p-1" title="Eliminar">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
+                                </button>';
+
+                                $html .= "
+                                <div class='group relative bg-white dark:bg-gray-900 rounded-xl border {$borderColor} shadow-sm overflow-hidden flex flex-col transition hover:shadow-md'>
+                                    <div class='relative h-40 bg-gray-100'>
+                                        <img src='{$url}' class='w-full h-full object-cover' alt='Propiedad'>
+                                        {$badge}
+                                        <div class='absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2'>
+                                            <a href='{$url}' target='_blank' class='bg-white/90 text-gray-800 p-1.5 rounded-full hover:bg-white' title='Ver'><svg class='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M15 12a3 3 0 11-6 0 3 3 0 016 0z'></path><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z'></path></svg></a>
+                                        </div>
+                                    </div>
+                                    <div class='p-3 flex flex-col gap-2'>
+                                        <div class='flex justify-between items-center'>
+                                                <span class='text-xs text-gray-500'>ID: {$image->id}</span>
+                                                {$btnEliminar}
+                                        </div>
+                                        {$btnPortada}
+                                    </div>
+                                </div>";
+                            }
+                            $html .= '</div>';
+                            
+                            return new \Illuminate\Support\HtmlString($html);
+                        })
+                        ->columnSpanFull(),
                     ])
                     ->collapsible()
                     ->visible(fn ($livewire) => $livewire instanceof Pages\EditProperty),
@@ -191,6 +209,23 @@ class PropertyResource extends Resource
     {
         return $table
             ->columns([
+                Tables\Columns\ImageColumn::make('portada')
+                    ->label('') // Sin etiqueta para ahorrar espacio
+                    ->state(function ($record) {
+                        // Busca la imagen marcada como portada, si no, usa la primera
+                        $img = $record->images->where('is_portada', true)->first() 
+                            ?? $record->images->first();
+                        return $img ? $img->path_file : null;
+                    })
+                    ->disk('public') // Asegúrate de que coincida con tu filesystem
+                    ->square()
+                    ->size(50)
+                    ->extraImgAttributes([
+                        'class' => 'object-cover rounded-md transition-transform duration-300 ease-in-out hover:scale-[2.5] hover:z-50 hover:shadow-xl border border-gray-200 cursor-zoom-in origin-left',
+                        'style' => 'z-index: 10;', // Fuerza que quede encima al hacer zoom
+                        'loading' => 'lazy',
+                    ]),
+
                 Tables\Columns\TextColumn::make('folio')
                     ->label('Folio')
                     ->searchable()
@@ -288,7 +323,8 @@ class PropertyResource extends Resource
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
             ])
-            ->defaultSort('created_at', 'desc');
+            ->defaultSort('created_at', 'desc')
+            ->recordClasses(fn ($record) => 'h-34');
     }
 
     public static function getRelations(): array
