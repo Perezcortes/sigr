@@ -9,6 +9,8 @@ use App\Filament\Resources\TenantResource;
 use App\Filament\Resources\TenantRequestResource;
 use App\Filament\Resources\OwnerRequestResource;
 use App\Filament\Resources\UserResource;
+use App\Filament\Resources\SaleResource;
+use App\Filament\Resources\ReferralResource;
 use App\Filament\Widgets\ResumenDashboardWidget;
 use App\Filament\Widgets\RentasMensualesChartWidget;
 use App\Filament\Widgets\SolicitudesMensualesChartWidget;
@@ -44,6 +46,15 @@ class AdminPanelProvider extends PanelProvider
             ->path('admin')
             ->login()
             ->profile()
+
+            ->navigationGroups([
+                'Dashboard',
+                'Admin',  
+                'Centro de pagos',
+                'Interesados',
+                'Rentas',           
+            ])
+
             // CONFIGURACIÓN DE COLORES (Rentas.com)
             ->colors([
                 'primary' => Color::hex('#161848'),   // Azul Marino
@@ -59,11 +70,23 @@ class AdminPanelProvider extends PanelProvider
             // CONFIGURACIÓN DE BRANDING (Logos)
             ->brandName('SIGR')
             
-            // Logo por defecto (Modo Claro)
-            ->brandLogo(asset('images/logo-rentas-b.png')) 
+            // LOGO PARA MODO CLARO (Fondo Blanco)
+            ->brandLogo(fn () => request()->routeIs('filament.admin.auth.login')
+                ? asset('images/logo-rentas-w.png') 
+                : asset('images/logo-rentas-b.png')    
+            )
+
+            // LOGO PARA MODO OSCURO (Fondo Negro)
+            ->darkModeBrandLogo(fn () => request()->routeIs('filament.admin.auth.login')
+                ? asset('images/logo-rentas-b.png') 
+                : asset('images/logo-rentas-b.png')         
+            )
             
-            // Logo para Modo Oscuro 
-            ->darkModeBrandLogo(asset('images/logo-rentas-b.png')) 
+            // ALTURA DEL LOGO (Importante para que en el login se vea grande)
+            ->brandLogoHeight(fn () => request()->routeIs('filament.admin.auth.login')
+                ? '5rem' // Altura grande en el Login
+                : '2rem' // Altura pequeña en el Dashboard
+            )
             
             ->brandLogoHeight('2rem')
             ->favicon(asset('images/favicon.ico'))
@@ -81,10 +104,12 @@ class AdminPanelProvider extends PanelProvider
                 ApplicationsResource::class,
                 PropertyResource::class,
                 UserResource::class,
+                SaleResource::class,
+                ReferralResource::class,
             ])
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
             ->pages([
-                Pages\Dashboard::class,
+                //Pages\Dashboard::class,
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
             ->widgets([
