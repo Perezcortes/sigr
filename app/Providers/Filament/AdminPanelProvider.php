@@ -10,7 +10,7 @@ use App\Filament\Resources\TenantRequestResource;
 use App\Filament\Resources\OwnerRequestResource;
 use App\Filament\Resources\UserResource;
 use App\Filament\Resources\SaleResource;
-use App\Filament\Resources\ReferralResource;
+use App\Filament\Resources\LeadResource;
 use App\Filament\Widgets\ResumenDashboardWidget;
 use App\Filament\Widgets\RentasMensualesChartWidget;
 use App\Filament\Widgets\SolicitudesMensualesChartWidget;
@@ -105,7 +105,7 @@ class AdminPanelProvider extends PanelProvider
                 PropertyResource::class,
                 UserResource::class,
                 SaleResource::class,
-                ReferralResource::class,
+                LeadResource::class,
             ])
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
             ->pages([
