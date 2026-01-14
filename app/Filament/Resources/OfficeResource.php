@@ -11,6 +11,7 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Filament\Forms\Get; 
 use Filament\Forms\Set; 
@@ -22,9 +23,9 @@ class OfficeResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-building-office';
 
-    protected static ?int $navigationSort = 7;
+    protected static ?int $navigationSort = 1;
 
-    protected static ?string $navigationGroup = 'Rentas';
+    protected static ?string $navigationGroup = 'Administración';
 
     protected static ?string $navigationLabel = 'Oficinas';
 
@@ -233,10 +234,27 @@ class OfficeResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()
+        $query = parent::getEloquentQuery()
             ->withoutGlobalScopes([
                 SoftDeletingScope::class,
             ])
-            ->with(['city', 'estate']); // Eager loading para optimizar consultas
+            ->with(['city', 'estate']); 
+
+        $user = auth()->user();
+        
+        // Si es Admin o Gerente, retornamos la consulta sin filtros (ven todo)
+        if ($user->hasRole(['Administrador', 'Gerente'])) {
+            return $query;
+        }
+
+        // Si es Asesor, SOLO mostramos la oficina que coincida con su 'office_id'
+        if ($user->hasRole('Asesor')) {
+            return $query->where('id', $user->office_id);
+        }
+
+        // Opcional: Para otros roles (como Cliente) o usuarios sin rol, 
+        // return $query->whereRaw('1 = 0'); 
+
+        return $query;
     }
 }
