@@ -17,8 +17,8 @@ class SaleResource extends Resource
     protected static ?string $navigationLabel = 'Ventas';
     protected static ?string $modelLabel = 'Proceso de Venta';
     protected static ?string $pluralModelLabel = 'Ventas';
-    protected static ?string $navigationGroup = 'Rentas';
-    protected static ?int $navigationSort = 4;
+    protected static ?string $navigationGroup = 'Ventas';
+    protected static ?int $navigationSort = 1;
 
     public static function form(Form $form): Form
     {
