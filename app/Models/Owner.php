@@ -12,6 +12,8 @@ class Owner extends Model
         'user_id',
         'asesor_id',
         'tipo_persona',
+        // Campos para insertar desde interesados
+        'nombre',
         // Persona Física - Información Personal
         'nombres',
         'primer_apellido',
