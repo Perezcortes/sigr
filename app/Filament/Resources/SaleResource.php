@@ -9,6 +9,7 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Filament\Forms\Components\Fieldset;
 
 class SaleResource extends Resource
 {
@@ -47,7 +48,7 @@ class SaleResource extends Resource
                                                 Forms\Components\TextInput::make('comprador_rfc')->label('RFC'),
                                                 Forms\Components\TextInput::make('comprador_curp')->label('CURP'),
                                             ]),
-                                        Forms\Components\fieldset::make('Dirección')
+                                        Forms\Components\Fieldset::make('Dirección')
                                             ->schema([
                                                 Forms\Components\TextInput::make('comprador_calle')->label('Calle y Número'),
                                                 Forms\Components\TextInput::make('comprador_colonia')->label('Colonia'),
