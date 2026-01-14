@@ -74,7 +74,7 @@ class RolePermissionSeeder extends Seeder
 
         // Crear Roles
         $roleAdmin = Role::firstOrCreate(['name' => 'Administrador']);
-        $roleUsuario = Role::firstOrCreate(['name' => 'Usuario']);
+        $roleGerente = Role::firstOrCreate(['name' => 'Gerente']);
         $roleAsesor = Role::firstOrCreate(['name' => 'Asesor']);
         $roleCliente = Role::firstOrCreate(['name' => 'Cliente']);
 
@@ -82,11 +82,27 @@ class RolePermissionSeeder extends Seeder
         // Al Admin le damos todos los permisos existentes
         $roleAdmin->givePermissionTo(Permission::all());
 
-        // Al Usuario le podrías dar permisos específicos, por ejemplo:
-        $roleUsuario->givePermissionTo(['Ver Dashboard', 'Ver Rentas']);
+        // GERENTE:
+        // Puede ver todo de oficinas, crear oficinas y ver usuarios (asesores)
+        $roleGerente->givePermissionTo([
+            'Ver Dashboard',
+            'Gestionar Usuarios', // Para ver a los asesores
+            'Ver Oficinas',
+            'Crear Oficinas',
+            'Editar Oficinas',
+            'Ver Inquilinos', 
+            // Aquí los demás permisos que requiera el Gerente
+        ]);
 
-        // Al Asesor le podrías dar permisos específicos, por ejemplo:
-        $roleAsesor->givePermissionTo(['Ver Oficinas', 'Ver Inquilinos', 'Crear Inquilinos', 'Editar Inquilinos', 'Eliminar Inquilinos']);
+        // ASESOR:
+        $roleAsesor->givePermissionTo([
+            'Ver Dashboard',
+            'Ver Oficinas', // Necesario para entrar al módulo
+            'Ver Inquilinos',
+            'Crear Inquilinos',
+            'Editar Inquilinos',
+            // Permisos limitados a su operación
+        ]);
 
         // Al Cliente le podrías dar permisos específicos, por ejemplo: 
         $roleCliente->givePermissionTo(['Ver Rentas']);

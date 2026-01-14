@@ -57,6 +57,14 @@ class LeadResource extends Resource
                                 'Whatsapp' => 'Whatsapp',
                                 'Llamada' => 'Llamada',
                             ]),
+                        Forms\Components\Select::make('tipo_transaccion')
+                            ->label('Tipo de Transacción')
+                            ->options([
+                                'inquilino' => 'Inquilino',
+                                'propietario' => 'Propietario',
+                                'venta' => 'Proceso de venta',
+                            ])
+                            ->required(), // Si es obligatorio
                         Forms\Components\Textarea::make('mensaje')
                             ->columnSpanFull(),
                     ])->columns(2),

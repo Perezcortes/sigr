@@ -18,6 +18,7 @@ class Lead extends Model
         'etapa',
         'responsable_id',
         'payload_original',
+        'tipo_transaccion',
     ];
 
     protected $casts = [
