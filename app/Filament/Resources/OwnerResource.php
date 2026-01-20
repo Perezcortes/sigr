@@ -34,7 +34,7 @@ class OwnerResource extends Resource
 
     protected static ?string $navigationGroup = 'Rentas';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 3;
 
     public static function getCluster(): ?string
     {
@@ -718,6 +718,15 @@ class OwnerResource extends Resource
                         'moral' => 'info',
                         default => 'gray',
                     }),
+
+                Tables\Columns\TextColumn::make('asesor.name') 
+                    ->label('Asesor Asignado')
+                    ->icon('heroicon-o-user-circle')
+                    ->placeholder('Sin Asesor')      
+                    ->description(fn ($record) => $record->asesor?->email) 
+                    ->searchable() 
+                    ->sortable()
+                    ->toggleable(), 
 
                 Tables\Columns\TextColumn::make('estado_civil')
                     ->label('Estado Civil')
