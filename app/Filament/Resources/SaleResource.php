@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\SaleResource\Pages;
 use App\Models\Sale;
+use App\Models\Office;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -289,6 +290,14 @@ class SaleResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(function (Builder $query) {
+                $user = auth()->user();
+                if (! $user->hasRole('Administrador')) {
+                    $query->where('user_id', $user->id);
+                }
+                return $query;
+            })
+
             ->columns([
                 TextColumn::make('fecha_inicio')
                     ->date('d/m/Y')
@@ -337,6 +346,14 @@ class SaleResource extends Resource
                     ->label('Inmueble')
                     ->searchable()
                     ->sortable(),
+
+                // COLUMNA AGENTE (Visible solo para Admin)
+                Tables\Columns\TextColumn::make('user.name')
+                    ->label('Agente')
+                    ->icon('heroicon-o-user')
+                    ->sortable()
+                    ->toggleable()
+                    ->visible(fn () => auth()->user()->hasRole('Administrador')),
             ])
             ->filters([
                 // 1. ESTATUS OPERACIÓN
@@ -394,6 +411,35 @@ class SaleResource extends Resource
                                 fn (Builder $query, $date): Builder => $query->whereDate('fecha_inicio', '<=', $date),
                             );
                     }),
+                // --- FILTROS EXCLUSIVOS DE ADMINISTRADOR ---
+
+                // 1. FILTRO POR AGENTE (User)
+                Tables\Filters\SelectFilter::make('user_id')
+                    ->label('Filtrar por Agente')
+                    ->relationship('user', 'name') 
+                    ->searchable()
+                    ->preload()
+                    ->visible(fn () => auth()->user()->hasRole('Administrador')),
+
+                // 2. FILTRO POR OFICINA
+                // (Agente pertenece a una Oficina)
+                Tables\Filters\SelectFilter::make('oficina')
+                    ->label('Filtrar por Oficina')
+                    ->options(function () {
+                        if (class_exists(\App\Models\Office::class)) {
+                            return \App\Models\Office::pluck('nombre', 'id')->toArray();
+                        }
+                        return [];
+                    })
+                    ->query(function (Builder $query, array $data) {
+                        if (empty($data['value'])) return $query;
+                        
+                        // Filtramos las ventas donde el USUARIO pertenezca a la OFICINA seleccionada
+                        return $query->whereHas('user', function ($q) use ($data) {
+                            $q->where('office_id', $data['value']);
+                        });
+                    })
+                    ->visible(fn () => auth()->user()->hasRole('Administrador')),
             ])
             ->filtersTriggerAction(
                 fn (Actions\Action $action) => $action
