@@ -129,24 +129,25 @@ class RentResource extends Resource
 
                 TextColumn::make('tenant.nombre_completo')
                     ->label('Inquilino')
-                    ->formatStateUsing(fn ($state, $record) => $record->tenant->nombre_completo ?? 'N/A')
+                    // Busqueda robusta en la barra general
                     ->searchable(query: function (Builder $query, string $search): Builder {
                         return $query->whereHas('tenant', function ($q) use ($search) {
                             $q->where('nombres', 'like', "%{$search}%")
                               ->orWhere('primer_apellido', 'like', "%{$search}%")
-                              ->orWhere('razon_social', 'like', "%{$search}%");
+                              ->orWhere('razon_social', 'like', "%{$search}%")
+                              ->orWhere('email', 'like', "%{$search}%");
                         });
                     })
                     ->sortable(),
 
                 TextColumn::make('owner.nombre_completo')
                     ->label('Propietario')
-                    ->formatStateUsing(fn ($state, $record) => $record->owner->nombre_completo ?? 'N/A')
                     ->searchable(query: function (Builder $query, string $search): Builder {
                         return $query->whereHas('owner', function ($q) use ($search) {
                             $q->where('nombres', 'like', "%{$search}%")
                               ->orWhere('primer_apellido', 'like', "%{$search}%")
-                              ->orWhere('razon_social', 'like', "%{$search}%");
+                              ->orWhere('razon_social', 'like', "%{$search}%")
+                              ->orWhere('email', 'like', "%{$search}%");
                         });
                     })
                     ->sortable(),
@@ -159,6 +160,8 @@ class RentResource extends Resource
                         'documentacion' => 'warning',
                         'analisis' => 'info',
                         'activa' => 'success',
+                        'cancelado' => 'danger',
+                        'finalizado' => 'primary',
                         default => 'gray',
                     })
                     ->formatStateUsing(fn (string $state): string => match ($state) {
@@ -166,46 +169,104 @@ class RentResource extends Resource
                         'documentacion' => 'Documentación',
                         'analisis' => 'Análisis',
                         'activa' => 'Activa',
+                        'cancelado' => 'Cancelada',
+                        'finalizado' => 'Finalizada',
                         default => $state,
                     }),
 
                 TextColumn::make('created_at')
                     ->label('Creado')
                     ->dateTime('d/m/Y H:i')
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: false), 
             ])
+            // ZONA DE FILTROS ROBUSTOS Y COMBINABLES
             ->filters([
+                // FILTRO DE INQUILINO (Con lógica de Asesor)
                 Tables\Filters\SelectFilter::make('tenant_id')
-                    ->relationship('tenant', 'nombre_completo')
-                    ->getOptionLabelFromRecordUsing(fn ($record) => $record->nombre_completo)
+                    ->label('Filtrar por Inquilino')
                     ->searchable()
-                    ->label('Filtrar por Inquilino'),
+                    ->preload()
+                    ->relationship('tenant', 'nombres', function (Builder $query) {
+                        // Aplicamos la misma lógica de seguridad: Admin ve todos, Asesor ve los suyos + libres
+                        $user = auth()->user();
+                        if (!$user->hasRole('Administrador')) {
+                            $query->where('asesor_id', $user->id)->orWhereNull('asesor_id');
+                        }
+                        return $query;
+                    })
+                    ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->nombre_completo} ({$record->email})"),
 
+                // FILTRO DE PROPIETARIO (Con lógica de Asesor)
                 Tables\Filters\SelectFilter::make('owner_id')
-                    ->relationship('owner', 'nombre_completo')
-                    ->getOptionLabelFromRecordUsing(fn ($record) => $record->nombre_completo)
+                    ->label('Filtrar por Propietario')
                     ->searchable()
-                    ->label('Filtrar por Propietario'),
+                    ->preload()
+                    ->relationship('owner', 'nombres', function (Builder $query) {
+                        $user = auth()->user();
+                        if (!$user->hasRole('Administrador')) {
+                            $query->where('asesor_id', $user->id)->orWhereNull('asesor_id');
+                        }
+                        return $query;
+                    })
+                    ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->nombre_completo} ({$record->email})"),
 
+                // FILTRO DE ESTATUS
                 Tables\Filters\SelectFilter::make('estatus')
                     ->label('Estatus')
+                    ->multiple() // ¡Permite seleccionar varios estatus a la vez! (Ej: Nuevas y Documentación)
                     ->options([
                         'nueva' => 'Nueva',
                         'documentacion' => 'Documentación',
                         'analisis' => 'Análisis',
+                        'activa' => 'Activa / Vigente',
+                        'cancelado' => 'Cancelada',
+                        'finalizado' => 'Finalizada',
                     ]),
+
+                // FILTRO DE RANGO DE FECHAS (CREACIÓN)
+                Tables\Filters\Filter::make('created_at')
+                    ->label('Fecha de Creación')
+                    ->form([
+                        Forms\Components\DatePicker::make('created_from')
+                            ->label('Creado desde')
+                            ->native(false)
+                            ->displayFormat('d/m/Y'),
+                        Forms\Components\DatePicker::make('created_until')
+                            ->label('Creado hasta')
+                            ->native(false)
+                            ->displayFormat('d/m/Y'),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query
+                            ->when(
+                                $data['created_from'],
+                                fn (Builder $query, $date): Builder => $query->whereDate('created_at', '>=', $date),
+                            )
+                            ->when(
+                                $data['created_until'],
+                                fn (Builder $query, $date): Builder => $query->whereDate('created_at', '<=', $date),
+                            );
+                    }),
             ])
+            // Configuración visual de los filtros
+            ->filtersTriggerAction(
+                fn (Tables\Actions\Action $action) => $action
+                    ->button()
+                    ->label('Filtros Avanzados')
+                    ->slideOver(), // Abre un panel lateral en lugar de un dropdown pequeño
+            )
             ->actions([
                 Tables\Actions\ViewAction::make()
                     ->url(fn ($record) => static::getUrl('view', ['record' => $record->hash_id]))
-                    ->iconButton() // Convierte el botón a solo icono
-                    ->tooltip('Ver'), // (Opcional) Muestra texto al pasar el mouse
+                    ->iconButton()
+                    ->tooltip('Ver'),
                 Tables\Actions\EditAction::make()
                     ->url(fn ($record) => static::getUrl('edit', ['record' => $record->hash_id]))
-                    ->iconButton() // Convierte el botón a solo icono
+                    ->iconButton()
                     ->tooltip('Editar'),
                 Tables\Actions\DeleteAction::make()
-                    ->iconButton() // Convierte el botón a solo icono
+                    ->iconButton()
                     ->tooltip('Borrar'),
             ])
             ->actionsColumnLabel('ACCIONES') 
