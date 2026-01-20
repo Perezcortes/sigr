@@ -10,6 +10,12 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Forms\Components\Fieldset;
+use Filament\Forms\Components\DatePicker;
+use Illuminate\Database\Eloquent\Builder;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\Filter;
+use Filament\Tables\Actions;
 
 class SaleResource extends Resource
 {
@@ -284,45 +290,132 @@ class SaleResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('fecha_inicio')
+                TextColumn::make('fecha_inicio')
                     ->date('d/m/Y')
                     ->label('Fecha')
                     ->sortable(),
-                Tables\Columns\TextColumn::make('nombre_cliente_principal') // Podemos concatenar nombre comprador
+
+                // BÚSQUEDA ROBUSTA DE CLIENTE
+                TextColumn::make('nombre_cliente_principal')
+                    ->label('Cliente Comprador')
                     ->state(function (Sale $record) {
                         return $record->comprador_nombres . ' ' . $record->comprador_ap_paterno;
                     })
-                    ->label('Cliente'),
-                Tables\Columns\TextColumn::make('monto_operacion')
+                    ->searchable(query: function (Builder $query, string $search): Builder {
+                        return $query->where('comprador_nombres', 'like', "%{$search}%")
+                                     ->orWhere('comprador_ap_paterno', 'like', "%{$search}%")
+                                     ->orWhere('comprador_ap_materno', 'like', "%{$search}%");
+                    }),
+
+                TextColumn::make('monto_operacion')
                     ->money('MXN')
-                    ->label('Monto'),
-                Tables\Columns\TextColumn::make('estatus_operacion')
+                    ->label('Monto')
+                    ->sortable(),
+
+                TextColumn::make('estatus_operacion')
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
                         'Cerrada' => 'success',
                         'Cancelada' => 'danger',
                         'En búsqueda' => 'warning',
-                        default => 'info',
-                    }),
-                Tables\Columns\TextColumn::make('estatus_hipoteca')
+                        'Apartado' => 'info',
+                        default => 'gray',
+                    })
+                    ->searchable(),
+
+                TextColumn::make('estatus_hipoteca')
                     ->label('Estatus Hipoteca')
-                    ->badge(),
-                Tables\Columns\TextColumn::make('tipo_inmueble'),
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'Aprobada' => 'success',
+                        'En trámite' => 'warning',
+                        'Rechazada' => 'danger',
+                        default => 'gray',
+                    }),
+
+                TextColumn::make('tipo_inmueble')
+                    ->label('Inmueble')
+                    ->searchable()
+                    ->sortable(),
             ])
             ->filters([
-                // Filtros opcionales
+                // 1. ESTATUS OPERACIÓN
+                SelectFilter::make('estatus_operacion')
+                    ->label('Estatus Operación')
+                    ->multiple()
+                    ->options([
+                        'En búsqueda' => 'En búsqueda',
+                        'Apartado' => 'Apartado',
+                        'Cerrada' => 'Cerrada',
+                        'Cancelada' => 'Cancelada',
+                    ]),
+
+                // 2. ESTATUS HIPOTECA
+                SelectFilter::make('estatus_hipoteca')
+                    ->label('Estatus Hipoteca')
+                    ->multiple()
+                    ->options([
+                        'Recopila Documentos' => 'Recopila Documentos',
+                        'Ingresada a Bancos' => 'Ingresada a Bancos',
+                        'Aprobada' => 'Aprobada',
+                        'Rechazada' => 'Rechazada',
+                        'Avalúo' => 'Avalúo',
+                        'Notaria' => 'Notaria',
+                        'Programación a firma' => 'Programación a firma',
+                        'Firmada' => 'Firmada',
+                    ]),
+
+                // 3. TIPO INMUEBLE
+                SelectFilter::make('tipo_inmueble')
+                    ->label('Tipo Inmueble')
+                    ->options([
+                        'Casa' => 'Casa',
+                        'Departamento' => 'Departamento',
+                        'Terreno' => 'Terreno',
+                        'Local' => 'Local Comercial',
+                        'Bodega' => 'Bodega',
+                    ]),
+
+                // 4. RANGO DE FECHAS
+                Filter::make('fecha_inicio')
+                    ->label('Fecha de Inicio')
+                    ->form([
+                        DatePicker::make('fecha_from')->label('Desde'),
+                        DatePicker::make('fecha_until')->label('Hasta'),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query
+                            ->when(
+                                $data['fecha_from'],
+                                fn (Builder $query, $date): Builder => $query->whereDate('fecha_inicio', '>=', $date),
+                            )
+                            ->when(
+                                $data['fecha_until'],
+                                fn (Builder $query, $date): Builder => $query->whereDate('fecha_inicio', '<=', $date),
+                            );
+                    }),
             ])
+            ->filtersTriggerAction(
+                fn (Actions\Action $action) => $action
+                    ->button()
+                    ->label('Filtros Avanzados')
+                    ->slideOver(),
+            )
             ->actions([
-                Tables\Actions\EditAction::make()
-                     ->iconButton()
-                     ->tooltip('Editar Proceso de Venta'),
+                Actions\EditAction::make()
+                    ->iconButton()
+                    ->tooltip('Editar Proceso de Venta'),
+                Actions\DeleteAction::make()
+                    ->iconButton()
+                    ->tooltip('Borrar'),
             ])
             ->actionsColumnLabel('ACCIONES')
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
-            ]);
+            ])
+            ->defaultSort('fecha_inicio', 'desc');
     }
 
     public static function getRelations(): array
