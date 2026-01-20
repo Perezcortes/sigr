@@ -140,12 +140,14 @@ class RentResource extends Resource
                         'nueva' => 'gray',
                         'documentacion' => 'warning',
                         'analisis' => 'info',
+                        'activa' => 'success',
                         default => 'gray',
                     })
                     ->formatStateUsing(fn (string $state): string => match ($state) {
                         'nueva' => 'Nueva',
                         'documentacion' => 'Documentación',
                         'analisis' => 'Análisis',
+                        'activa' => 'Activa',
                         default => $state,
                     }),
 
