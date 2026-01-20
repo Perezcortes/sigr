@@ -136,6 +136,14 @@ class Owner extends Model
     }
 
     /**
+     * Relación con el Asesor que creó/atiende al Propietario
+     */
+    public function asesor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'asesor_id');
+    }
+
+    /**
      * Verifica si es persona física
      */
     public function isPersonaFisica(): bool

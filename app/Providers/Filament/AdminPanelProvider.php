@@ -50,12 +50,12 @@ class AdminPanelProvider extends PanelProvider
 
             ->navigationGroups([
                 'Dashboard',
-                'Rentas',
                 'Interesados',
-                'Centro de pagos',
+                'Rentas',
                 'Ventas',
-                'Administración',
-                'Mis Administraciones',        
+                'Centro de pagos',
+                'Mis Administraciones',
+                'Administración',   
             ])
 
             // CONFIGURACIÓN DE COLORES (Rentas.com)
