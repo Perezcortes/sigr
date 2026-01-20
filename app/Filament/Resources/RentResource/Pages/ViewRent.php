@@ -147,6 +147,7 @@ class ViewRent extends EditRecord
                                                 'nueva' => 'Nueva',
                                                 'documentacion' => 'Documentación',
                                                 'analisis' => 'Análisis',
+                                                'activa' => 'Activa',
                                             ])
                                             ->default('nueva')
                                             ->required(),
@@ -1297,7 +1298,7 @@ class ViewRent extends EditRecord
                                                                 'rent_id' => $this->record->id,
                                                                 'user_id' => auth()->id(),
                                                                 'comment' => $content,
-                                                                'status' => 'activo',
+                                                                'status' => 'activa',
                                                             ]);
 
                                                             // Limpiar el campo y notificar

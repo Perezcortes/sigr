@@ -3,6 +3,7 @@
 namespace App\Models\Traits;
 
 use Hashids\Hashids;
+use Illuminate\Database\Eloquent\Model;
 
 trait HasHashId
 {
@@ -19,7 +20,8 @@ trait HasHashId
      */
     public static function encodeId(int $id): string
     {
-        $hashids = new Hashids(config('app.key'), 8); // Mínimo 8 caracteres
+        $salt = config('app.key') ?? 'salt-de-rentas'; 
+        $hashids = new Hashids($salt, 8); // Mínimo 8 caracteres
         return $hashids->encode($id);
     }
 
@@ -28,7 +30,8 @@ trait HasHashId
      */
     public static function decodeId(string $hash): ?int
     {
-        $hashids = new Hashids(config('app.key'), 8);
+        $salt = config('app.key') ?? 'salt-de-rentas';
+        $hashids = new Hashids($salt, 8);
         $decoded = $hashids->decode($hash);
         
         return !empty($decoded) ? $decoded[0] : null;
@@ -50,6 +53,7 @@ trait HasHashId
 
     /**
      * Obtiene la clave de ruta usando el hash en lugar del ID
+     * (Esto genera la URL tipo: /admin/rentas/M83g8vZg)
      */
     public function getRouteKey(): string
     {
@@ -57,11 +61,41 @@ trait HasHashId
     }
 
     /**
-     * Obtiene el nombre de la clave de ruta (para route model binding)
+     * Le dice a Laravel cómo buscar el registro cuando recibe un hash.
      */
-    public function getRouteKeyName(): string
+    /**
+     * Esta función INTERCEPTA la búsqueda de Filament.
+     * En lugar de buscar "WHERE hash_id = ...", decodifica y busca por ID.
+     */
+    public function resolveRouteBinding($value, $field = null)
     {
-        return 'hash_id';
-    }
-}
+        // dd('Entró al resolveRouteBinding', $value, $field);
 
+        // Si Filament nos pide buscar por 'hash_id' O si el valor no es numérico...
+        if ($field === 'hash_id' || !is_numeric($value)) {
+            
+            // Intentamos decodificar
+            $decoded = static::decodeId($value);
+
+            // Si falla la decodificación (es null o array vacío), abortamos
+            if (empty($decoded)) {
+                abort(404);
+            }
+
+            // Obtenemos el ID real (entero)
+            // decodeId devuelve int o null en tu trait anterior
+            $id = $decoded; 
+            
+            // Buscamos en la BD usando el ID REAL
+            return $this->where('id', $id)->firstOrFail();
+        }
+
+        // Fallback: Si por alguna razón llega un ID normal
+        return parent::resolveRouteBinding($value, $field);
+    }
+
+    // public function getRouteKeyName(): string
+    // {
+    //    return 'hash_id'; 
+    // }
+}
