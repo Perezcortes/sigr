@@ -46,14 +46,23 @@ class RentResource extends Resource
                         
                         // Solo los campos esenciales
                         Select::make('tenant_id')
-                            ->relationship('tenant', 'nombres')
-                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->nombre_completo)
-                            ->searchable(['nombres', 'primer_apellido', 'razon_social'])
-                            ->preload()
-                            ->required()
                             ->label('Seleccionar Inquilino')
+                            ->relationship('tenant', 'nombres', function (Builder $query) {
+                                $user = auth()->user();
+                                // Si es Admin ve todos, si no, solo los suyos o los libres
+                                if ($user->hasRole('Administrador')) {
+                                    return $query;
+                                }
+                                return $query->where('asesor_id', $user->id)
+                                             ->orWhereNull('asesor_id');
+                            })
+                            ->getOptionLabelFromRecordUsing(fn ($record) => 
+                                "{$record->nombre_completo} | {$record->email} - " . ($record->asesor ? "Asesor: {$record->asesor->name}" : "SIN ASESOR")
+                            )
+                            ->searchable(['nombres', 'primer_apellido', 'razon_social', 'email']) // Agregamos email a la búsqueda
+                            ->preload() // Carga los primeros resultados para que se vea rápido
+                            ->required()
                             ->createOptionForm(fn (Form $form) => self::getTenantCreationForm($form))
-                            ->createOptionModalHeading('Crear Nuevo Inquilino')
                             ->live()
                             ->afterStateUpdated(fn (Forms\Set $set) => $set('application_id', null)),
                         
@@ -83,15 +92,24 @@ class RentResource extends Resource
                             ->visible(fn (Forms\Get $get) => !empty($get('tenant_id'))),
                         
                         Select::make('owner_id')
-                            ->relationship('owner', 'nombres')
-                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->nombre_completo)
-                            ->searchable(['nombres', 'primer_apellido', 'razon_social'])
+                            ->label('Seleccionar Propietario')
+                            // FILTRO PARA PROPIETARIOS
+                            ->relationship('owner', 'nombres', function (Builder $query) {
+                                $user = auth()->user();
+                                if ($user->hasRole('Administrador')) {
+                                    return $query;
+                                }
+                                return $query->where('asesor_id', $user->id)
+                                             ->orWhereNull('asesor_id');
+                            })
+                            ->getOptionLabelFromRecordUsing(fn ($record) => 
+                                "{$record->nombre_completo} | {$record->email} - " . ($record->asesor ? "Asesor: {$record->asesor->name}" : "SIN ASESOR")
+                            )
+                            ->searchable(['nombres', 'primer_apellido', 'razon_social', 'email'])
                             ->preload()
                             ->required()
-                            ->label('Seleccionar Propietario')
-                            ->createOptionForm(fn (Form $form) => self::getOwnerCreationForm($form))
-                            ->createOptionModalHeading('Crear Nuevo Propietario'),
-                    ]),
+                            ->createOptionForm(fn (Form $form) => self::getOwnerCreationForm($form)),
+                    ])->columns(2),
             ]);
     }
 
