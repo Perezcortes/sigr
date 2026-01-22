@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\SaleResource\Pages;
 use App\Models\Sale;
+use App\Models\Office;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -37,7 +38,8 @@ class SaleResource extends Resource
                         Forms\Components\Tabs\Tab::make('1. Comprador')
                             ->icon('heroicon-o-user')
                             ->schema([
-                                Forms\Components\Section::make('Datos Generales')
+                                Forms\Components\Section::make('Datos del Comprador Principal')
+                                    ->description('Información del titular de la compra.')
                                     ->schema([
                                         Forms\Components\Grid::make(3)
                                             ->schema([
@@ -54,7 +56,7 @@ class SaleResource extends Resource
                                                 Forms\Components\TextInput::make('comprador_rfc')->label('RFC'),
                                                 Forms\Components\TextInput::make('comprador_curp')->label('CURP'),
                                             ]),
-                                        Forms\Components\Fieldset::make('Dirección')
+                                        Forms\Components\Fieldset::make('Dirección del Comprador Principal')
                                             ->schema([
                                                 Forms\Components\TextInput::make('comprador_calle')->label('Calle y Número'),
                                                 Forms\Components\TextInput::make('comprador_colonia')->label('Colonia'),
@@ -62,16 +64,65 @@ class SaleResource extends Resource
                                                 Forms\Components\TextInput::make('comprador_estado')->label('Estado'),
                                                 Forms\Components\TextInput::make('comprador_cp')->label('C.P.'),
                                             ]),
-                                        
-                                        // REPEATER: Compradores Adicionales
+                                    ]),
+
+                                // SECCIÓN DE COMPRADORES ADICIONALES (ESPOSA, SOCIO, ETC)
+                                Forms\Components\Section::make('Compradores Adicionales')
+                                    ->description('Agregue aquí si es una compra conyugal (matrimonio) o hay copropietarios.')
+                                    ->schema([
                                         Forms\Components\Repeater::make('compradores_adicionales')
-                                            ->label('Compradores Adicionales (+)')
+                                            ->label('Agregar Persona (+)')
+                                            ->itemLabel(fn (array $state): ?string => $state['nombre_completo'] ?? null)
                                             ->schema([
-                                                Forms\Components\TextInput::make('nombre_completo')->label('Nombre Completo'),
-                                                Forms\Components\TextInput::make('relacion')->label('Relación con primer comprador'),
+                                                Forms\Components\Grid::make(2)->schema([
+                                                    Forms\Components\TextInput::make('nombre_completo')
+                                                        ->label('Nombre Completo')
+                                                        ->required(),
+                                                    
+                                                    // SELECTOR DE RELACIÓN
+                                                    Forms\Components\Select::make('relacion')
+                                                        ->label('Relación con el titular')
+                                                        ->options([
+                                                            'Esposo(a)' => 'Esposo(a)',
+                                                            'Concubino(a)' => 'Concubino(a)',
+                                                            'Padre/Madre' => 'Padre/Madre',
+                                                            'Hijo(a)' => 'Hijo(a)',
+                                                            'Socio' => 'Socio',
+                                                            'Otro' => 'Otro (Especificar)',
+                                                        ])
+                                                        ->required()
+                                                        ->live(), // Para mostrar el campo de texto si elige "Otro"
+
+                                                    Forms\Components\TextInput::make('otra_relacion')
+                                                        ->label('Especifique relación')
+                                                        ->placeholder('Ej. Amigo, Primo...')
+                                                        ->visible(fn (Forms\Get $get) => $get('relacion') === 'Otro'),
+                                                ]),
+
+                                                // LOGICA DE DOMICILIO COMPARTIDO
+                                                Forms\Components\Toggle::make('mismo_domicilio')
+                                                    ->label('¿Comparte el mismo domicilio que el comprador principal?')
+                                                    ->onColor('success')
+                                                    ->offColor('danger')
+                                                    ->default(true)
+                                                    ->live(), // Reactivo para mostrar/ocultar campos
+
+                                                // CAMPOS DE DIRECCIÓN (Solo si NO comparten domicilio)
+                                                Forms\Components\Group::make()
+                                                    ->visible(fn (Forms\Get $get) => ! $get('mismo_domicilio'))
+                                                    ->schema([
+                                                        Forms\Components\Fieldset::make('Domicilio Particular')
+                                                            ->schema([
+                                                                Forms\Components\TextInput::make('calle')->label('Calle y Número')->required(),
+                                                                Forms\Components\TextInput::make('colonia')->label('Colonia')->required(),
+                                                                Forms\Components\TextInput::make('ciudad')->label('Ciudad'),
+                                                                Forms\Components\TextInput::make('estado')->label('Estado'),
+                                                                Forms\Components\TextInput::make('cp')->label('C.P.'),
+                                                            ])
+                                                    ]),
                                             ])
-                                            ->columns(2)
-                                            ->collapsible(),
+                                            ->collapsible()
+                                            ->collapsed(),
                                     ]),
 
                                 Forms\Components\Section::make('Datos Económicos')
@@ -88,7 +139,6 @@ class SaleResource extends Resource
                                         Forms\Components\TextInput::make('comprador_ingresos')->numeric()->prefix('$')->label('Ingresos Mensuales'),
                                         Forms\Components\TextInput::make('comprador_tipo_comprobacion')->label('Comprobación de ingresos'),
 
-                                        // REPEATER: Actividad Adicional
                                         Forms\Components\Repeater::make('comprador_actividades_adicionales')
                                             ->label('Agregar Actividad (+)')
                                             ->schema([
@@ -102,7 +152,8 @@ class SaleResource extends Resource
                         Forms\Components\Tabs\Tab::make('2. Vendedor')
                             ->icon('heroicon-o-home')
                             ->schema([
-                                Forms\Components\Section::make('Datos del Propietario/Vendedor')
+                                Forms\Components\Section::make('Datos del Propietario Principal')
+                                    ->description('Información del dueño titular de la propiedad.')
                                     ->schema([
                                         Forms\Components\Grid::make(3)
                                             ->schema([
@@ -119,7 +170,7 @@ class SaleResource extends Resource
                                                 Forms\Components\TextInput::make('vendedor_rfc')->label('RFC'),
                                                 Forms\Components\TextInput::make('vendedor_curp')->label('CURP'),
                                             ]),
-                                        Forms\Components\fieldset::make('Dirección')
+                                        Forms\Components\Fieldset::make('Dirección del Propietario Principal')
                                             ->schema([
                                                 Forms\Components\TextInput::make('vendedor_calle')->label('Calle y Número'),
                                                 Forms\Components\TextInput::make('vendedor_colonia')->label('Colonia'),
@@ -127,20 +178,65 @@ class SaleResource extends Resource
                                                 Forms\Components\TextInput::make('vendedor_estado')->label('Estado'),
                                                 Forms\Components\TextInput::make('vendedor_cp')->label('C.P.'),
                                             ]),
+                                    ]),
 
-                                        // REPEATER: Vendedores Adicionales
+                                // SECCIÓN DE VENDEDORES ADICIONALES
+                                Forms\Components\Section::make('Copropietarios / Cónyuge')
+                                    ->description('Agregue aquí si la propiedad tiene múltiples dueños o es venta conyugal.')
+                                    ->schema([
                                         Forms\Components\Repeater::make('vendedores_adicionales')
-                                            ->label('Vendedores Adicionales (+)')
+                                            ->label('Agregar Propietario Adicional (+)')
+                                            ->itemLabel(fn (array $state): ?string => $state['nombre_completo'] ?? null)
                                             ->schema([
-                                                Forms\Components\TextInput::make('nombre_completo')->label('Nombre Completo'),
-                                                Forms\Components\TextInput::make('relacion')->label('Relación con primer vendedor'),
+                                                Forms\Components\Grid::make(2)->schema([
+                                                    Forms\Components\TextInput::make('nombre_completo')
+                                                        ->label('Nombre Completo')
+                                                        ->required(),
+                                                    
+                                                    Forms\Components\Select::make('relacion')
+                                                        ->label('Relación con el titular')
+                                                        ->options([
+                                                            'Esposo(a)' => 'Esposo(a)',
+                                                            'Concubino(a)' => 'Concubino(a)',
+                                                            'Padre/Madre' => 'Padre/Madre',
+                                                            'Hijo(a)' => 'Hijo(a)',
+                                                            'Socio' => 'Socio',
+                                                            'Otro' => 'Otro (Especificar)',
+                                                        ])
+                                                        ->required()
+                                                        ->live(),
+
+                                                    Forms\Components\TextInput::make('otra_relacion')
+                                                        ->label('Especifique relación')
+                                                        ->visible(fn (Forms\Get $get) => $get('relacion') === 'Otro'),
+                                                ]),
+
+                                                Forms\Components\Toggle::make('mismo_domicilio')
+                                                    ->label('¿Comparte el mismo domicilio que el propietario principal?')
+                                                    ->onColor('success')
+                                                    ->offColor('danger')
+                                                    ->default(true)
+                                                    ->live(),
+
+                                                Forms\Components\Group::make()
+                                                    ->visible(fn (Forms\Get $get) => ! $get('mismo_domicilio'))
+                                                    ->schema([
+                                                        Forms\Components\Fieldset::make('Domicilio Particular')
+                                                            ->schema([
+                                                                Forms\Components\TextInput::make('calle')->label('Calle y Número')->required(),
+                                                                Forms\Components\TextInput::make('colonia')->label('Colonia')->required(),
+                                                                Forms\Components\TextInput::make('ciudad')->label('Ciudad'),
+                                                                Forms\Components\TextInput::make('estado')->label('Estado'),
+                                                                Forms\Components\TextInput::make('cp')->label('C.P.'),
+                                                            ])
+                                                    ]),
                                             ])
-                                            ->columns(2)
-                                            ->collapsible(),
+                                            ->collapsible()
+                                            ->collapsed(),
                                     ]),
                             ]),
 
-                        // PESTAÑA 3: OPERACIÓN
+                        // PESTAÑA 3: OPERACIÓN 
                         Forms\Components\Tabs\Tab::make('3. Operación')
                             ->icon('heroicon-o-clipboard-document-check')
                             ->schema([
@@ -166,13 +262,12 @@ class SaleResource extends Resource
                                         ->prefix('$')
                                         ->label('Precio de Lista'),
 
-                                    Forms\Components\TextInput::make('monto_operacion') // Es el precio pactado
+                                    Forms\Components\TextInput::make('monto_operacion')
                                         ->numeric()
                                         ->prefix('$')
                                         ->label('Precio Pactado')
-                                        ->live(onBlur: true) // Escuchar cambios para calcular comisión
+                                        ->live(onBlur: true)
                                         ->afterStateUpdated(function (Forms\Get $get, Forms\Set $set) {
-                                            // Recalcular si cambia el precio
                                             $precio = (float) $get('monto_operacion');
                                             $porcentaje = (float) $get('comision_porcentaje');
                                             if ($precio && $porcentaje) {
@@ -186,9 +281,8 @@ class SaleResource extends Resource
                                         ->numeric()
                                         ->suffix('%')
                                         ->label('Comisión Agente (%)')
-                                        ->live(onBlur: true) // Escuchar cambios
+                                        ->live(onBlur: true)
                                         ->afterStateUpdated(function ($state, Forms\Get $get, Forms\Set $set) {
-                                            // CÁLCULO AUTOMÁTICO DE COMISIÓN
                                             $precio = (float) $get('monto_operacion');
                                             if ($precio && $state) {
                                                 $set('comision_monto', $precio * ($state / 100));
@@ -198,7 +292,7 @@ class SaleResource extends Resource
                                     Forms\Components\TextInput::make('comision_monto')
                                         ->numeric()
                                         ->prefix('$')
-                                        ->label('Monto Comisión'), // Es editable aunque se calcule
+                                        ->label('Monto Comisión'),
                                 ]),
 
                                 Forms\Components\Select::make('momento_pago_comision')
@@ -232,17 +326,17 @@ class SaleResource extends Resource
                                     ->collapsed(),
                             ]),
 
-                        // PESTAÑA 4: HIPOTECA
+                        // PESTAÑA 4: HIPOTECA 
                         Forms\Components\Tabs\Tab::make('4. Hipoteca')
                             ->icon('heroicon-o-building-library')
                             ->schema([
                                 Forms\Components\Toggle::make('requiere_hipoteca')
                                     ->label('¿El cliente requiere hipoteca?')
                                     ->onColor('success')
-                                    ->live(), // Hace reactivo el formulario
+                                    ->live(),
 
                                 Forms\Components\Group::make()
-                                    ->visible(fn (Forms\Get $get) => $get('requiere_hipoteca')) // Solo visible si el toggle es TRUE
+                                    ->visible(fn (Forms\Get $get) => $get('requiere_hipoteca'))
                                     ->schema([
                                         Forms\Components\Select::make('estatus_hipoteca')
                                             ->options([
@@ -273,7 +367,6 @@ class SaleResource extends Resource
                                         
                                         Forms\Components\Textarea::make('hipoteca_comentarios')->label('Comentarios Generales'),
 
-                                        // REPEATER: Bancos Adicionales
                                         Forms\Components\Repeater::make('hipoteca_bancos_adicionales')
                                             ->label('Agregar Banco Adicional (+)')
                                             ->schema([
@@ -282,13 +375,21 @@ class SaleResource extends Resource
                                             ])->columns(2),
                                     ]),
                             ]),
-                    ])->columnSpanFull(), // Las pestañas ocupan todo el ancho
+                    ])->columnSpanFull(),
             ]);
     }
 
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(function (Builder $query) {
+                $user = auth()->user();
+                if (! $user->hasRole('Administrador')) {
+                    $query->where('user_id', $user->id);
+                }
+                return $query;
+            })
+
             ->columns([
                 TextColumn::make('fecha_inicio')
                     ->date('d/m/Y')
@@ -337,6 +438,14 @@ class SaleResource extends Resource
                     ->label('Inmueble')
                     ->searchable()
                     ->sortable(),
+
+                // COLUMNA AGENTE (Visible solo para Admin)
+                Tables\Columns\TextColumn::make('user.name')
+                    ->label('Agente')
+                    ->icon('heroicon-o-user')
+                    ->sortable()
+                    ->toggleable()
+                    ->visible(fn () => auth()->user()->hasRole('Administrador')),
             ])
             ->filters([
                 // 1. ESTATUS OPERACIÓN
@@ -394,6 +503,35 @@ class SaleResource extends Resource
                                 fn (Builder $query, $date): Builder => $query->whereDate('fecha_inicio', '<=', $date),
                             );
                     }),
+                // --- FILTROS EXCLUSIVOS DE ADMINISTRADOR ---
+
+                // 1. FILTRO POR AGENTE (User)
+                Tables\Filters\SelectFilter::make('user_id')
+                    ->label('Filtrar por Agente')
+                    ->relationship('user', 'name') 
+                    ->searchable()
+                    ->preload()
+                    ->visible(fn () => auth()->user()->hasRole('Administrador')),
+
+                // 2. FILTRO POR OFICINA
+                // (Agente pertenece a una Oficina)
+                Tables\Filters\SelectFilter::make('oficina')
+                    ->label('Filtrar por Oficina')
+                    ->options(function () {
+                        if (class_exists(\App\Models\Office::class)) {
+                            return \App\Models\Office::pluck('nombre', 'id')->toArray();
+                        }
+                        return [];
+                    })
+                    ->query(function (Builder $query, array $data) {
+                        if (empty($data['value'])) return $query;
+                        
+                        // Filtramos las ventas donde el USUARIO pertenezca a la OFICINA seleccionada
+                        return $query->whereHas('user', function ($q) use ($data) {
+                            $q->where('office_id', $data['value']);
+                        });
+                    })
+                    ->visible(fn () => auth()->user()->hasRole('Administrador')),
             ])
             ->filtersTriggerAction(
                 fn (Actions\Action $action) => $action
