@@ -3,9 +3,6 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\AdministrationResource\Pages;
-use App\Filament\Resources\AdministrationResource\RelationManagers\MessagesRelationManager;
-use App\Filament\Resources\AdministrationResource\RelationManagers\ServicesRelationManager;
-use App\Filament\Resources\AdministrationResource\RelationManagers\TicketsRelationManager;
 use App\Models\Rent;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -18,6 +15,7 @@ class AdministrationResource extends Resource
     protected static ?string $model = Rent::class;
 
     protected static ?string $recordRouteKeyName = 'hash_id';
+
     protected static ?string $navigationLabel = 'Mis Administraciones';
     protected static ?string $modelLabel = 'Administración';
     protected static ?string $pluralModelLabel = 'Administraciones';
@@ -28,11 +26,13 @@ class AdministrationResource extends Resource
 
     public static function resolveRecordRouteBinding(int | string $key): ?\Illuminate\Database\Eloquent\Model
     {
-        return app(static::getModel())->resolveRouteBinding($key);
+        // Usamos la función findByHash en Trait HasHashId
+        return app(static::getModel())->findByHash($key);
     }
     
     public static function getEloquentQuery(): Builder
     {
+        // Solo mostramos rentas activas
         $query = parent::getEloquentQuery()->where('estatus', 'activa'); 
         $user = Auth::user();
 
@@ -50,53 +50,68 @@ class AdministrationResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('property.nombre')
-                    ->label('Inmueble')
+                // 1. FOTO DE PORTADA
+                Tables\Columns\ImageColumn::make('portada_inmueble')
+                    ->label('')
+                    ->state(function ($record) {
+                        $property = $record->property;
+                        if (!$property) return null;
+                        // Busca la portada o la primera imagen disponible
+                        $img = $property->images->where('is_portada', true)->first() 
+                            ?? $property->images->first();
+                        return $img ? $img->path_file : null;
+                    })
+                    ->disk('public')
+                    ->width(120)
+                    ->height(80)
+                    ->extraImgAttributes([
+                        'class' => 'object-cover rounded-lg shadow-sm border border-gray-200',
+                    ]),
+
+                // 2. DETALLES DEL INMUEBLE
+                Tables\Columns\TextColumn::make('property.tipo_inmueble')
+                    ->label('Propiedad')
                     ->weight('bold')
-                    ->icon('heroicon-o-home-modern')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('tenant.nombre_completo')
-                    ->label('Inquilino')
-                    ->icon('heroicon-o-user'),
-                Tables\Columns\TextColumn::make('fecha_inicio')
-                    ->date('d M Y')
-                    ->icon('heroicon-o-calendar')
-                    ->label('Inicio'),
+                    ->description(function ($record) {
+                        $p = $record->property;
+                        if (!$p) return 'Sin dirección';
+                        return trim(($p->calle ?? '') . ' ' . ($p->numero_exterior ?? '') . ', ' . ($p->colonia ?? ''));
+                    })
+                    ->wrap(),
+
+                // 3. RENTA MENSUAL
+                Tables\Columns\TextColumn::make('monto') 
+                    ->label('Renta')
+                    ->money('MXN')
+                    ->sortable()
+                    ->weight('black')
+                    ->color('success')
+                    // Si no hay monto pactado en contrato, muestra el precio de lista
+                    ->state(fn ($record) => $record->monto ?? $record->property->precio_renta ?? 0),
+
+                // 4. VENCIMIENTO
                 Tables\Columns\TextColumn::make('fecha_fin')
+                    ->label('Vence')
                     ->date('d M Y')
-                    ->icon('heroicon-o-flag')
-                    ->label('Fin')
-                    ->color('danger'),
+                    ->badge()
+                    ->color(fn ($state) => $state < now() ? 'danger' : 'gray')
+                    ->sortable()
+                    ->placeholder('Por configurar'),
             ])
             ->actions([
+                // BOTÓN ÚNICO PARA ENTRAR AL DASHBOARD
                 Tables\Actions\ViewAction::make()
                     ->label('Entrar')
                     ->button()
                     ->color('primary')
                     ->icon('heroicon-o-arrow-right-end-on-rectangle'),
-            ]);
+            ])
+            ->paginated([10, 25, 50]);
     }
 
     public static function getRelations(): array
     {
-        $relations = [
-            MessagesRelationManager::class, 
-        ];
-
-        $user = Auth::user();
-        if (! $user) return $relations;
-
-        // Todos ven Servicios y Tickets (Inquilino/Propietario solo lectura en servicios)
-        $hasAccess = $user->hasRole(['Administrador', 'Asesor', 'Gerente', 'Cliente', 'Propietario']) 
-                     || $user->is_tenant 
-                     || $user->is_owner; 
-
-        if ($hasAccess) {
-            $relations[] = ServicesRelationManager::class;
-            $relations[] = TicketsRelationManager::class;
-        }
-
-        return $relations;
+        return [];
     }
 
     public static function getPages(): array

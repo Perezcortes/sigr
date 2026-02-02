@@ -11,14 +11,23 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('services', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('rent_id')->constrained()->cascadeOnDelete();
-            $table->string('nombre'); 
-            $table->decimal('monto', 10, 2);
-            $table->string('frecuencia'); 
-            $table->timestamps();
-        });
+    Schema::create('services', function (Blueprint $table) {
+        $table->id();
+        // Relación con la Renta
+        $table->foreignId('rent_id')->constrained('rents')->cascadeOnDelete();
+        
+        // Campos del formulario
+        $table->string('tipo'); // gas, agua, luz, renta, mantenimiento
+        $table->string('mes_correspondiente'); // Enero, Febrero...
+        $table->date('fecha_pago');
+        $table->decimal('monto', 10, 2);
+        $table->string('forma_pago')->default('efectivo'); // efectivo, tarjeta...
+        $table->string('evidencia')->nullable(); // Ruta de la foto/archivo
+        $table->text('observaciones')->nullable();
+        
+        $table->string('estatus')->default('pagado'); // pagado, vencido, pendiente
+        $table->timestamps();
+    });
     }
 
     /**
