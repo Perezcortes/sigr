@@ -9,11 +9,10 @@ class Ticket extends Model
     protected $fillable = [
     'rent_id',
     'user_id',
-    'tipo', // peticion, incidencia
     'titulo',
     'descripcion',
-    'estatus', // nueva, en_proceso, completada
-    'comentarios_admin',
+    'estatus', 
+    'evidencia',
     ];
 
     public function rent() { return $this->belongsTo(Rent::class); }
