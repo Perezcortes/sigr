@@ -13,13 +13,14 @@ return new class extends Migration
     {
         Schema::create('tickets', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('rent_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('user_id')->constrained(); // Quién lo creó (Inquilino, Owner o Asesor)
-            $table->enum('tipo', ['peticion', 'incidencia']);
-            $table->string('titulo');
-            $table->text('descripcion')->nullable();
-            $table->enum('estatus', ['nueva', 'en_proceso', 'completada'])->default('nueva');
-            $table->text('comentarios_admin')->nullable(); // Respuesta del admin
+            $table->foreignId('rent_id')->constrained('rents')->cascadeOnDelete();
+            $table->foreignId('user_id')->constrained('users'); // Quien reporta
+            
+            $table->string('titulo'); // Ej: Daño de ventanas, Plomería
+            $table->text('descripcion')->nullable(); // Observaciones
+            $table->string('estatus')->default('sin_revisar'); // sin_revisar, en_proceso, terminado
+            $table->string('evidencia')->nullable(); // Foto
+            
             $table->timestamps();
         });
     }
