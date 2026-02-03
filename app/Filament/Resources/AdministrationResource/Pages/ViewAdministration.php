@@ -320,30 +320,9 @@ class ViewAdministration extends EditRecord
                         Forms\Components\Tabs\Tab::make('Mantenimiento')
                             ->icon('heroicon-o-wrench')
                             ->schema([
-                                Forms\Components\Actions::make([
-                                    Forms\Components\Actions\Action::make('reportar_incidencia_tab')
-                                        ->label('Nueva Incidencia')
-                                        ->color('danger')
-                                        ->icon('heroicon-m-plus')
-                                        ->form([
-                                            Forms\Components\Textarea::make('descripcion')
-                                                ->label('Detalle del problema')
-                                                ->required(),
-                                            Forms\Components\FileUpload::make('evidencia')
-                                                ->label('Foto / Evidencia')
-                                                ->image()
-                                                ->directory('incidencias'),
-                                        ])
-                                        ->action(function (array $data) {
-                                            Notification::make()
-                                                ->title('Incidencia registrada')
-                                                ->success()
-                                                ->send();
-                                        })
-                                ]),
-                                Forms\Components\Placeholder::make('lista_tickets')
-                                    ->hiddenLabel()
-                                    ->content('Aquí se cargará la lista de tickets de mantenimiento.'),
+                                // Aquí llamamos al componente pasando el ID de la renta
+                                Forms\Components\Livewire::make(\App\Livewire\MaintenanceManager::class, ['rentId' => $this->record->id])
+                                    ->key('mantenimiento-' . $this->record->id),
                             ]),
 
                         // --- 5. MENSAJES ---
