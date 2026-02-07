@@ -11,9 +11,9 @@
             </div>
             <div>
                 <h3 class="font-bold text-white text-base leading-tight">Chat de la Propiedad</h3>
-                <p class="text-[11px] flex items-center gap-1 text-gray-600 dark:text-gray-300/90">
-                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-[#26cad3] animate-pulse"></span>
-                En línea
+                <p class="text-[11px] flex items-center gap-1 text-gray-300">
+                    <span class="w-1.5 h-1.5 rounded-full bg-[#26cad3] animate-pulse"></span>
+                    En línea
                 </p>
             </div>
         </div>
@@ -21,10 +21,31 @@
 
     <div class="flex-1 overflow-y-auto p-4 space-y-6 relative z-10 chat-scrollbar" id="chat-box-{{ $this->rentId }}">
 
+        @php
+            $lastDate = null;
+        @endphp
+
         @forelse($messages as $msg)
             @php
                 $isMe = $msg->user_id === auth()->id();
+                // Formato de fecha para comparar
+                $msgDate = $msg->created_at->format('Y-m-d');
+                $isNewDay = $lastDate !== $msgDate;
+                $lastDate = $msgDate;
+                
+                // Texto amigable para la fecha
+                $dateLabel = $msg->created_at->isToday() ? 'Hoy' : 
+                             ($msg->created_at->isYesterday() ? 'Ayer' : 
+                             $msg->created_at->translatedFormat('d \d\e F, Y'));
             @endphp
+
+            @if($isNewDay)
+                <div class="flex justify-center my-4 sticky top-0 z-10">
+                    <span class="bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-[10px] font-bold px-3 py-1 rounded-full shadow-sm uppercase tracking-wide opacity-90 backdrop-blur-sm">
+                        {{ $dateLabel }}
+                    </span>
+                </div>
+            @endif
 
             <div class="flex w-full {{ $isMe ? 'justify-end' : 'justify-start' }} group animate-in fade-in slide-in-from-bottom-2 duration-300">
                 
@@ -48,14 +69,26 @@
 
                         </div>
                         
-                        <span class="text-[11px] font-medium mt-1 opacity-70 {{ $isMe ? 'text-gray-600 dark:text-gray-400' : 'text-gray-500' }}">
-                            {{ $msg->user->name }} • {{ $msg->created_at->format('h:i A') }}
+                        <span class="text-[10px] font-medium mt-1 opacity-70 flex items-center gap-1 {{ $isMe ? 'flex-row-reverse text-gray-600 dark:text-gray-400' : 'text-gray-500' }}">
+                            <span>{{ $msg->user->name }}</span>
+                            <span>•</span>
+                            <span>{{ $msg->created_at->format('h:i A') }}</span>
+                            
+                            @if($isMe)
+                                <span class="{{ $msg->visto ? 'text-blue-500' : 'text-gray-400' }}">
+                                    @if($msg->visto) 
+                                        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"></path></svg>
+                                    @else
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                    @endif
+                                </span>
+                            @endif
                         </span>
                     </div>
                 </div>
             </div>
         @empty
-            <div class="h-full flex flex-col items-center justify-center">
+             <div class="h-full flex flex-col items-center justify-center">
                 <div class="bg-white/80 dark:bg-gray-800/80 p-6 rounded-2xl shadow-sm text-center max-w-xs backdrop-blur-sm">
                     <div class="bg-[#161848]/10 p-3 rounded-full w-fit mx-auto mb-3">
                         <x-filament::icon icon="heroicon-o-chat-bubble-left-right" class="w-8 h-8 text-[#161848] dark:text-[#26cad3]" />
@@ -69,11 +102,10 @@
 
     <div class="p-3 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 relative z-20">
         <form wire:submit.prevent="sendMessage" class="flex items-end gap-2">
-            
             <button type="button" class="p-3 text-gray-400 hover:text-gray-600 transition">
                 <x-filament::icon icon="heroicon-m-paper-clip" class="w-6 h-6" />
             </button>
-
+            
             <div class="flex-1 bg-gray-50 dark:bg-gray-800 rounded-2xl border border-gray-300 dark:border-gray-600 flex items-center shadow-inner focus-within:ring-2 focus-within:ring-[#161848]/20 focus-within:border-[#161848]">
                 <input 
                     type="text" 
@@ -100,6 +132,10 @@
             }
             scrollBottom(); 
             Livewire.on('message-sent', () => setTimeout(scrollBottom, 50));
+            // Escuchar evento de actualización para volver a bajar el scroll si llega un mensaje nuevo
+            Livewire.hook('morph.updated', ({ el, component }) => {
+                 // Lógica opcional para bajar scroll solo si estaba abajo
+            });
         });
     </script>
 </div>

@@ -14,6 +14,22 @@ class ChatManager extends Component
     public function mount($rentId)
     {
         $this->rentId = $rentId;
+        $this->markAsRead(); 
+    }
+
+    // Método para marcar mensajes como vistos
+    public function markAsRead()
+    {
+        Message::where('rent_id', $this->rentId)
+            ->where('user_id', '!=', Auth::id()) // Mensajes que no son míos
+            ->where('visto', false)
+            ->update(['visto' => true]);
+    }
+
+    // Ejecutar también cuando se renderiza (por si llegan mensajes mientras estás en la pantalla)
+    public function rendering($view, $data)
+    {
+        $this->markAsRead();
     }
 
     public function sendMessage()
