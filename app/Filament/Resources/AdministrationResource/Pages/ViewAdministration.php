@@ -233,8 +233,20 @@ class ViewAdministration extends EditRecord
                         // --- 5. MENSAJES ---
                         Forms\Components\Tabs\Tab::make('Mensajes')
                             ->icon('heroicon-o-chat-bubble-left-right')
+                            // Lógica para contar mensajes no leídos que NO sean míos
+                            ->badge(function ($record) {
+                                // Si no hay registro aún, retornar null
+                                if (!$record) return null;
+
+                                $count = \App\Models\Message::where('rent_id', $record->id)
+                                    ->where('user_id', '!=', auth()->id()) // Que no los haya enviado yo
+                                    ->where('visto', false) // Que no hayan sido vistos
+                                    ->count();
+
+                                return $count > 0 ? $count : null;
+                            })
+                            ->badgeColor('warning') 
                             ->schema([
-                                // Aquí llamamos al componente pasando el ID de la renta
                                 Forms\Components\Livewire::make(\App\Livewire\ChatManager::class, ['rentId' => $this->record->id])
                                     ->key('chat-manager-' . $this->record->id),
                             ]),
