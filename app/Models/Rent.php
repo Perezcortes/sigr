@@ -178,4 +178,10 @@ class Rent extends Model
     {
         return $this->belongsTo(\App\Models\User::class, 'asesor_id');
     }
+    
+    // Relación con PaymentSetting
+    public function paymentSettings(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(PaymentSetting::class);
+    }
 }
