@@ -14,6 +14,9 @@ return new class extends Migration
         Schema::create('cities', function (Blueprint $table) {
             $table->id(); // id int [pk, increment]
             $table->string('nombre', 150); // nombre varchar (usamos un límite razonable)
+            $table->foreignId('estate_id')
+                  ->constrained('estates') // Asume que la tabla de estados se llama 'estates'
+                  ->cascadeOnDelete();
             $table->timestamps(); // created_at y updated_at
         });
     }

@@ -3,14 +3,22 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\OwnerResource\Pages;
+use App\Filament\Resources\PropertyResource;
 use App\Helpers\EstadosMexico;
 use App\Models\Owner;
+use App\Models\User;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\TenantCredentialsMail; // Reutilizamos el correo
+use Filament\Forms\Components\Actions\Action;
+use Filament\Forms\Components\Actions;
+use Filament\Notifications\Notification;
 
 class OwnerResource extends Resource
 {
@@ -26,7 +34,7 @@ class OwnerResource extends Resource
 
     protected static ?string $navigationGroup = 'Rentas';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 3;
 
     public static function getCluster(): ?string
     {
@@ -115,6 +123,14 @@ class OwnerResource extends Resource
                     ->schema(self::getFacultadesActaSchema())
                     ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'moral' && $get('facultades_en_acta') === true)
                     ->columns(2),
+
+                Forms\Components\Section::make('Credenciales de Acceso')
+                    ->description('Zona exclusiva. Genera usuario y envía accesos al Propietario.')
+                    ->icon('heroicon-o-key')
+                    ->schema(self::getCredencialesSchema())
+                    ->columns(2)
+                    ->visible(fn ($record) => $record !== null) // Solo en Editar
+                    ->hidden(fn () => !auth()->user()->hasRole(['Administrador', 'Gerente', 'Asesor'])),
             ]);
     }
 
@@ -703,6 +719,15 @@ class OwnerResource extends Resource
                         default => 'gray',
                     }),
 
+                Tables\Columns\TextColumn::make('asesor.name') 
+                    ->label('Asesor Asignado')
+                    ->icon('heroicon-o-user-circle')
+                    ->placeholder('Sin Asesor')      
+                    ->description(fn ($record) => $record->asesor?->email) 
+                    ->searchable() 
+                    ->sortable()
+                    ->toggleable(), 
+
                 Tables\Columns\TextColumn::make('estado_civil')
                     ->label('Estado Civil')
                     ->formatStateUsing(fn (?string $state): string => match ($state) {
@@ -738,14 +763,111 @@ class OwnerResource extends Resource
                     ]),
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\Action::make('verPropiedades')
+                    ->icon('heroicon-o-building-library')
+                    ->iconButton() // Convierte el botón a solo icono
+                    ->tooltip('Ver propiedades')
+                    ->url(fn ($record) => PropertyResource::getUrl('index', [
+                        'tableFilters' => [
+                            'user_id' => [
+                                'value' => $record->user_id, // Filtramos por el ID del Usuario vinculado al Owner
+                            ],
+                        ],
+                    ])),
+                Tables\Actions\EditAction::make()
+                    ->iconButton() // Convierte el botón a solo icono
+                    ->tooltip('Editar'),
+                Tables\Actions\DeleteAction::make()
+                    ->iconButton() // Convierte el botón a solo icono
+                    ->tooltip('Eliminar'),
             ])
+            ->actionsColumnLabel('ACCIONES')
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
             ]);
+    }
+
+    public static function getCredencialesSchema(): array
+    {
+        return [
+            Forms\Components\TextInput::make('login_email')
+                ->label('Correo de Acceso (Usuario)')
+                ->email()
+                ->required()
+                ->dehydrated(false)
+                // Carga el correo del propietario al editar
+                ->formatStateUsing(fn ($record) => $record->email),
+
+            Forms\Components\TextInput::make('login_password')
+                ->label('Contraseña')
+                ->password()
+                ->revealable()
+                ->dehydrated(false)
+                ->default(fn () => \Illuminate\Support\Str::random(10))
+                ->helperText('Esta contraseña se encriptará. El usuario la recibirá por correo.'),
+
+            // BOTÓN DE ACCIÓN
+            Forms\Components\Actions::make([
+                Action::make('enviar_accesos_owner') // ID único para evitar conflictos
+                    ->label('Generar Usuario y Enviar Correo')
+                    ->icon('heroicon-m-envelope')
+                    ->color('primary')
+                    ->requiresConfirmation()
+                    ->modalHeading('Confirmar envío a Propietario')
+                    ->modalDescription('Se creará/actualizará el usuario y se enviarán las credenciales.')
+                    ->action(function (Forms\Set $set, Forms\Get $get, $record) {
+                        
+                        $email = $get('login_email');
+                        $password = $get('login_password');
+
+                        if (!$email || !$password) {
+                            Notification::make()->danger()->title('Error')->body('Faltan datos.')->send();
+                            return;
+                        }
+
+                        // CREAR / ACTUALIZAR USUARIO (Marcándolo como OWNER)
+                        $user = User::updateOrCreate(
+                            ['email' => $email],
+                            [
+                                'name'      => $record->nombre_completo ?? $record->nombres,
+                                'password'  => Hash::make($password),
+                                'is_owner'  => true,  
+                                // 'is_tenant' => false, // Opcional: si un usuario puede ser ambos
+                                'is_active' => true,
+                            ]
+                        );
+
+                        // VINCULAR CON EL PROPIETARIO
+                        if ($record->user_id !== $user->id) {
+                            $record->update(['user_id' => $user->id]);
+                        }
+
+                        // ENVIAR CORREO
+                        try {
+                            // Reutilizamos el mismo diseño de correo
+                            Mail::to($user->email)->send(new TenantCredentialsMail($user, $password));
+                            
+                            Notification::make()
+                                ->success()
+                                ->title('Propietario Configurado')
+                                ->body("Credenciales enviadas a {$email}")
+                                ->send();
+                                
+                        } catch (\Exception $e) {
+                            Notification::make()
+                                ->warning()
+                                ->title('Error de envío')
+                                ->body('Usuario guardado, pero falló el correo: ' . $e->getMessage())
+                                ->send();
+                        }
+                        
+                        // Limpiar password visualmente
+                        $set('login_password', \Illuminate\Support\Str::random(10));
+                    }),
+            ])->columnSpanFull(),
+        ];
     }
 
     public static function getPages(): array

@@ -10,7 +10,10 @@ class Owner extends Model
 {
     protected $fillable = [
         'user_id',
+        'asesor_id',
         'tipo_persona',
+        // Campos para insertar desde interesados
+        'nombre',
         // Persona Física - Información Personal
         'nombres',
         'primer_apellido',
@@ -130,6 +133,14 @@ class Owner extends Model
     public function ownerRequests(): HasMany
     {
         return $this->hasMany(OwnerRequest::class);
+    }
+
+    /**
+     * Relación con el Asesor que creó/atiende al Propietario
+     */
+    public function asesor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'asesor_id');
     }
 
     /**

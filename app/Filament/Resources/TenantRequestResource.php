@@ -1341,8 +1341,13 @@ class TenantRequestResource extends Resource
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
+                iconButton() // Convierte el botón a solo icono
+                ->tooltip('Editar'),
                 Tables\Actions\DeleteAction::make(),
+                iconButton() // Convierte el botón a solo icono
+                ->tooltip('Eliminar'),
             ])
+            ->actionsColumnLabel('ACCIONES')
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),

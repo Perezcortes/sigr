@@ -5,12 +5,20 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\TenantResource\Pages;
 use App\Helpers\EstadosMexico;
 use App\Models\Tenant;
+use App\Models\User;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Filament\Forms\Components\Actions\Action;
+use Filament\Forms\Components\Actions;
+use Filament\Notifications\Notification;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\TenantCredentialsMail;
 
 class TenantResource extends Resource
 {
@@ -26,7 +34,7 @@ class TenantResource extends Resource
 
     protected static ?string $navigationGroup = 'Rentas';
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 2;
 
     public static function getCluster(): ?string
     {
@@ -80,6 +88,14 @@ class TenantResource extends Resource
                     ->schema(self::getFacultadesActaSchema())
                     ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'moral' && $get('facultades_en_acta') === true)
                     ->columns(2),
+                
+                Forms\Components\Section::make('Credenciales de Acceso y Envío')
+                    ->description('Zona exclusiva para Administradores y Gerentes. Genera accesos y notifica al cliente.')
+                    ->icon('heroicon-o-lock-closed')
+                    ->schema(self::getCredencialesSchema()) // Llamamos al método que creamos arriba
+                    ->columns(2)
+                    ->visible(fn ($record) => $record !== null) 
+                    ->hidden(fn () => !auth()->user()->hasRole(['Administrador', 'Gerente', 'Asesor'])), 
             ]);
     }
 
@@ -439,6 +455,25 @@ class TenantResource extends Resource
         ];
     }
 
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+        $user = auth()->user();
+
+        // Si es Admin, ve todo.
+        if ($user->hasRole('Administrador')) {
+            return $query;
+        }
+
+        // Si es Asesor, solo ve los registros donde él es el 'asesor_id'
+        if ($user->hasRole('Asesor')) {
+            return $query->where('asesor_id', $user->id);
+        }
+
+        // Por defecto, restringir o mostrar todo según el caso
+        return $query;
+    }
+
     public static function table(Table $table): Table
     {
         return $table
@@ -479,6 +514,15 @@ class TenantResource extends Resource
                         default => 'gray',
                     }),
 
+                Tables\Columns\TextColumn::make('asesor.name') 
+                    ->label('Asesor Asignado')
+                    ->icon('heroicon-o-user')
+                    ->placeholder('Sin Asesor')
+                    ->description(fn ($record) => $record->asesor?->email)
+                    ->searchable()
+                    ->sortable()
+                    ->toggleable(),
+
                 Tables\Columns\TextColumn::make('estado_civil')
                     ->label('Estado Civil')
                     ->formatStateUsing(fn (?string $state): string => match ($state) {
@@ -510,9 +554,14 @@ class TenantResource extends Resource
                     ]),
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                Tables\Actions\EditAction::make()
+                    ->iconButton() // Convierte el botón a solo icono
+                    ->tooltip('Editar'),
+                Tables\Actions\DeleteAction::make()
+                    ->iconButton() // Convierte el botón a solo icono
+                    ->tooltip('Eliminar'),
             ])
+            ->actionsColumnLabel('ACCIONES') 
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
@@ -525,6 +574,100 @@ class TenantResource extends Resource
         return [
             'index' => Pages\ListTenants::route('/'),
             'edit' => Pages\EditTenant::route('/{record}/edit'),
+        ];
+    }
+
+    public static function getCredencialesSchema(): array
+    {
+        return [
+            Forms\Components\TextInput::make('login_email')
+                ->label('Correo de Acceso (Usuario)')
+                ->email()
+                ->required()
+                ->default(fn ($record) => $record->email) 
+                ->dehydrated(false) // No guardar en tabla tenants
+                ->formatStateUsing(fn ($record) => $record->email),
+
+            Forms\Components\TextInput::make('login_password')
+                ->label('Contraseña')
+                ->password()
+                ->revealable()
+                // Generamos una contraseña aleatoria sugerida
+                ->default(fn () => \Illuminate\Support\Str::random(10)) 
+                ->helperText('Esta contraseña se encriptará en la base de datos. El usuario la recibirá en su correo.')
+                ->dehydrated(false), // No guardar en tabla tenants
+
+            // BOTÓN DE ACCIÓN
+            Forms\Components\Actions::make([
+                Action::make('enviar_accesos')
+                    ->label('Generar Usuario y Enviar Correo')
+                    ->icon('heroicon-m-envelope')
+                    ->color('primary')
+                    ->requiresConfirmation()
+                    ->modalHeading('Confirmar envío')
+                    ->modalDescription('Se creará/actualizará el usuario de sistema y se enviarán estas credenciales por correo.')
+                    ->action(function (Forms\Set $set, Forms\Get $get, $record) {
+                        
+                        // Obtenemos los datos del formulario virtual
+                        $email = $get('login_email');
+                        $password = $get('login_password');
+
+                        if (!$email || !$password) {
+                            Notification::make()->danger()->title('Error')->body('Correo y contraseña requeridos.')->send();
+                            return;
+                        }
+
+                        // LÓGICA CRÍTICA: CREAR O ACTUALIZAR EL USUARIO EN LA TABLA USERS
+                        // Buscamos si ya existe un usuario con este correo para no duplicar
+                        $user = User::updateOrCreate(
+                            ['email' => $email], // Buscamos por correo
+                            [
+                                'name'      => $record->nombre_completo ?? $record->nombres, // Usamos el nombre del inquilino
+                                'password'  => Hash::make($password), // ¡IMPORTANTE! Se guarda ENCRIPTADA
+                                'is_tenant' => true,
+                                'is_active' => true,
+                                // 'office_id' => $record->asesor->office_id ?? null, // Opcional si hereda oficina
+                            ]
+                        );
+
+                        // VINCULACIÓN: Guardamos el ID del usuario en el registro del Inquilino
+                        // Si el inquilino no tenía user_id, ahora ya lo tiene.
+                        if ($record->user_id !== $user->id) {
+                            $record->update(['user_id' => $user->id]);
+                        }
+
+                        // D. ENVÍO DE CORREO
+                        try {
+                            Mail::to($user->email)->send(new TenantCredentialsMail($user, $password));
+        
+                            Notification::make()
+                                ->success()
+                                ->title('Éxito')
+                                ->body("Credenciales enviadas a {$email}")
+                                ->send();
+            
+                        } catch (\Exception $e) {
+                            Notification::make()
+                                ->warning()
+                                ->title('Usuario guardado, pero falló el correo')
+                                ->body('Error SMTP: ' . $e->getMessage())
+                                ->send();
+                        }
+
+                        // Opcional: Limpiar campo
+                        $set('login_password', \Illuminate\Support\Str::random(10));
+
+                        // Notificación de éxito
+                        Notification::make()
+                            ->success()
+                            ->title('Usuario Configurado')
+                            ->body("Se asignó el usuario ID: {$user->id} y se enviaron las credenciales a {$email}.")
+                            ->send();
+                        
+                        // Opcional: Limpiar el campo de contraseña para seguridad visual
+                        $set('login_password', \Illuminate\Support\Str::random(10));
+                    }),
+            ])->columnSpanFull(),
         ];
     }
 }
