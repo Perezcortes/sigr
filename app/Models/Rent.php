@@ -170,4 +170,18 @@ class Rent extends Model
     {
         return $this->hasMany(Message::class);
     }
+
+    /**
+     * Relación con el Asesor (Usuario del sistema)
+     */
+    public function asesor(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\User::class, 'asesor_id');
+    }
+    
+    // Relación con PaymentSetting
+    public function paymentSettings(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(PaymentSetting::class);
+    }
 }

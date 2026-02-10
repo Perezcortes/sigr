@@ -5,19 +5,12 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class Message extends Model
+class PaymentSetting extends Model
 {
     protected $fillable = [
-    'rent_id',
-    'user_id',
-    'cuerpo',
-    'visto',
+        'rent_id', 'tipo', 'frecuencia', 'monto', 
+        'moneda', 'es_variable', 'recordatorio', 'activo'
     ];
-
-    public function user(): BelongsTo
-    {
-        return $this->belongsTo(User::class);
-    }
 
     public function rent(): BelongsTo
     {

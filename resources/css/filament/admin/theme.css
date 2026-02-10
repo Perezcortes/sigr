@@ -191,3 +191,137 @@ textarea:disabled,
     @apply opacity-100 !important;
     @apply dark:bg-white/10;
 }
+
+/* =========================================
+   FILAS DE REPORTES Y ACORDEONES 
+   ========================================= */
+.report-row {
+    @apply transition-colors duration-200 cursor-pointer border-b border-gray-100 dark:border-gray-700;
+}
+
+/* Estado Normal */
+.report-row {
+    @apply bg-white dark:bg-gray-800;
+}
+
+/* Estado Hover (Puntero encima) */
+.report-row:hover {
+    /* MODO CLARO: Fondo Cian muy suave (10%) para identidad */
+    @apply bg-[#26cad3]/10;
+
+    /* MODO OSCURO: Fondo blanco muy sutil (5%) para no deslumbrar */
+    @apply dark:bg-white/5;
+}
+
+/* Ajuste de texto al hacer hover (Opcional: resalta el texto) */
+.report-row:hover span,
+.report-row:hover p {
+    @apply dark:text-gray-200;
+}
+
+/* =========================================
+   ESTILOS DE CHAT (Mensajería)
+   ========================================= */
+
+/* 1. Barra de desplazamiento delgada  */
+.chat-scrollbar::-webkit-scrollbar {
+    width: 6px;
+}
+.chat-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+}
+.chat-scrollbar::-webkit-scrollbar-thumb {
+    background-color: rgba(156, 163, 175, 0.5); /* Gris suave */
+    border-radius: 20px;
+}
+
+/* 2. Burbuja "YO"  */
+.chat-bubble-me {
+    @apply bg-[#161848] text-white rounded-2xl rounded-tr-none shadow-md relative;
+}
+.chat-bubble-me::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: -8px; 
+    width: 0;
+    height: 0;
+    border-top: 12px solid #161848; 
+    border-right: 12px solid transparent;
+}
+
+/* 3. Burbuja "ELLOS"  */
+.chat-bubble-them {
+    @apply bg-white text-gray-800 border border-gray-100 rounded-2xl rounded-tl-none shadow-sm relative dark:bg-gray-800 dark:text-gray-200 dark:border-gray-700;
+}
+.chat-bubble-them::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -8px; 
+    width: 0;
+    height: 0;
+    border-top: 12px solid #ffffff; 
+    border-left: 12px solid transparent;
+}
+
+/* Ajuste para modo oscuro en "Ellos" */
+:is(.dark .chat-bubble-them)::before {
+    border-top-color: #1f2937; 
+}
+
+/*Estilos para la seccion de configuracion en mis administraciones*/
+:root {
+    --brand-orange: #FF5A1F; /* Color exacto del prototipo */
+}
+
+/* Switches Personalizados (Figma Style) */
+/* Fuerza el color naranja cuando el toggle está activo */
+.figma-toggle input:checked + div {
+    background-color: var(--brand-orange) !important;
+}
+
+/* Botón Grande Naranja (Crear Nuevo Pago) */
+.btn-figma-orange {
+    background-color: var(--brand-orange);
+    color: white;
+    font-weight: 700;
+    border-radius: 8px;
+    transition: all 0.2s;
+}
+.btn-figma-orange:hover {
+    background-color: #e04f1a;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px rgba(255, 90, 31, 0.3);
+}
+
+/* Botón Outline Naranja (+ Agregar recordatorio) */
+.btn-figma-outline {
+    border: 1px solid var(--brand-orange);
+    color: var(--brand-orange);
+    background: white;
+    font-weight: 500;
+    border-radius: 6px;
+}
+.btn-figma-outline:hover {
+    background-color: #fff0eb;
+}
+
+/* Eliminar el diseño por defecto de los botones de Filament en esta sección específica */
+.fi-btn-color-warning {
+    --c-400: 255, 90, 31;  /* #FF5A1F */
+    --c-500: 255, 90, 31;  /* #FF5A1F (Color base) */
+    --c-600: 224, 79, 26;  /* #e04f1a (Hover) */
+    --c-950: 255, 255, 255; /* Texto blanco */
+}
+
+/* Opcional: Asegura que el texto sea blanco */
+.fi-btn-color-warning span {
+    color: white !important;
+}
+
+/* Ajuste para que el texto de los Placeholders de Filament coincida con el gris de Figma */
+.fi-fo-placeholder label {
+    color: #9CA3AF !important;
+    font-size: 0.875rem;
+}
