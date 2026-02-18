@@ -17,6 +17,7 @@ class Rent extends Model
         'owner_id',
         'application_id',
         'property_id',
+        'asesor_id',
         'start_date',
         'end_date',
         'amount',

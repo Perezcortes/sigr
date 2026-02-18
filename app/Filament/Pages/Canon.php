@@ -6,6 +6,8 @@ use Filament\Pages\Page;
 
 class Canon extends Page
 {
+    protected static bool $shouldRegisterNavigation = false;
+
     protected static ?string $navigationIcon = 'heroicon-o-banknotes';
     protected static ?string $navigationLabel = 'Canon';
     protected static ?string $navigationGroup = 'Centro de pagos'; // Mismo grupo
