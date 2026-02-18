@@ -38,7 +38,7 @@ class ApplicationsResource extends Resource
                 Forms\Components\Section::make('Información de la Solicitud')
                     ->schema([
                         Forms\Components\Select::make('user_id')
-                            ->label('Tenant')
+                            ->label('Inquilino')
                             ->relationship('user', 'name', modifyQueryUsing: fn (Builder $query) => $query->where('is_tenant', true))
                             ->getOptionLabelFromRecordUsing(fn (User $record) => $record->name . ' (' . $record->email . ')')
                             ->searchable(['name', 'email'])
