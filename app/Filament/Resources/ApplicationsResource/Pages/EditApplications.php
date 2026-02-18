@@ -16,8 +16,32 @@ class EditApplications extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            Actions\DeleteAction::make(),
+            Actions\Action::make('regresar_header')
+                ->label('Regresar')
+                ->color('gray') 
+                ->icon('heroicon-o-arrow-left')
+                ->url($this->getResource()::getUrl('index')),
         ];
+    }
+
+    protected function getFormActions(): array
+    {
+        return [
+            $this->getSaveFormAction()
+                ->label('Guardar y salir')
+                ->color('primary')
+                ->submit('save'), 
+
+            $this->getCancelFormAction()
+                ->label('Regresar')
+                ->color('gray')
+                ->url($this->getResource()::getUrl('index')), 
+        ];
+    }
+
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
     }
 
     public function mount(int | string $record): void
@@ -39,8 +63,11 @@ class EditApplications extends EditRecord
     public function deleteApplicationDocument(int $id): void
     {
         $document = ApplicationDocument::find($id);
-        if ($document && $document->application_id === $this->record->id) {
+        
+        // Verificación de seguridad adicional
+        if ($document && $document->application_id == $this->record->id) {
             $document->delete();
+            
             \Filament\Notifications\Notification::make()
                 ->success()
                 ->title('Documento eliminado')
@@ -48,6 +75,9 @@ class EditApplications extends EditRecord
             
             // Recargar el registro para actualizar la lista de documentos
             $this->record->load('documents');
+            
+            // Refrescar el formulario para que se actualice la vista del Placeholder
+            $this->fillForm();
         }
     }
 }
