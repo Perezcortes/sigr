@@ -159,20 +159,12 @@ class RentResource extends Resource
                         'nueva' => 'gray',
                         'documentacion' => 'warning',
                         'analisis' => 'info',
-                        'activa' => 'success',
-                        'cancelado' => 'danger',
-                        'finalizado' => 'primary',
+                        'aprobada', 'activa' => 'success',
+                        'programar_firma' => 'primary',
+                        'rechazada', 'cancelada', 'vencida' => 'danger',
                         default => 'gray',
                     })
-                    ->formatStateUsing(fn (string $state): string => match ($state) {
-                        'nueva' => 'Nueva',
-                        'documentacion' => 'Documentación',
-                        'analisis' => 'Análisis',
-                        'activa' => 'Activa',
-                        'cancelado' => 'Cancelada',
-                        'finalizado' => 'Finalizada',
-                        default => $state,
-                    }),
+                    ->formatStateUsing(fn (string $state): string => ucfirst(str_replace('_', ' ', $state))),
 
                 TextColumn::make('created_at')
                     ->label('Creado')
@@ -214,14 +206,17 @@ class RentResource extends Resource
                 // FILTRO DE ESTATUS
                 Tables\Filters\SelectFilter::make('estatus')
                     ->label('Estatus')
-                    ->multiple() // ¡Permite seleccionar varios estatus a la vez! (Ej: Nuevas y Documentación)
+                    ->multiple() 
                     ->options([
                         'nueva' => 'Nueva',
                         'documentacion' => 'Documentación',
                         'analisis' => 'Análisis',
-                        'activa' => 'Activa / Vigente',
-                        'cancelado' => 'Cancelada',
-                        'finalizado' => 'Finalizada',
+                        'aprobada' => 'Aprobada',
+                        'programar_firma' => 'Programar firma',
+                        'activa' => 'Activa',
+                        'rechazada' => 'Rechazada',
+                        'cancelada' => 'Cancelada',
+                        'vencida' => 'Vencida',
                     ]),
 
                 // FILTRO DE RANGO DE FECHAS (CREACIÓN)

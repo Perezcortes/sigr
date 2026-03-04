@@ -49,6 +49,13 @@ class ViewRent extends EditRecord
     {
         parent::mount($record);
 
+        if (empty($this->data['asesor_id'])) {
+            $this->data['asesor_id'] = auth()->id();
+        }
+        if (empty($this->data['office_id'])) {
+            $this->data['office_id'] = auth()->user()->office_id;
+        }
+
         if ($this->record->tenant) {
             $this->data['tenant_tipo_persona'] = $this->record->tenant->tipo_persona;
             $this->data['tenant_nombres'] = $this->record->tenant->nombres;
@@ -138,19 +145,36 @@ class ViewRent extends EditRecord
                                 Forms\Components\Section::make('Datos de la renta')
                                     ->schema([
                                         Forms\Components\TextInput::make('folio')->label('Folio')->disabled(),
-                                        Forms\Components\TextInput::make('sucursal')->label('Sucursal')->disabled(),
-                                        Forms\Components\TextInput::make('abogado')->label('Abogado*')->disabled(),
+                                        Forms\Components\Select::make('office_id')
+                                            ->relationship('office', 'nombre')
+                                            ->label('Sucursal (Oficina)')
+                                            ->disabled()
+                                            ->dehydrated(), // Asegura que se guarde
+
+                                        Forms\Components\Select::make('asesor_id')
+                                            ->relationship('asesor', 'name')
+                                            ->label('Agente Asignado')
+                                            ->disabled(fn () => !auth()->user()->hasRole('Administrador'))
+                                            ->dehydrated() // Asegura que se guarde
+                                            ->required(),
                                         Forms\Components\TextInput::make('inmobiliaria')->label('Inmobiliaria*')->disabled(),
+                                        
                                         Forms\Components\Select::make('estatus')
                                             ->label('Estatus')
                                             ->options([
                                                 'nueva' => 'Nueva',
                                                 'documentacion' => 'Documentación',
                                                 'analisis' => 'Análisis',
+                                                'aprobada' => 'Aprobada',
+                                                'programar_firma' => 'Programar firma',
                                                 'activa' => 'Activa',
+                                                'rechazada' => 'Rechazada',
+                                                'cancelada' => 'Cancelada',
+                                                'vencida' => 'Vencida',
                                             ])
                                             ->default('nueva')
                                             ->required(),
+                                            
                                         Forms\Components\Select::make('tipo_inmueble')
                                             ->label('Tipo de inmueble')
                                             ->options([
@@ -159,33 +183,89 @@ class ViewRent extends EditRecord
                                             ])
                                             ->default('residencial')
                                             ->required(),
-                                        Forms\Components\Select::make('tipo_poliza')
-                                            ->label('Tipo de póliza')
-                                            ->options([
-                                                'integral' => 'Póliza Integral',
-                                                'amplia' => 'Póliza Amplia',
-                                                'con_seguro' => 'Póliza con Seguro',
-                                            ])
-                                            ->default('con_seguro')
-                                            ->required(),
-                                        Forms\Components\TextInput::make('renta')
-                                            ->label('Renta')
-                                            ->numeric()
-                                            ->prefix('$')
-                                            ->required()
-                                            ->placeholder('0.00'),
-                                        Forms\Components\TextInput::make('poliza')
-                                            ->label('Póliza')
-                                            ->numeric()
-                                            ->prefix('$')
-                                            ->required()
-                                            ->placeholder('0.00'),
                                     ])
                                     ->columns(2),
+
+                                Forms\Components\Section::make('Esquema de Comisiones y Pagos')
+                                    ->schema([
+                                        Forms\Components\TextInput::make('renta')
+                                            ->label('Monto de renta')
+                                            ->numeric()
+                                            ->prefix('$')
+                                            ->required()
+                                            ->placeholder('0.00')
+                                            ->live(onBlur: true)
+                                            ->afterStateUpdated(function (Forms\Set $set, $state) {
+                                                // Por default, la comisión es igual a la renta
+                                                $set('monto_comision', $state);
+                                            }),
+
+                                        Forms\Components\TextInput::make('monto_comision')
+                                            ->label('Monto comisión')
+                                            ->numeric()
+                                            ->prefix('$')
+                                            ->required()
+                                            ->placeholder('0.00'),
+
+                                        Forms\Components\TextInput::make('porcentaje_comision_principal')
+                                            ->label('% Comisión agente Rentas.com')
+                                            ->numeric()
+                                            ->suffix('%')
+                                            ->default(100)
+                                            ->readOnly() // Se calcula en automático
+                                            ->helperText('Este valor se ajusta automáticamente al agregar agentes externos.'),
+                                        
+                                        // REPEATER PARA DIVIDIR COMISIÓN
+                                        Forms\Components\Repeater::make('comisiones_divididas')
+                                            ->label('Dividir Comisión (Agentes Externos)')
+                                            ->columnSpanFull()
+                                            ->schema([
+                                                Forms\Components\TextInput::make('nombre_agente')->label('Nombre')->required(),
+                                                Forms\Components\TextInput::make('email')->email()->label('Email'),
+                                                Forms\Components\TextInput::make('telefono')->tel()->label('Teléfono'),
+                                                Forms\Components\TextInput::make('porcentaje')
+                                                    ->label('% Comisión')
+                                                    ->numeric()
+                                                    ->suffix('%')
+                                                    ->required()
+                                                    ->live(onBlur: true)
+                                                    ->afterStateUpdated(function (Forms\Get $get, Forms\Set $set) {
+                                                        // Si modifican manualmente un %, recalcula el del agente principal
+                                                        $items = $get('../../comisiones_divididas') ?? [];
+                                                        $sum = collect($items)->sum('porcentaje');
+                                                        $set('../../porcentaje_comision_principal', max(0, 100 - $sum));
+                                                    })
+                                            ])
+                                            ->columns(4)
+                                            ->addActionLabel('Dividir comisión (Añadir agente)')
+                                            ->defaultItems(0)
+                                            ->live()
+                                            ->afterStateUpdated(function (Forms\Set $set, $state) {
+                                                // LÓGICA AUTOMÁTICA DE DIVISIÓN (50%, 33.3%, etc.)
+                                                if (!is_array($state)) return;
+                                                $count = count($state);
+                                                
+                                                if ($count > 0) {
+                                                    // Calculamos la división equitativa (incluyendo al agente principal = +1)
+                                                    $share = round(100 / ($count + 1), 2);
+                                                    $newState = [];
+                                                    foreach ($state as $key => $item) {
+                                                        $item['porcentaje'] = $share;
+                                                        $newState[$key] = $item;
+                                                    }
+                                                    $set('comisiones_divididas', $newState);
+                                                    // Asignamos lo que sobra al agente principal para dar 100 exacto
+                                                    $set('porcentaje_comision_principal', round(100 - ($share * $count), 2));
+                                                } else {
+                                                    // Si borran a todos los externos, regresa al 100%
+                                                    $set('porcentaje_comision_principal', 100);
+                                                }
+                                            })
+                                    ])->columns(3),
                                 
                                 Forms\Components\Actions::make([
                                     Forms\Components\Actions\Action::make('guardar_general')
-                                        ->label('Guardar')
+                                        ->label('Guardar Información')
                                         ->color('primary')
                                         ->icon('heroicon-o-check')
                                         ->action(function () {
@@ -200,10 +280,6 @@ class ViewRent extends EditRecord
                                         ->color('gray')
                                         ->icon('heroicon-o-x-mark')
                                         ->url(fn () => RentResource::getUrl('index')),
-                                    Forms\Components\Actions\Action::make('clonar_renta')
-                                        ->label('Clonar renta')
-                                        ->color('success')
-                                        ->icon('heroicon-o-document-duplicate'),
                                 ]),
                             ]),
 
