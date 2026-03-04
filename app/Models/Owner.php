@@ -102,6 +102,8 @@ class Owner extends Model
         'ciudad_registro_facultades',
         'estado_registro_facultades',
         'tipo_representacion_moral',
+
+        'historial_acciones',
     ];
 
     protected $casts = [
@@ -120,6 +122,8 @@ class Owner extends Model
         'facultades_en_acta' => 'boolean',
         'apoderado_sexo' => 'string',
         'tipo_representacion_moral' => 'string',
+
+        'historial_acciones' => 'array',
     ];
 
     /**

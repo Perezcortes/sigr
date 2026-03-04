@@ -25,13 +25,13 @@ class Rent extends Model
         // Datos de la renta
         'folio',
         'sucursal',
-        'abogado',
         'inmobiliaria',
         'estatus',
         'tipo_inmueble',
-        'tipo_poliza',
         'renta',
-        'poliza',
+        'monto_comision',                  
+        'porcentaje_comision_principal',  
+        'comisiones_divididas',            
         // Fiador
         'tiene_fiador',
         // Datos de la propiedad
@@ -51,7 +51,9 @@ class Rent extends Model
         'end_date' => 'date',
         'amount' => 'decimal:2',
         'renta' => 'decimal:2',
-        'poliza' => 'decimal:2',
+        'monto_comision' => 'decimal:2',
+        'porcentaje_comision_principal' => 'decimal:2',
+        'comisiones_divididas' => 'array', 
     ];
 
     /**
@@ -62,8 +64,19 @@ class Rent extends Model
         parent::boot();
 
         static::creating(function ($rent) {
+            // Generar Folio
             if (empty($rent->folio)) {
                 $rent->folio = self::generateFolio();
+            }
+            
+            // Asignar al creador como Agente por defecto
+            if (empty($rent->asesor_id) && auth()->check()) {
+                $rent->asesor_id = auth()->id();
+            }
+
+            // Asignar la sucursal del creador
+            if (empty($rent->office_id) && auth()->check()) {
+                $rent->office_id = auth()->user()->office_id;
             }
         });
     }
