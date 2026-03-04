@@ -12,28 +12,20 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Filament\Forms\Components\Actions\Action;
-use Filament\Forms\Components\Actions;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\TenantCredentialsMail;
+use Illuminate\Support\HtmlString;
 
 class TenantResource extends Resource
 {
     protected static ?string $model = Tenant::class;
-
     protected static ?string $navigationIcon = 'heroicon-o-user-group';
-
     protected static ?string $navigationLabel = 'Inquilinos';
-
     protected static ?string $modelLabel = 'Inquilino';
-
     protected static ?string $pluralModelLabel = 'Inquilinos';
-
     protected static ?string $navigationGroup = 'Rentas';
-
     protected static ?int $navigationSort = 2;
 
     public static function getCluster(): ?string
@@ -45,84 +37,267 @@ class TenantResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\Section::make('Tipo de Persona')
-                    ->schema([
-                        Forms\Components\Radio::make('tipo_persona')
-                            ->options([
-                                'fisica' => 'Persona Física',
-                                'moral' => 'Persona Moral',
-                            ])
-                            ->required()
-                            ->live()
-                            ->columnSpanFull(),
+                Forms\Components\Grid::make(4)->schema([
+                    
+                    // COLUMNA IZQUIERDA (Perfil Rápido)
+                    Forms\Components\Group::make()->columnSpan(1)->schema([
+                        Forms\Components\Section::make('Perfil del Inquilino')->schema([
+                            
+                            Forms\Components\Radio::make('tipo_persona')
+                                ->options([
+                                    'fisica' => 'Persona Física',
+                                    'moral' => 'Persona Moral',
+                                ])
+                                ->required()
+                                ->live(),
+
+                            // Si es persona Física
+                            Forms\Components\TextInput::make('nombres')
+                                ->label('Nombre(s)')
+                                ->required(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica')
+                                ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica')
+                                ->maxLength(255),
+                                
+                            Forms\Components\TextInput::make('primer_apellido')
+                                ->label('Apellido Paterno')
+                                ->required(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica')
+                                ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica')
+                                ->maxLength(255),
+                                
+                            Forms\Components\TextInput::make('segundo_apellido')
+                                ->label('Apellido Materno')
+                                ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica')
+                                ->maxLength(255),
+
+                            // Si es persona Moral
+                            Forms\Components\TextInput::make('razon_social')
+                                ->label('Razón Social')
+                                ->required(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
+                                ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
+                                ->maxLength(255),
+
+                            // Contacto Junto
+                            Forms\Components\TextInput::make('email')
+                                ->label('Correo Electrónico')
+                                ->email()
+                                ->required()
+                                ->unique(ignoreRecord: true)
+                                ->prefixIcon('heroicon-m-envelope')
+                                ->maxLength(255),
+
+                            Forms\Components\TextInput::make('telefono_celular')
+                                ->label('Teléfono Celular')
+                                ->tel()
+                                ->required(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica')
+                                ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica')
+                                ->prefixIcon('heroicon-m-phone')
+                                ->maxLength(20),
+
+                            Forms\Components\TextInput::make('telefono')
+                                ->label('Teléfono (Moral)')
+                                ->tel()
+                                ->required(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
+                                ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
+                                ->prefixIcon('heroicon-m-phone')
+                                ->maxLength(20),
+
+                            Forms\Components\Select::make('asesor_id')
+                                ->relationship('asesor', 'name')
+                                ->label('Asesor Asignado'),
+                        ]),
                     ]),
 
-                // Formulario Persona Física
-                Forms\Components\Section::make('Información Personal')
-                    ->schema(self::getPersonaFisicaSchema())
-                    ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica')
-                    ->columns(2),
+                    // COLUMNA DERECHA (Pestañas)
+                    Forms\Components\Group::make()->columnSpan(3)->schema([
+                        Forms\Components\Tabs::make('CRM Tabs')->tabs([
+                            
+                            // --- NOTAS Y ACCIONES ---
+                            Forms\Components\Tabs\Tab::make('CRM y Seguimiento')
+                                ->icon('heroicon-m-document-text')
+                                ->schema([
+                                    Forms\Components\Actions::make([
+                                        Forms\Components\Actions\Action::make('agregar_nota')
+                                            ->label('Agregar Nota')
+                                            ->icon('heroicon-m-pencil-square')
+                                            ->color('warning')
+                                            ->form([
+                                                Forms\Components\Textarea::make('nota')->required()->rows(3),
+                                            ])
+                                            ->action(function (array $data, ?Tenant $record) {
+                                                if($record) {
+                                                    $hist = $record->historial_acciones ?? [];
+                                                    $hist[] = ['fecha' => now()->format('d/m/Y H:i'), 'accion' => 'Nota: ' . $data['nota']];
+                                                    $record->update(['historial_acciones' => $hist]);
+                                                }
+                                            })->visible(fn (?Tenant $record) => $record !== null),
 
-                Forms\Components\Section::make('Datos del Cónyuge')
-                    ->schema(self::getConyugeSchema())
-                    ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica' && $get('estado_civil') === 'casado')
-                    ->columns(2),
+                                        Forms\Components\Actions\Action::make('whatsapp')
+                                            ->label('WhatsApp')
+                                            ->icon('heroicon-m-chat-bubble-left-ellipsis')
+                                            ->color('success')
+                                            ->action(function (?Tenant $record) {
+                                                if($record) {
+                                                    $hist = $record->historial_acciones ?? [];
+                                                    $hist[] = ['fecha' => now()->format('d/m/Y H:i'), 'accion' => 'WhatsApp iniciado'];
+                                                    $record->update(['historial_acciones' => $hist]);
+                                                    $telefono = $record->tipo_persona === 'fisica' ? $record->telefono_celular : $record->telefono;
+                                                    return redirect()->away("https://wa.me/52" . $telefono);
+                                                }
+                                            })->visible(fn (?Tenant $record) => $record !== null),
 
-                // Formulario Persona Moral
-                Forms\Components\Section::make('Datos de la Empresa')
-                    ->schema(self::getPersonaMoralSchema())
-                    ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
-                    ->columns(2),
+                                        Forms\Components\Actions\Action::make('registrar_llamada')
+                                            ->label('Llamada')
+                                            ->icon('heroicon-m-phone')
+                                            ->color('gray')
+                                            ->requiresConfirmation()
+                                            ->action(function (?Tenant $record) {
+                                                if($record) {
+                                                    $hist = $record->historial_acciones ?? [];
+                                                    $hist[] = ['fecha' => now()->format('d/m/Y H:i'), 'accion' => 'Llamada telefónica realizada'];
+                                                    $record->update(['historial_acciones' => $hist]);
+                                                }
+                                            })->visible(fn (?Tenant $record) => $record !== null),
+                                            
+                                        Forms\Components\Actions\Action::make('enviar_email')
+                                            ->label('Email')
+                                            ->icon('heroicon-m-envelope')
+                                            ->color('gray')
+                                            ->requiresConfirmation()
+                                            ->action(function (?Tenant $record) {
+                                                if($record) {
+                                                    $hist = $record->historial_acciones ?? [];
+                                                    $hist[] = ['fecha' => now()->format('d/m/Y H:i'), 'accion' => 'Email enviado'];
+                                                    $record->update(['historial_acciones' => $hist]);
+                                                }
+                                            })->visible(fn (?Tenant $record) => $record !== null),
+                                    ])->fullWidth(),
 
-                Forms\Components\Section::make('Datos del Acta Constitutiva')
-                    ->schema(self::getActaConstitutivaSchema())
-                    ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
-                    ->columns(2),
+                                    Forms\Components\ViewField::make('historial_acciones')
+                                        ->view('filament.forms.components.lead-history')
+                                        ->label('')
+                                        ->visible(fn (?Tenant $record) => $record !== null && !empty($record->historial_acciones)),
+                                ]),
 
-                Forms\Components\Section::make('Apoderado Legal y/o Representante')
-                    ->schema(self::getApoderadoSchema())
-                    ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
-                    ->columns(2),
+                            // --- EXPEDIENTE GENERAL ---
+                            Forms\Components\Tabs\Tab::make('Expediente Completo')
+                                ->icon('heroicon-m-folder-open')
+                                ->schema([
+                                    Forms\Components\Section::make('Información Personal Complementaria')
+                                        ->schema(self::getPersonaFisicaSchema())
+                                        ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica')
+                                        ->columns(2),
 
-                Forms\Components\Section::make('Facultades en Acta')
-                    ->schema(self::getFacultadesActaSchema())
-                    ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'moral' && $get('facultades_en_acta') === true)
-                    ->columns(2),
-                
-                Forms\Components\Section::make('Credenciales de Acceso y Envío')
-                    ->description('Zona exclusiva para Administradores y Gerentes. Genera accesos y notifica al cliente.')
-                    ->icon('heroicon-o-lock-closed')
-                    ->schema(self::getCredencialesSchema()) // Llamamos al método que creamos arriba
-                    ->columns(2)
-                    ->visible(fn ($record) => $record !== null) 
-                    ->hidden(fn () => !auth()->user()->hasRole(['Administrador', 'Gerente', 'Asesor'])), 
+                                    Forms\Components\Section::make('Datos del Cónyuge')
+                                        ->schema(self::getConyugeSchema())
+                                        ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica' && $get('estado_civil') === 'casado')
+                                        ->columns(2),
+
+                                    Forms\Components\Section::make('Datos de la Empresa')
+                                        ->schema(self::getPersonaMoralSchema())
+                                        ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
+                                        ->columns(2),
+
+                                    Forms\Components\Section::make('Datos del Acta Constitutiva')
+                                        ->schema(self::getActaConstitutivaSchema())
+                                        ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
+                                        ->columns(2),
+
+                                    Forms\Components\Section::make('Apoderado Legal y/o Representante')
+                                        ->schema(self::getApoderadoSchema())
+                                        ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
+                                        ->columns(2),
+
+                                    Forms\Components\Section::make('Facultades en Acta')
+                                        ->schema(self::getFacultadesActaSchema())
+                                        ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'moral' && $get('facultades_en_acta') === true)
+                                        ->columns(2),
+                                ]),
+
+                            // --- ACCESO AL SISTEMA ---
+                            Forms\Components\Tabs\Tab::make('Acceso al Sistema')
+                                ->icon('heroicon-m-lock-closed')
+                                ->visible(fn ($record) => $record !== null) 
+                                ->hidden(fn () => !auth()->user()->hasRole(['Administrador', 'Gerente', 'Asesor']))
+                                ->schema([
+                                    Forms\Components\Placeholder::make('estado_acceso')
+                                        ->label('Estatus del Usuario')
+                                        ->content(function (?Tenant $record) {
+                                            if (!$record || !$record->user_id) {
+                                                return new HtmlString('<span class="text-gray-500 font-bold px-3 py-1 bg-gray-100 rounded-full">Sin cuenta creada</span>');
+                                            }
+                                            return $record->user->is_active
+                                                ? new HtmlString('<span class="text-green-600 font-bold px-3 py-1 bg-green-100 rounded-full">Activo en la plataforma</span>')
+                                                : new HtmlString('<span class="text-red-600 font-bold px-3 py-1 bg-red-100 rounded-full">Inactivo (Acceso suspendido)</span>');
+                                        }),
+
+                                    Forms\Components\Actions::make([
+                                        
+                                        // Crear Usuario
+                                        Forms\Components\Actions\Action::make('generar_acceso')
+                                            ->label('Generar usuario y enviar credenciales')
+                                            ->icon('heroicon-m-paper-airplane')
+                                            ->color('primary')
+                                            ->requiresConfirmation()
+                                            ->modalDescription('El sistema generará una contraseña segura automáticamente y se la enviará al inquilino al correo registrado.')
+                                            ->action(function (Tenant $record) {
+                                                $password = \Illuminate\Support\Str::random(10);
+                                                
+                                                $user = User::firstOrCreate(
+                                                    ['email' => $record->email],
+                                                    [
+                                                        'name' => $record->nombre_completo ?? 'Inquilino',
+                                                        'password' => Hash::make($password),
+                                                        'is_tenant' => true,
+                                                        'is_active' => true,
+                                                    ]
+                                                );
+
+                                                if ($record->user_id !== $user->id) {
+                                                    $record->update(['user_id' => $user->id]);
+                                                }
+
+                                                try {
+                                                    Mail::to($user->email)->send(new TenantCredentialsMail($user, $password));
+                                                    Notification::make()->success()->title('Credenciales enviadas')->send();
+                                                } catch (\Exception $e) {
+                                                    Notification::make()->warning()->title('Usuario creado, falló correo')->body($e->getMessage())->send();
+                                                }
+                                            })
+                                            ->visible(fn (?Tenant $record) => $record && !$record->user_id),
+
+                                        // Desactivar Usuario
+                                        Forms\Components\Actions\Action::make('desactivar_acceso')
+                                            ->label('Desactivar Usuario')
+                                            ->icon('heroicon-m-no-symbol')
+                                            ->color('danger')
+                                            ->requiresConfirmation()
+                                            ->action(function (Tenant $record) {
+                                                $record->user->update(['is_active' => false]);
+                                                Notification::make()->success()->title('Usuario desactivado')->send();
+                                            })
+                                            ->visible(fn (?Tenant $record) => $record && $record->user_id && $record->user->is_active),
+
+                                        // Reactivar Usuario
+                                        Forms\Components\Actions\Action::make('activar_acceso')
+                                            ->label('Reactivar Usuario')
+                                            ->icon('heroicon-m-check-circle')
+                                            ->color('success')
+                                            ->action(function (Tenant $record) {
+                                                $record->user->update(['is_active' => true]);
+                                                Notification::make()->success()->title('Usuario reactivado')->send();
+                                            })
+                                            ->visible(fn (?Tenant $record) => $record && $record->user_id && !$record->user->is_active),
+                                    ])->fullWidth(),
+                                ]),
+                        ]),
+                    ]),
+                ]),
             ]);
     }
 
     protected static function getPersonaFisicaSchema(): array
     {
         return [
-            Forms\Components\TextInput::make('nombres')
-                ->label('Nombre(s)')
-                ->required(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica')
-                ->maxLength(255),
-
-            Forms\Components\TextInput::make('primer_apellido')
-                ->label('Apellido Paterno')
-                ->required(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica')
-                ->maxLength(255),
-
-            Forms\Components\TextInput::make('segundo_apellido')
-                ->label('Apellido Materno')
-                ->maxLength(255),
-
-            Forms\Components\TextInput::make('email')
-                ->label('E-mail')
-                ->email()
-                ->required(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica')
-                ->unique(ignoreRecord: true)
-                ->maxLength(255),
-
             Forms\Components\TextInput::make('email_confirmacion')
                 ->label('Confirmar E-mail')
                 ->email()
@@ -189,12 +364,6 @@ class TenantResource extends Resource
                 ->maxLength(18)
                 ->rules(['regex:/^[A-Z]{4}\d{6}[HM][A-Z]{5}[0-9A-Z]\d$/i']),
 
-            Forms\Components\TextInput::make('telefono_celular')
-                ->label('Teléfono Celular')
-                ->tel()
-                ->required(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica')
-                ->maxLength(20),
-
             Forms\Components\TextInput::make('telefono_fijo')
                 ->label('Teléfono Fijo')
                 ->tel()
@@ -229,18 +398,6 @@ class TenantResource extends Resource
     protected static function getPersonaMoralSchema(): array
     {
         return [
-            Forms\Components\TextInput::make('razon_social')
-                ->label('Razón Social')
-                ->required(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
-                ->maxLength(255),
-
-            Forms\Components\TextInput::make('email')
-                ->label('Correo Electrónico')
-                ->email()
-                ->required(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
-                ->unique(ignoreRecord: true)
-                ->maxLength(255),
-
             Forms\Components\TextInput::make('dominio_internet')
                 ->label('Dominio de Internet')
                 ->maxLength(255),
@@ -250,12 +407,6 @@ class TenantResource extends Resource
                 ->required(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
                 ->maxLength(13)
                 ->rules(['regex:/^[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}$/i']),
-
-            Forms\Components\TextInput::make('telefono')
-                ->label('Teléfono')
-                ->tel()
-                ->required(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
-                ->maxLength(20),
 
             Forms\Components\TextInput::make('calle')
                 ->label('Calle')
@@ -455,22 +606,21 @@ class TenantResource extends Resource
         ];
     }
 
+    // CONFIGURACIÓN DE TABLA Y PERMISOS
+
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery();
         $user = auth()->user();
 
-        // Si es Admin, ve todo.
         if ($user->hasRole('Administrador')) {
             return $query;
         }
 
-        // Si es Asesor, solo ve los registros donde él es el 'asesor_id'
         if ($user->hasRole('Asesor')) {
             return $query->where('asesor_id', $user->id);
         }
 
-        // Por defecto, restringir o mostrar todo según el caso
         return $query;
     }
 
@@ -555,10 +705,10 @@ class TenantResource extends Resource
             ])
             ->actions([
                 Tables\Actions\EditAction::make()
-                    ->iconButton() // Convierte el botón a solo icono
+                    ->iconButton()
                     ->tooltip('Editar'),
                 Tables\Actions\DeleteAction::make()
-                    ->iconButton() // Convierte el botón a solo icono
+                    ->iconButton()
                     ->tooltip('Eliminar'),
             ])
             ->actionsColumnLabel('ACCIONES') 
@@ -574,100 +724,6 @@ class TenantResource extends Resource
         return [
             'index' => Pages\ListTenants::route('/'),
             'edit' => Pages\EditTenant::route('/{record}/edit'),
-        ];
-    }
-
-    public static function getCredencialesSchema(): array
-    {
-        return [
-            Forms\Components\TextInput::make('login_email')
-                ->label('Correo de Acceso (Usuario)')
-                ->email()
-                ->required()
-                ->default(fn ($record) => $record->email) 
-                ->dehydrated(false) // No guardar en tabla tenants
-                ->formatStateUsing(fn ($record) => $record->email),
-
-            Forms\Components\TextInput::make('login_password')
-                ->label('Contraseña')
-                ->password()
-                ->revealable()
-                // Generamos una contraseña aleatoria sugerida
-                ->default(fn () => \Illuminate\Support\Str::random(10)) 
-                ->helperText('Esta contraseña se encriptará en la base de datos. El usuario la recibirá en su correo.')
-                ->dehydrated(false), // No guardar en tabla tenants
-
-            // BOTÓN DE ACCIÓN
-            Forms\Components\Actions::make([
-                Action::make('enviar_accesos')
-                    ->label('Generar Usuario y Enviar Correo')
-                    ->icon('heroicon-m-envelope')
-                    ->color('primary')
-                    ->requiresConfirmation()
-                    ->modalHeading('Confirmar envío')
-                    ->modalDescription('Se creará/actualizará el usuario de sistema y se enviarán estas credenciales por correo.')
-                    ->action(function (Forms\Set $set, Forms\Get $get, $record) {
-                        
-                        // Obtenemos los datos del formulario virtual
-                        $email = $get('login_email');
-                        $password = $get('login_password');
-
-                        if (!$email || !$password) {
-                            Notification::make()->danger()->title('Error')->body('Correo y contraseña requeridos.')->send();
-                            return;
-                        }
-
-                        // LÓGICA CRÍTICA: CREAR O ACTUALIZAR EL USUARIO EN LA TABLA USERS
-                        // Buscamos si ya existe un usuario con este correo para no duplicar
-                        $user = User::updateOrCreate(
-                            ['email' => $email], // Buscamos por correo
-                            [
-                                'name'      => $record->nombre_completo ?? $record->nombres, // Usamos el nombre del inquilino
-                                'password'  => Hash::make($password), // ¡IMPORTANTE! Se guarda ENCRIPTADA
-                                'is_tenant' => true,
-                                'is_active' => true,
-                                // 'office_id' => $record->asesor->office_id ?? null, // Opcional si hereda oficina
-                            ]
-                        );
-
-                        // VINCULACIÓN: Guardamos el ID del usuario en el registro del Inquilino
-                        // Si el inquilino no tenía user_id, ahora ya lo tiene.
-                        if ($record->user_id !== $user->id) {
-                            $record->update(['user_id' => $user->id]);
-                        }
-
-                        // D. ENVÍO DE CORREO
-                        try {
-                            Mail::to($user->email)->send(new TenantCredentialsMail($user, $password));
-        
-                            Notification::make()
-                                ->success()
-                                ->title('Éxito')
-                                ->body("Credenciales enviadas a {$email}")
-                                ->send();
-            
-                        } catch (\Exception $e) {
-                            Notification::make()
-                                ->warning()
-                                ->title('Usuario guardado, pero falló el correo')
-                                ->body('Error SMTP: ' . $e->getMessage())
-                                ->send();
-                        }
-
-                        // Opcional: Limpiar campo
-                        $set('login_password', \Illuminate\Support\Str::random(10));
-
-                        // Notificación de éxito
-                        Notification::make()
-                            ->success()
-                            ->title('Usuario Configurado')
-                            ->body("Se asignó el usuario ID: {$user->id} y se enviaron las credenciales a {$email}.")
-                            ->send();
-                        
-                        // Opcional: Limpiar el campo de contraseña para seguridad visual
-                        $set('login_password', \Illuminate\Support\Str::random(10));
-                    }),
-            ])->columnSpanFull(),
         ];
     }
 }

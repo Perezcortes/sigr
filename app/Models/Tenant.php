@@ -133,6 +133,8 @@ class Tenant extends Model
         'estado_registro_facultades',
         'fecha_inscripcion_facultades',
         'tipo_representacion',
+
+        'historial_acciones',
     ];
 
     protected $casts = [
@@ -158,6 +160,8 @@ class Tenant extends Model
         'persona_aporta_ingreso_comprobable' => 'decimal:2',
         // Campos de Uso de Propiedad
         'sustituye_otro_domicilio' => 'boolean',
+
+        'historial_acciones' => 'array',
     ];
 
     /**
