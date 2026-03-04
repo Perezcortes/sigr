@@ -79,14 +79,13 @@ class AdministrationResource extends Resource
                     })
                     ->wrap(),
 
-                // 3. RENTA MENSUAL
-                Tables\Columns\TextColumn::make('monto') 
+                // 3. RENTA MENSUAL (formato 15,000.00 MXN)
+                Tables\Columns\TextColumn::make('monto')
                     ->label('Renta')
-                    ->money('MXN')
+                    ->formatStateUsing(fn ($state) => $state !== null && $state !== '' ? number_format((float) $state, 2, '.', ',') . ' MXN' : '-')
                     ->sortable()
                     ->weight('black')
                     ->color('success')
-                    // Si no hay monto pactado en contrato, muestra el precio de lista
                     ->state(fn ($record) => $record->monto ?? $record->property->precio_renta ?? 0),
 
                 // 4. VENCIMIENTO
