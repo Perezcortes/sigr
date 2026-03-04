@@ -1,0 +1,25 @@
+version = 1
+
+# Patrones de archivos de test (PHPUnit)
+test_patterns = ["tests/**"]
+
+# Excluir directorios que no son código fuente
+exclude_patterns = [
+  "vendor/**",
+  "node_modules/**",
+  "storage/**",
+  "bootstrap/cache/**",
+  "lang/vendor/**",
+  "public/**",
+]
+
+# Analizador PHP
+[[analyzers]]
+name = "php"
+enabled = true
+
+[analyzers.meta]
+# Reducir falsos positivos en clases Laravel/Filament
+skip_doc_coverage = ["class", "magic", "nonpublic"]
+# Umbral de complejidad ciclomática (opcional)
+cyclomatic_complexity_threshold = "high"

@@ -24,6 +24,7 @@ class User extends Authenticatable implements HasMedia, HasAvatar, FilamentUser
     use HasFactory, Notifiable, HasApiTokens;
     use HasRoles;
     use InteractsWithMedia;
+    use SoftDeletes;
 
     /**
      * The attributes that are mass assignable.

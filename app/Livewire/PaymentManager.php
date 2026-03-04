@@ -102,6 +102,7 @@ class PaymentManager extends Component implements HasForms, HasActions
 
                 Service::create([
                     'rent_id' => $this->rentId,
+                    'nombre' => trim(($data['tipo'] ?? 'Pago') . ' - ' . ($data['mes_correspondiente'] ?? '')),
                     'tipo' => $data['tipo'],
                     'mes_correspondiente' => $data['mes_correspondiente'],
                     'fecha_pago' => $data['fecha_pago'],

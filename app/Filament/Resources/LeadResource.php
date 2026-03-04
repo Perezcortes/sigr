@@ -16,10 +16,6 @@ use Illuminate\Database\Eloquent\Builder;
 use Filament\Support\Enums\FontWeight;
 use Filament\Tables\Actions\Action;
 use Filament\Tables\Actions\BulkAction;
-use pxlrbt\FilamentExcel\Actions\Tables\ExportBulkAction;
-use pxlrbt\FilamentExcel\Actions\Tables\ExportAction;
-use pxlrbt\FilamentExcel\Exports\ExcelExport; 
-use pxlrbt\FilamentExcel\Columns\Column;
 
 class LeadResource extends Resource
 {
@@ -45,84 +41,232 @@ class LeadResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\Section::make('Información del Prospecto')
-                    ->schema([
-                        Forms\Components\TextInput::make('nombre')->required(),
-                        Forms\Components\TextInput::make('correo')->email(),
-                        Forms\Components\TextInput::make('telefono')->tel(),
-                        Forms\Components\Select::make('origen')
-                            ->options([
-                                'Nocnok - Sitio' => 'Nocnok',
-                                'Rentas.com' => 'Rentas.com',
-                                'Whatsapp' => 'Whatsapp',
-                                'Llamada' => 'Llamada',
-                            ]),
-                        Forms\Components\Select::make('tipo_transaccion')
-                            ->label('Tipo de Transacción')
-                            ->options([
-                                'inquilino' => 'Inquilino',
-                                'propietario' => 'Propietario',
-                                'venta' => 'Proceso de venta',
-                            ])
-                            ->required(), // Si es obligatorio
-                        Forms\Components\Textarea::make('mensaje')
-                            ->columnSpanFull(),
-                    ])->columns(2),
-
-                Forms\Components\Section::make('Seguimiento')
-                    ->schema([
-                        Forms\Components\Select::make('etapa')
-                            ->options([
-                                'no_contactado' => 'No contactado',
-                                'contactado' => 'Contactado',
-                                'cita' => 'Cita',
-                                'seguimiento' => 'Seguimiento',
-                                'propuesta' => 'Propuesta',
-                                'en_cierre' => 'En cierre',
-                                'ganado' => 'Ganado',
-                                'perdido' => 'Perdido',
-                                'no_califica' => 'No califica',
-                            ])
-                            ->default('no_contactado')
-                            ->required(),
+                Forms\Components\Grid::make(4)->schema([
+                    
+                    // COLUMNA IZQUIERDA (Perfil del Contacto)
+                    Forms\Components\Group::make()->columnSpan(1)->schema([
                         
-                        Forms\Components\Select::make('responsable_id')
-                            ->relationship('responsable', 'name')
-                            ->label('Asesor Responsable'),
-                            
-                        Forms\Components\TextInput::make('url_propiedad')
-                            ->label('Propiedad de Interés')
-                            ->suffixAction(
-                                Forms\Components\Actions\Action::make('visitar')
-                                    ->icon('heroicon-m-arrow-top-right-on-square')
-                                    ->url(fn ($state) => $state, shouldOpenInNewTab: true)
-                            )
+                        Forms\Components\Section::make()
+                            ->schema([
+                                Forms\Components\TextInput::make('nombre')
+                                    ->label('Nombre del Contacto')
+                                    ->required()
+                                    ->columnSpanFull(),
+
+                                Forms\Components\Select::make('etapa')
+                                    ->options([
+                                        'nuevo' => 'Nuevo',
+                                        'contactado' => 'Contactado',
+                                        'cita' => 'Cita',
+                                        'en_proceso' => 'En proceso',
+                                        'ganado' => 'Ganado',
+                                        'perdido' => 'Perdido',
+                                    ])
+                                    ->default('nuevo')
+                                    ->required()
+                                    ->columnSpanFull(),
+
+                                Forms\Components\Select::make('responsable_id')
+                                    ->relationship('responsable', 'name')
+                                    ->label('Asignado a')
+                                    ->columnSpanFull(),
+
+                                Forms\Components\TextInput::make('correo')
+                                    ->email()
+                                    ->prefixIcon('heroicon-m-envelope')
+                                    ->columnSpanFull(),
+
+                                Forms\Components\TextInput::make('telefono')
+                                    ->tel()
+                                    ->prefixIcon('heroicon-m-phone')
+                                    ->columnSpanFull(),
+
+                                Forms\Components\TextInput::make('presupuesto')
+                                    ->label('Presupuesto')
+                                    ->numeric()
+                                    ->prefix('$')
+                                    ->columnSpanFull(),
+
+                                Forms\Components\Select::make('tipo_cliente')
+                                    ->label('Tipo de operación')
+                                    ->options([
+                                        'inquilino' => 'Inquilino',
+                                        'arrendador' => 'Arrendador',
+                                        'comprador' => 'Comprador',
+                                        'vendedor' => 'Vendedor',
+                                        'NA' => 'NA',
+                                    ])->required()
+                                    ->columnSpanFull(),
+
+                                Forms\Components\Select::make('origen')
+                                    ->label('Canal / Origen')
+                                    ->options([
+                                        'Nocnok' => 'Nocnok - Sitio',
+                                        'Rentas.com' => 'Rentas.com',
+                                        'Facebook' => 'Facebook',
+                                        'Instagram' => 'Instagram',
+                                        'Ticktok' => 'Ticktok',
+                                        'Recomendado' => 'Recomendado',
+                                        'Evento' => 'Evento',
+                                        'Otro' => 'Otro',
+                                    ])->columnSpanFull(),
+
+                                Forms\Components\Select::make('calificacion_lead')
+                                    ->label('Calificación')
+                                    ->options([
+                                        'perfilado' => 'Perfilado',
+                                        'potencial' => 'Potencial',
+                                        'seguimiento' => 'Seguimiento',
+                                        'falso_lead' => 'Falso lead',
+                                        'sin_presupuesto' => 'Sin presupuesto',
+                                        'no_interesado' => 'No interesado',
+                                        'mistery_shopper' => 'Mistery Shopper',
+                                    ])->columnSpanFull(),
+                            ]),
+                    ]),
+
+                    // COLUMNA DERECHA (Pestañas estilo Nocnok)
+                    Forms\Components\Group::make()->columnSpan(3)->schema([
+                        
+                        Forms\Components\Tabs::make('CRM Tabs')
+                            ->tabs([
+                                
+                                // --- NOTAS Y ACCIONES ---
+                                Forms\Components\Tabs\Tab::make('Notas y Seguimiento')
+                                    ->icon('heroicon-m-document-text')
+                                    ->schema([
+                                        
+                                        // Botonera de acciones
+                                        Forms\Components\Actions::make([
+                                            
+                                            Forms\Components\Actions\Action::make('agregar_nota')
+                                                ->label('Agregar Nota')
+                                                ->icon('heroicon-m-pencil-square')
+                                                ->color('warning')
+                                                ->form([
+                                                    Forms\Components\Textarea::make('nota')
+                                                        ->label('Escribe aquí tu nota')
+                                                        ->required()
+                                                        ->rows(3),
+                                                ])
+                                                ->action(function (array $data, ?Lead $record) {
+                                                    if($record) {
+                                                        $hist = $record->historial_acciones ?? [];
+                                                        $hist[] = ['fecha' => now()->format('d/m/Y H:i'), 'accion' => 'Nota: ' . $data['nota']];
+                                                        $record->update(['historial_acciones' => $hist]);
+                                                    }
+                                                })->visible(fn (?Lead $record) => $record !== null),
+
+                                            Forms\Components\Actions\Action::make('crear_cita')
+                                                ->label('Cita')
+                                                ->icon('heroicon-m-calendar')
+                                                ->color('primary')
+                                                ->form([
+                                                    Forms\Components\DatePicker::make('fecha')->required(),
+                                                    Forms\Components\TimePicker::make('hora')->required(),
+                                                    Forms\Components\Textarea::make('observaciones'),
+                                                ])
+                                                ->action(function (array $data, ?Lead $record) {
+                                                    if($record) {
+                                                        $hist = $record->historial_acciones ?? [];
+                                                        $hist[] = ['fecha' => now()->format('d/m/Y H:i'), 'accion' => "Cita: {$data['fecha']} a las {$data['hora']} - " . ($data['observaciones'] ?? '')];
+                                                        $record->update(['etapa' => 'cita', 'historial_acciones' => $hist]);
+                                                    }
+                                                })->visible(fn (?Lead $record) => $record !== null),
+
+                                            Forms\Components\Actions\Action::make('whatsapp')
+                                                ->label('WhatsApp')
+                                                ->icon('heroicon-m-chat-bubble-left-ellipsis')
+                                                ->color('success')
+                                                ->action(function (?Lead $record) {
+                                                    if($record) {
+                                                        $hist = $record->historial_acciones ?? [];
+                                                        $hist[] = ['fecha' => now()->format('d/m/Y H:i'), 'accion' => 'WhatsApp iniciado'];
+                                                        $record->update(['etapa' => 'contactado', 'historial_acciones' => $hist]);
+                                                        return redirect()->away("https://wa.me/52" . $record->telefono);
+                                                    }
+                                                })->visible(fn (?Lead $record) => $record !== null),
+
+                                            Forms\Components\Actions\Action::make('registrar_llamada')
+                                                ->label('Llamada')
+                                                ->icon('heroicon-m-phone')
+                                                ->color('gray')
+                                                ->requiresConfirmation()
+                                                ->action(function (?Lead $record) {
+                                                    if($record) {
+                                                        $hist = $record->historial_acciones ?? [];
+                                                        $hist[] = ['fecha' => now()->format('d/m/Y H:i'), 'accion' => 'Llamada telefónica realizada'];
+                                                        $record->update(['etapa' => 'contactado', 'historial_acciones' => $hist]);
+                                                    }
+                                                })->visible(fn (?Lead $record) => $record !== null),
+                                        ]),
+
+                                        // Muro de historial
+                                        Forms\Components\ViewField::make('historial_acciones')
+                                            ->view('filament.forms.components.lead-history')
+                                            ->label('')
+                                            ->visible(fn (?Lead $record) => $record !== null && !empty($record->historial_acciones)),
+                                    ]),
+
+                                // --- PROPIEDADES DE INTERÉS ---
+                                Forms\Components\Tabs\Tab::make('Propiedades de interés')
+                                    ->icon('heroicon-m-home-modern')
+                                    ->schema([
+                                        Forms\Components\TextInput::make('url_propiedad')
+                                            ->label('URL de la propiedad / Nocnok ID')
+                                            ->suffixAction(
+                                                Forms\Components\Actions\Action::make('visitar')
+                                                    ->icon('heroicon-m-arrow-top-right-on-square')
+                                                    ->url(fn ($state) => $state, shouldOpenInNewTab: true)
+                                            ),
+                                        
+                                        Forms\Components\Grid::make(2)->schema([
+                                            Forms\Components\TextInput::make('metros_cuadrados')
+                                                ->label('Metros Cuadrados')
+                                                ->numeric(),
+                                            Forms\Components\TextInput::make('numero_recamaras')
+                                                ->label('Nº de Recámaras')
+                                                ->numeric(),
+                                        ]),
+
+                                        Forms\Components\TextInput::make('localidades')
+                                            ->label('Zonas o Localidades de interés'),
+
+                                        Forms\Components\Textarea::make('mensaje')
+                                            ->label('Mensaje de solicitud original')
+                                            ->disabled()
+                                            ->rows(3),
+                                    ]),
+
+                                // --- MENSAJES / WHATSAPP ---
+                                Forms\Components\Tabs\Tab::make('Mensajes WhatsApp')
+                                    ->icon('heroicon-m-chat-bubble-bottom-center-text')
+                                    ->schema([
+                                        Forms\Components\Placeholder::make('info_whatsapp')
+                                            ->label('Chat de WhatsApp')
+                                            ->content('En la siguiente fase, conectaremos este panel con la Evolution API para ver los mensajes en vivo aquí mismo.'),
+                                    ]),
+                            ])
                             ->columnSpanFull(),
-                    ])->columns(2),
+                    ]),
+                ]),
             ]);
     }
 
     public static function table(Table $table): Table
     {
         return $table
-            // No contactados primero
             ->defaultSort(fn ($query) => $query->orderByRaw("CASE WHEN etapa = 'no_contactado' THEN 1 ELSE 2 END")->orderBy('created_at', 'desc'))
-            
-            // QUERY INICIAL: Ocultar ganados/perdidos por defecto
             ->modifyQueryUsing(fn (Builder $query) => $query->whereNotIn('etapa', ['ganado', 'perdido', 'no_califica']))
-            
-            // BOTÓN SUPERIOR (EXPORTAR TODO CON DISEÑO)
             ->headerActions([
                 Action::make('exportar_todo_bonito')
                     ->label('Descargar Reporte Oficial')
                     ->icon('heroicon-o-document-arrow-down')
                     ->color('primary')
                     ->action(function () {
-                        // Descarga TODOS los leads usando tu diseño con Logo
                         return Excel::download(new LeadsExport(Lead::all()), 'Reporte_Interesados_' . date('Y-m-d') . '.xlsx');
                     }),
             ])
-
             ->columns([
                 Tables\Columns\TextColumn::make('nombre')
                     ->searchable()
@@ -143,18 +287,17 @@ class LeadResource extends Resource
                         default => 'warning',
                     })
                     ->formatStateUsing(fn (string $state): string => ucfirst(str_replace('_', ' ', $state))),
+                
+                // Agregado a la tabla para mayor visibilidad
+                Tables\Columns\TextColumn::make('calificacion_lead')
+                    ->label('Calificación')
+                    ->badge()
+                    ->color('info')
+                    ->formatStateUsing(fn (string $state): string => ucfirst(str_replace('_', ' ', $state))),
 
                 Tables\Columns\TextColumn::make('origen')
                     ->badge()
-                    ->color('info'),
-
-                Tables\Columns\TextColumn::make('mensaje')
-                    ->limit(30)
-                    ->tooltip(function (Tables\Columns\TextColumn $column): ?string {
-                        $state = $column->getState();
-                        if (strlen($state) <= 30) return null;
-                        return $state;
-                    }),
+                    ->color('primary'),
 
                 Tables\Columns\TextColumn::make('responsable.name')
                     ->label('Responsable')
@@ -193,13 +336,10 @@ class LeadResource extends Resource
                     ->action(fn (Lead $record) => $record->update(['etapa' => 'contactado']))
                     ->visible(fn (Lead $record) => $record->etapa === 'no_contactado'),
             ])
-            
-            // ACCIONES MASIVAS (CHECKBOX) 
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
                     
-                    // Acción para exportar solo lo seleccionado con diseño
                     BulkAction::make('exportar_seleccion_bonito')
                         ->label('Exportar Selección con Logo')
                         ->icon('heroicon-o-arrow-down-tray')
