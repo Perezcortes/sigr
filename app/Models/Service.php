@@ -9,6 +9,7 @@ class Service extends Model
 {
     protected $fillable = [
         'rent_id',
+        'nombre',
         'tipo',
         'mes_correspondiente',
         'fecha_pago',
