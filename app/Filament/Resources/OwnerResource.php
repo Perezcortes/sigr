@@ -109,58 +109,95 @@ class OwnerResource extends Resource
 
                     // COLUMNA DERECHA (Acciones y Seguimiento)
                     Forms\Components\Group::make()->columnSpan(1)->schema([
-                        Forms\Components\Section::make('Acciones Rápidas')->schema([
-                            
-                            Forms\Components\Actions::make([
-                                Forms\Components\Actions\Action::make('enviar_email')
-                                    ->label('Enviar Email')
-                                    ->icon('heroicon-m-envelope')
-                                    ->color('gray')
-                                    ->action(function (?Owner $record) {
-                                        if($record) {
-                                            $hist = $record->historial_acciones ?? [];
-                                            $hist[] = ['fecha' => now()->format('d/m/Y H:i'), 'accion' => 'Email enviado'];
-                                            $record->update(['historial_acciones' => $hist]);
-                                        }
-                                        Notification::make()->success()->title('Email registrado')->send();
-                                    })->visible(fn (?Owner $record) => $record !== null),
+                        Forms\Components\Tabs::make('CRM Tabs')
+                            ->tabs([
+                                // --- NOTAS Y ACCIONES ---
+                                Forms\Components\Tabs\Tab::make('Notas y Seguimiento')
+                                    ->icon('heroicon-m-document-text')
+                                    ->schema([
+                                        
+                                        // Botonera de acciones
+                                        Forms\Components\Actions::make([
+                                            
+                                            Forms\Components\Actions\Action::make('agregar_nota')
+                                                ->label('Agregar Nota')
+                                                ->icon('heroicon-m-pencil-square')
+                                                ->color('warning')
+                                                ->form([
+                                                    Forms\Components\Textarea::make('nota')
+                                                        ->label('Escribe aquí tu nota')
+                                                        ->required()
+                                                        ->rows(3),
+                                                ])
+                                                ->action(function (array $data, ?Owner $record) {
+                                                    if($record) {
+                                                        $hist = $record->historial_acciones ?? [];
+                                                        $hist[] = ['fecha' => now()->format('d/m/Y H:i'), 'accion' => 'Nota: ' . $data['nota']];
+                                                        $record->update(['historial_acciones' => $hist]);
+                                                    }
+                                                })->visible(fn (?Owner $record) => $record !== null),
 
-                                Forms\Components\Actions\Action::make('llamar')
-                                    ->label('Llamar')
-                                    ->icon('heroicon-m-phone')
-                                    ->color('gray')
-                                    ->action(function (?Owner $record) {
-                                        if($record) {
-                                            $hist = $record->historial_acciones ?? [];
-                                            $hist[] = ['fecha' => now()->format('d/m/Y H:i'), 'accion' => 'Llamada realizada'];
-                                            $record->update(['historial_acciones' => $hist]);
-                                        }
-                                        Notification::make()->success()->title('Llamada registrada')->send();
-                                    })->visible(fn (?Owner $record) => $record !== null),
-                            ])->fullWidth(),
+                                            Forms\Components\Actions\Action::make('crear_cita')
+                                                ->label('Cita')
+                                                ->icon('heroicon-m-calendar')
+                                                ->color('primary')
+                                                ->form([
+                                                    Forms\Components\DatePicker::make('fecha')->required(),
+                                                    Forms\Components\TimePicker::make('hora')->required(),
+                                                    Forms\Components\Textarea::make('observaciones'),
+                                                ])
+                                                ->action(function (array $data, ?Owner $record) {
+                                                    if($record) {
+                                                        $hist = $record->historial_acciones ?? [];
+                                                        $hist[] = ['fecha' => now()->format('d/m/Y H:i'), 'accion' => "Cita: {$data['fecha']} a las {$data['hora']} - " . ($data['observaciones'] ?? '')];
+                                                        $record->update(['historial_acciones' => $hist]);
+                                                    }
+                                                })->visible(fn (?Owner $record) => $record !== null),
 
-                            Forms\Components\Actions::make([
-                                Forms\Components\Actions\Action::make('whatsapp')
-                                    ->label('WhatsApp')
-                                    ->icon('heroicon-m-chat-bubble-left-ellipsis')
-                                    ->color('success')
-                                    ->action(function (?Owner $record) {
-                                        if($record) {
-                                            $hist = $record->historial_acciones ?? [];
-                                            $hist[] = ['fecha' => now()->format('d/m/Y H:i'), 'accion' => 'WhatsApp iniciado'];
-                                            $record->update(['historial_acciones' => $hist]);
-                                            return redirect()->away("https://wa.me/52" . $record->telefono);
-                                        }
-                                    })->visible(fn (?Owner $record) => $record !== null),
-                            ])->fullWidth(),
+                                            Forms\Components\Actions\Action::make('whatsapp')
+                                                ->label('WhatsApp')
+                                                ->icon('heroicon-m-chat-bubble-left-ellipsis')
+                                                ->color('success')
+                                                ->action(function (?Owner $record) {
+                                                    if($record) {
+                                                        $hist = $record->historial_acciones ?? [];
+                                                        $hist[] = ['fecha' => now()->format('d/m/Y H:i'), 'accion' => 'WhatsApp iniciado'];
+                                                        $record->update(['historial_acciones' => $hist]);
+                                                        return redirect()->away("https://wa.me/52" . $record->telefono);
+                                                    }
+                                                })->visible(fn (?Owner $record) => $record !== null),
 
-                            // Muro de historial (usa el mismo archivo blade que Inquilinos)
-                            Forms\Components\ViewField::make('historial_acciones')
-                                ->view('filament.forms.components.lead-history')
-                                ->label('')
-                                ->visible(fn (?Owner $record) => $record !== null && !empty($record->historial_acciones)),
+                                            Forms\Components\Actions\Action::make('registrar_llamada')
+                                                ->label('Llamada')
+                                                ->icon('heroicon-m-phone')
+                                                ->color('gray')
+                                                ->requiresConfirmation()
+                                                ->action(function (?Owner $record) {
+                                                    if($record) {
+                                                        $hist = $record->historial_acciones ?? [];
+                                                        $hist[] = ['fecha' => now()->format('d/m/Y H:i'), 'accion' => 'Llamada telefónica registrada'];
+                                                        $record->update(['historial_acciones' => $hist]);
+                                                    }
+                                                })->visible(fn (?Owner $record) => $record !== null),
+                                        ]),
 
-                        ])->visible(fn ($record) => $record !== null),
+                                        // Muro de historial (usa el mismo archivo blade que Inquilinos)
+                                        Forms\Components\ViewField::make('historial_acciones')
+                                            ->view('filament.forms.components.lead-history')
+                                            ->label('')
+                                            ->visible(fn (?Owner $record) => $record !== null && !empty($record->historial_acciones)),
+                                    ]),
+
+                                // --- MENSAJES / WHATSAPP ---
+                                Forms\Components\Tabs\Tab::make('WhatsApp')
+                                    ->icon('heroicon-m-chat-bubble-bottom-center-text')
+                                    ->schema([
+                                        Forms\Components\Placeholder::make('info_whatsapp')
+                                            ->label('Chat de WhatsApp')
+                                            ->content('En la siguiente fase, conectaremos este panel con la Evolution API para ver los mensajes en vivo aquí mismo.'),
+                                    ]),
+                            ])
+                            ->columnSpanFull(),
                     ]),
                 ]),
             ]);
