@@ -1257,140 +1257,202 @@ class ViewRent extends EditRecord
                             ]),
 
                         // ========== TAB: INVESTIGACIÓN ==========
-                        Forms\Components\Tabs\Tab::make('Investigación')
-                            ->icon('heroicon-o-magnifying-glass')
+                        // ========== TAB: PÓLIZA DE RENTA (Antes Investigación) ==========
+                        Forms\Components\Tabs\Tab::make('Póliza de Renta')
+                            ->icon('heroicon-o-shield-check')
                             ->schema([
-                                Forms\Components\Section::make('Investigación')
-                                    ->schema([
-                                        Forms\Components\Placeholder::make('investigacion_placeholder')
-                                            ->label('')
-                                            ->content('Aquí se mostrará la información de investigación relacionada con la renta.'),
-                                    ]),
-                                Forms\Components\Actions::make([
-                                    Forms\Components\Actions\Action::make('nueva_investigacion')
-                                        ->label('Nueva Investigación')
-                                        ->color('primary')
-                                        ->icon('heroicon-o-plus-circle'),
-                                ]),
-                            ]),
-
-                        // ========== TAB: COMENTARIOS ==========
-                        Forms\Components\Tabs\Tab::make('Comentarios')
-                            ->icon('heroicon-o-chat-bubble-left-right')
-                            ->schema([
-                                Forms\Components\Section::make('Comentarios')
-                                    ->description('Bitácora de seguimiento y notas internas.')
+                                Forms\Components\Section::make('Resumen de la Operación')
+                                    ->description('Verifique los datos antes de enviar el expediente al abogado de Póliza de Rentas.')
                                     ->schema([
                                         
-                                        // === LISTA DE COMENTARIOS CON ESTILO CHAT ===
-                                        Forms\Components\Placeholder::make('comments_list')
-                                            ->label('') // Sin etiqueta para limpieza visual
-                                            ->columnSpanFull()
-                                            ->content(function () {
-                                                $comments = $this->record->comments()
-                                                    ->with('user')
-                                                    ->orderBy('created_at', 'desc') // Los más nuevos arriba
-                                                    ->get();
+                                        // Resumen del Inquilino
+                                        Forms\Components\Placeholder::make('resumen_inquilino')
+                                            ->label('Datos del Inquilino')
+                                            ->content(fn ($record) => new \Illuminate\Support\HtmlString(
+                                                $record->tenant 
+                                                ? "<b>Nombre:</b> {$record->tenant->nombre_completo}<br><b>Email:</b> {$record->tenant->email}<br><b>Teléfono:</b> " . ($record->tenant->telefono_celular ?? $record->tenant->telefono) 
+                                                : '<span class="text-red-500">Sin asignar</span>'
+                                            )),
+                                            
+                                        // Resumen del Propietario
+                                        Forms\Components\Placeholder::make('resumen_propietario')
+                                            ->label('Datos del Propietario')
+                                            ->content(fn ($record) => new \Illuminate\Support\HtmlString(
+                                                $record->owner 
+                                                ? "<b>Nombre:</b> {$record->owner->nombre_completo}<br><b>Email:</b> {$record->owner->email}<br><b>Teléfono:</b> {$record->owner->telefono}" 
+                                                : '<span class="text-red-500">Sin asignar</span>'
+                                            )),
 
-                                                if ($comments->isEmpty()) {
-                                                    // DISEÑO DE ESTADO VACÍO (EMPTY STATE)
-                                                    return new \Illuminate\Support\HtmlString('
-                                                        <div class="flex flex-col items-center justify-center p-8 text-center bg-gray-50 border border-gray-200 border-dashed rounded-xl dark:bg-white/5 dark:border-white/10">
-                                                            <div class="p-3 bg-white rounded-full shadow-sm dark:bg-gray-800">
-                                                                <svg class="w-8 h-8 text-[#26cad3]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
-                                                                </svg>
-                                                            </div>
-                                                            <h3 class="mt-2 text-sm font-semibold text-[#161848] dark:text-white">Sin comentarios aún</h3>
-                                                            <p class="text-sm text-gray-500 dark:text-gray-400">Inicie la conversación agregando una nota abajo.</p>
-                                                        </div>
-                                                    ');
-                                                }
+                                        // Propiedad y Renta
+                                        Forms\Components\Placeholder::make('resumen_inmueble')
+                                            ->label('Inmueble y Propiedad')
+                                            ->content(fn ($record) => new \Illuminate\Support\HtmlString(
+                                                "<b>Tipo:</b> " . ucfirst($record->tipo_inmueble ?? 'N/A') . "<br>" .
+                                                "<b>Dirección:</b> " . trim(($record->calle ?? '') . ' ' . ($record->numero_exterior ?? ''))
+                                            )),
 
-                                                // CONSTRUCCIÓN DEL CHAT
-                                                $html = '<div class="space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">';
-                                                
-                                                foreach ($comments as $comment) {
-                                                    $user = $comment->user;
-                                                    $userName = $user ? $user->name : 'Sistema';
-                                                    // Obtener iniciales
-                                                    $initials = collect(explode(' ', $userName))->map(fn($w) => strtoupper(substr($w, 0, 1)))->take(2)->implode('');
-                                                    $date = $comment->created_at->format('d M Y, h:i A');
-                                                    $isCurrentUser = $user && $user->id === auth()->id();
-                                                                                                        
-                                                    $html .= '
-                                                    <div class="flex items-start gap-3 group">
-                                                        <div class="flex-shrink-0">
-                                                            <div class="flex items-center justify-center w-10 h-10 rounded-full bg-[#161848] text-white text-xs font-bold shadow-md ring-2 ring-white dark:ring-gray-800">
-                                                                '.$initials.'
-                                                            </div>
-                                                        </div>
-                                                        <div class="flex-1 min-w-0">
-                                                            <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg rounded-tl-none shadow-sm p-4 hover:shadow-md transition-shadow duration-200 relative">
-                                                                
-                                                                <div class="absolute left-0 top-2 bottom-2 w-1 bg-[#26cad3] rounded-r"></div>
+                                        Forms\Components\Placeholder::make('resumen_renta')
+                                            ->label('Monto y Solicitud')
+                                            ->content(fn ($record) => new \Illuminate\Support\HtmlString(
+                                                "<b>Renta Mensual:</b> $" . number_format($record->renta ?? 0, 2) . "<br>" .
+                                                "<b>Solicitud Inquilino:</b> " . ($record->application ? $record->application->folio : 'No vinculada')
+                                            )),
 
-                                                                <div class="flex items-center justify-between mb-1 ml-2">
-                                                                    <h4 class="text-sm font-bold text-[#161848] dark:text-[#26cad3]">
-                                                                        '.$userName.'
-                                                                    </h4>
-                                                                    <span class="text-xs text-gray-400 font-medium flex items-center gap-1">
-                                                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                                                                        '.$date.'
-                                                                    </span>
-                                                                </div>
-                                                                <p class="text-sm text-gray-600 dark:text-gray-300 ml-2 whitespace-pre-wrap leading-relaxed">'.$comment->comment.'</p>
-                                                            </div>
-                                                        </div>
-                                                    </div>';
-                                                }
-                                                
-                                                $html .= '</div>';
+                                        // Fechas y Plazos (Editables)
+                                        Forms\Components\TextInput::make('plazo_arrendamiento')
+                                            ->label('Plazo del Arrendamiento')
+                                            ->placeholder('Ej. 12 meses')
+                                            ->required(),
 
-                                                return new \Illuminate\Support\HtmlString($html);
-                                            }),
+                                        Forms\Components\DatePicker::make('start_date')
+                                            ->label('Fecha de Inicio')
+                                            ->displayFormat('d/m/Y')
+                                            ->native(false)
+                                            ->required(),
 
-                                        // === ÁREA DE TEXTO MEJORADA ===
-                                        Forms\Components\Group::make()
-                                            ->schema([
-                                                Forms\Components\Textarea::make('new_comment_content') // Cambié el nombre para no chocar
-                                                    ->label('Escribir nuevo comentario')
-                                                    ->placeholder('Escriba aquí los detalles, observaciones o seguimiento...')
-                                                    ->rows(3)
-                                                    //->required()
-                                                    // Estilo extra para que el textarea se vea integrado
-                                                    ->extraInputAttributes(['class' => 'resize-none border-gray-300 focus:border-[#26cad3] focus:ring-[#26cad3]']),
-                                                    
-                                                Forms\Components\Actions::make([
-                                                    Forms\Components\Actions\Action::make('guardar_comentario')
-                                                        ->label('Publicar Comentario')
-                                                        ->color('primary')
-                                                        ->icon('heroicon-m-paper-airplane') // Icono de enviar
-                                                        ->action(function (Forms\Get $get, Forms\Set $set) {
-                                                            $content = $get('new_comment_content');
-                                                            if (!$content) return;
+                                        Forms\Components\DatePicker::make('end_date')
+                                            ->label('Fecha de Fin')
+                                            ->displayFormat('d/m/Y')
+                                            ->native(false)
+                                            ->required(),
 
-                                                            RentComment::create([
-                                                                'rent_id' => $this->record->id,
-                                                                'user_id' => auth()->id(),
-                                                                'comment' => $content,
-                                                                'status' => 'activa',
-                                                            ]);
+                                        Forms\Components\DatePicker::make('fecha_firma')
+                                            ->label('Fecha prevista de firma')
+                                            ->displayFormat('d/m/Y')
+                                            ->native(false)
+                                            ->required(),
+                                    ])->columns(2),
 
-                                                            // Limpiar el campo y notificar
-                                                            $set('new_comment_content', '');
-                                                            \Filament\Notifications\Notification::make()
-                                                                ->success()
-                                                                ->title('Comentario registrado')
-                                                                ->body('Se ha agregado la nota al historial.')
-                                                                ->send();
-                                                        }),
-                                                ])->alignRight(), // Botón a la derecha
-                                            ])
-                                            ->columnSpanFull()
-                                            ->extraAttributes(['class' => 'bg-gray-50 dark:bg-white/5 p-4 rounded-xl border border-gray-200 dark:border-gray-700 mt-4']),
-                                    ]),
+                                // Botón de Envío
+                                Forms\Components\Actions::make([
+                                    Forms\Components\Actions\Action::make('enviar_pdr')
+                                        ->label('Enviar expediente a Póliza de Rentas')
+                                        ->icon('heroicon-m-paper-airplane')
+                                        ->color('success')
+                                        ->requiresConfirmation()
+                                        ->modalHeading('¿Enviar Expediente a Póliza de Rentas?')
+                                        ->modalDescription('El estatus de la renta cambiará automáticamente a "Análisis" y el abogado asignado recibirá una notificación por correo electrónico con los datos de esta operación.')
+                                        ->action(function (Forms\Get $get, Forms\Set $set, $record) {
+                                            
+                                            // 1. Guardar primero las fechas que acaban de escribir
+                                            $record->update([
+                                                'plazo_arrendamiento' => $get('plazo_arrendamiento'),
+                                                'start_date' => $get('start_date'),
+                                                'end_date' => $get('end_date'),
+                                                'fecha_firma' => $get('fecha_firma'),
+                                                'estatus' => 'analisis', // 2. CAMBIO AUTOMÁTICO DE ESTATUS
+                                            ]);
+
+                                            // 3. ACTUALIZAR EL DESPLEGABLE VISUAL DE LA PESTAÑA INFORMACIÓN (Para que no tengan que recargar la página)
+                                            $set('estatus', 'analisis');
+
+                                            // 4. ENVIAR CORREO AL ABOGADO (Simulado por ahora hasta que me des la vista de correo)
+                                            /*
+                                            try {
+                                                Mail::raw("Se ha creado un nuevo expediente de renta para revisar. Folio: {$record->folio}", function ($message) {
+                                                    $message->to('abogado_pdr@tuempresa.com')
+                                                            ->subject('Nuevo Expediente a Revisar');
+                                                });
+                                            } catch (\Exception $e) {}
+                                            */
+
+                                            // 5. MENSAJE DE ÉXITO EXACTO COMO LO PIDIERON
+                                            \Filament\Notifications\Notification::make()
+                                                ->success()
+                                                ->title('Expediente enviado exitosamente')
+                                                ->body('El estatus ha cambiado a Análisis y PDR ha sido notificado.')
+                                                ->send();
+                                        })
+                                        // El botón desaparece si la renta ya pasó de la fase de documentación
+                                        ->visible(fn ($record) => in_array($record->estatus, ['nueva', 'documentacion'])),
+                                ])->fullWidth(),
                             ]),
+                    ]),
+                
+                // SECCIÓN GLOBAL DE COMENTARIOS (ABAJO)
+                Forms\Components\Section::make('Bitácora y Comentarios')
+                    ->description('Historial de la operación y notas de seguimiento.')
+                    ->icon('heroicon-o-chat-bubble-left-right')
+                    ->columnSpanFull()
+                    ->extraAttributes(['class' => 'mt-4 bg-gray-50 dark:bg-white/5'])
+                    ->schema([
+                        Forms\Components\Group::make()->schema([
+                            // Campo para nuevo comentario
+                            Forms\Components\Textarea::make('new_comment_content')
+                                ->hiddenLabel()
+                                ->placeholder('Escribe una nueva nota o comentario...')
+                                ->rows(2)
+                                ->extraInputAttributes(['class' => 'border-gray-300 focus:border-[#26cad3] focus:ring-[#26cad3]']),
+                            
+                            // Botón de guardar
+                            Forms\Components\Actions::make([
+                                Forms\Components\Actions\Action::make('guardar_comentario')
+                                    ->label('Publicar Comentario')
+                                    ->color('primary')
+                                    ->icon('heroicon-m-paper-airplane')
+                                    ->action(function (Forms\Get $get, Forms\Set $set) {
+                                        $content = $get('new_comment_content');
+                                        if (!$content) return;
+
+                                        RentComment::create([
+                                            'rent_id' => $this->record->id,
+                                            'user_id' => auth()->id(),
+                                            'comment' => $content,
+                                            'status' => 'activa',
+                                        ]);
+
+                                        $set('new_comment_content', '');
+                                        \Filament\Notifications\Notification::make()->success()->title('Comentario registrado')->send();
+                                    }),
+                            ])->alignRight(),
+                        ]),
+
+                        // Lista de comentarios
+                        Forms\Components\Placeholder::make('comments_list')
+                            ->hiddenLabel()
+                            ->content(function () {
+                                $comments = $this->record->comments()->with('user')->orderBy('created_at', 'desc')->get();
+                                
+                                if ($comments->isEmpty()) {
+                                    return new \Illuminate\Support\HtmlString('
+                                        <div class="flex flex-col items-center justify-center p-8 text-center bg-white border border-gray-200 border-dashed rounded-xl dark:bg-gray-800 dark:border-gray-700 mt-4">
+                                            <p class="text-sm text-gray-500">Sin comentarios aún</p>
+                                        </div>
+                                    ');
+                                }
+
+                                $html = '<div class="space-y-3 max-h-[400px] overflow-y-auto pr-2 mt-4">';
+                                foreach ($comments as $comment) {
+                                    $user = $comment->user;
+                                    $userName = $user ? $user->name : 'Sistema Automático';
+                                    $date = $comment->created_at->format('d M Y, h:i A');
+                                    
+                                    $bgClass = $user ? 'bg-white dark:bg-gray-800' : 'bg-blue-50 dark:bg-blue-900/20';
+                                    $borderClass = $user ? 'border-gray-200 dark:border-gray-700' : 'border-[#26cad3]/30';
+                                    $initials = collect(explode(' ', $userName))->map(fn($w) => strtoupper(substr($w, 0, 1)))->take(2)->implode('');
+                                    $iconBg = $user ? 'bg-[#161848]' : 'bg-[#26cad3]';
+
+                                    $html .= "
+                                        <div class='flex items-start gap-3'>
+                                            <div class='flex-shrink-0'>
+                                                <div class='flex items-center justify-center w-10 h-10 rounded-full {$iconBg} text-white text-xs font-bold shadow-sm'>
+                                                    {$initials}
+                                                </div>
+                                            </div>
+                                            <div class='flex-1 min-w-0'>
+                                                <div class='{$bgClass} border {$borderClass} rounded-lg rounded-tl-none shadow-sm p-4'>
+                                                    <div class='flex items-center justify-between mb-1'>
+                                                        <h4 class='text-sm font-bold text-[#161848] dark:text-white'>{$userName}</h4>
+                                                        <span class='text-xs text-gray-400'>{$date}</span>
+                                                    </div>
+                                                    <p class='text-sm text-gray-600 dark:text-gray-300 whitespace-pre-wrap'>{$comment->comment}</p>
+                                                </div>
+                                            </div>
+                                        </div>";
+                                }
+                                $html .= '</div>';
+                                return new \Illuminate\Support\HtmlString($html);
+                            }),
                     ]),
             ]);
     }
