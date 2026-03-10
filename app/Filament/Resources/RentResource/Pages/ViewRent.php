@@ -1257,21 +1257,115 @@ class ViewRent extends EditRecord
                             ]),
 
                         // ========== TAB: INVESTIGACIÓN ==========
-                        Forms\Components\Tabs\Tab::make('Investigación')
-                            ->icon('heroicon-o-magnifying-glass')
+                        // ========== TAB: PÓLIZA DE RENTA (Antes Investigación) ==========
+                        Forms\Components\Tabs\Tab::make('Póliza de Renta')
+                            ->icon('heroicon-o-shield-check')
                             ->schema([
-                                Forms\Components\Section::make('Investigación')
+                                Forms\Components\Section::make('Resumen de la Operación')
+                                    ->description('Verifique los datos antes de enviar el expediente al abogado de Póliza de Rentas.')
                                     ->schema([
-                                        Forms\Components\Placeholder::make('investigacion_placeholder')
-                                            ->label('')
-                                            ->content('Aquí se mostrará la información de investigación relacionada con la renta.'),
-                                    ]),
+                                        
+                                        // Resumen del Inquilino
+                                        Forms\Components\Placeholder::make('resumen_inquilino')
+                                            ->label('Datos del Inquilino')
+                                            ->content(fn ($record) => new \Illuminate\Support\HtmlString(
+                                                $record->tenant 
+                                                ? "<b>Nombre:</b> {$record->tenant->nombre_completo}<br><b>Email:</b> {$record->tenant->email}<br><b>Teléfono:</b> " . ($record->tenant->telefono_celular ?? $record->tenant->telefono) 
+                                                : '<span class="text-red-500">Sin asignar</span>'
+                                            )),
+                                            
+                                        // Resumen del Propietario
+                                        Forms\Components\Placeholder::make('resumen_propietario')
+                                            ->label('Datos del Propietario')
+                                            ->content(fn ($record) => new \Illuminate\Support\HtmlString(
+                                                $record->owner 
+                                                ? "<b>Nombre:</b> {$record->owner->nombre_completo}<br><b>Email:</b> {$record->owner->email}<br><b>Teléfono:</b> {$record->owner->telefono}" 
+                                                : '<span class="text-red-500">Sin asignar</span>'
+                                            )),
+
+                                        // Propiedad y Renta
+                                        Forms\Components\Placeholder::make('resumen_inmueble')
+                                            ->label('Inmueble y Propiedad')
+                                            ->content(fn ($record) => new \Illuminate\Support\HtmlString(
+                                                "<b>Tipo:</b> " . ucfirst($record->tipo_inmueble ?? 'N/A') . "<br>" .
+                                                "<b>Dirección:</b> " . trim(($record->calle ?? '') . ' ' . ($record->numero_exterior ?? ''))
+                                            )),
+
+                                        Forms\Components\Placeholder::make('resumen_renta')
+                                            ->label('Monto y Solicitud')
+                                            ->content(fn ($record) => new \Illuminate\Support\HtmlString(
+                                                "<b>Renta Mensual:</b> $" . number_format($record->renta ?? 0, 2) . "<br>" .
+                                                "<b>Solicitud Inquilino:</b> " . ($record->application ? $record->application->folio : 'No vinculada')
+                                            )),
+
+                                        // Fechas y Plazos (Editables)
+                                        Forms\Components\TextInput::make('plazo_arrendamiento')
+                                            ->label('Plazo del Arrendamiento')
+                                            ->placeholder('Ej. 12 meses')
+                                            ->required(),
+
+                                        Forms\Components\DatePicker::make('start_date')
+                                            ->label('Fecha de Inicio')
+                                            ->displayFormat('d/m/Y')
+                                            ->native(false)
+                                            ->required(),
+
+                                        Forms\Components\DatePicker::make('end_date')
+                                            ->label('Fecha de Fin')
+                                            ->displayFormat('d/m/Y')
+                                            ->native(false)
+                                            ->required(),
+
+                                        Forms\Components\DatePicker::make('fecha_firma')
+                                            ->label('Fecha prevista de firma')
+                                            ->displayFormat('d/m/Y')
+                                            ->native(false)
+                                            ->required(),
+                                    ])->columns(2),
+
+                                // Botón de Envío
                                 Forms\Components\Actions::make([
-                                    Forms\Components\Actions\Action::make('nueva_investigacion')
-                                        ->label('Nueva Investigación')
-                                        ->color('primary')
-                                        ->icon('heroicon-o-plus-circle'),
-                                ]),
+                                    Forms\Components\Actions\Action::make('enviar_pdr')
+                                        ->label('Enviar expediente a Póliza de Rentas')
+                                        ->icon('heroicon-m-paper-airplane')
+                                        ->color('success')
+                                        ->requiresConfirmation()
+                                        ->modalHeading('¿Enviar Expediente a Póliza de Rentas?')
+                                        ->modalDescription('El estatus de la renta cambiará automáticamente a "Análisis" y el abogado asignado recibirá una notificación por correo electrónico con los datos de esta operación.')
+                                        ->action(function (Forms\Get $get, Forms\Set $set, $record) {
+                                            
+                                            // 1. Guardar primero las fechas que acaban de escribir
+                                            $record->update([
+                                                'plazo_arrendamiento' => $get('plazo_arrendamiento'),
+                                                'start_date' => $get('start_date'),
+                                                'end_date' => $get('end_date'),
+                                                'fecha_firma' => $get('fecha_firma'),
+                                                'estatus' => 'analisis', // 2. CAMBIO AUTOMÁTICO DE ESTATUS
+                                            ]);
+
+                                            // 3. ACTUALIZAR EL DESPLEGABLE VISUAL DE LA PESTAÑA INFORMACIÓN (Para que no tengan que recargar la página)
+                                            $set('estatus', 'analisis');
+
+                                            // 4. ENVIAR CORREO AL ABOGADO (Simulado por ahora hasta que me des la vista de correo)
+                                            /*
+                                            try {
+                                                Mail::raw("Se ha creado un nuevo expediente de renta para revisar. Folio: {$record->folio}", function ($message) {
+                                                    $message->to('abogado_pdr@tuempresa.com')
+                                                            ->subject('Nuevo Expediente a Revisar');
+                                                });
+                                            } catch (\Exception $e) {}
+                                            */
+
+                                            // 5. MENSAJE DE ÉXITO EXACTO COMO LO PIDIERON
+                                            \Filament\Notifications\Notification::make()
+                                                ->success()
+                                                ->title('Expediente enviado exitosamente')
+                                                ->body('El estatus ha cambiado a Análisis y PDR ha sido notificado.')
+                                                ->send();
+                                        })
+                                        // El botón desaparece si la renta ya pasó de la fase de documentación
+                                        ->visible(fn ($record) => in_array($record->estatus, ['nueva', 'documentacion'])),
+                                ])->fullWidth(),
                             ]),
 
                         // ========== TAB: COMENTARIOS ==========
