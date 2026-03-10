@@ -31,7 +31,9 @@ class Rent extends Model
         'renta',
         'monto_comision',                  
         'porcentaje_comision_principal',  
-        'comisiones_divididas',            
+        'comisiones_divididas',     
+        'plazo_arrendamiento',
+        'fecha_firma',       
         // Fiador
         'tiene_fiador',
         // Datos de la propiedad
@@ -54,6 +56,7 @@ class Rent extends Model
         'monto_comision' => 'decimal:2',
         'porcentaje_comision_principal' => 'decimal:2',
         'comisiones_divididas' => 'array', 
+        'fecha_firma' => 'date',
     ];
 
     /**
