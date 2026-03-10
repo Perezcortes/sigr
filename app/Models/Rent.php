@@ -82,6 +82,34 @@ class Rent extends Model
                 $rent->office_id = auth()->user()->office_id;
             }
         });
+
+        // Detectar cambios y guardarlos en el historial de comentarios
+        static::updated(function ($rent) {
+            $cambios = $rent->getDirty();
+            unset($cambios['updated_at']);
+
+            if (count($cambios) > 0 && auth()->check()) {
+                $mensaje = "El sistema registró los siguientes cambios:\n";
+                
+                foreach ($cambios as $columna => $nuevoValor) {
+                    $valorAnterior = $rent->getOriginal($columna);
+                    
+                    // Formatear arrays o nulos para que no explote el texto
+                    $antiguo = is_array($valorAnterior) ? json_encode($valorAnterior) : ($valorAnterior ?: 'Vacío');
+                    $nuevo = is_array($nuevoValor) ? json_encode($nuevoValor) : ($nuevoValor ?: 'Vacío');
+
+                    $mensaje .= "- " . ucfirst(str_replace('_', ' ', $columna)) . ": cambió de '$antiguo' a '$nuevo'.\n";
+                }
+
+                // Crear el comentario automático
+                RentComment::create([
+                    'rent_id' => $rent->id,
+                    'user_id' => auth()->id(),
+                    'comment' => trim($mensaje),
+                    'status' => 'activa',
+                ]);
+            }
+        });
     }
 
     /**
