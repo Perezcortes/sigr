@@ -66,65 +66,6 @@ class SaleResource extends Resource
                                             ]),
                                     ]),
 
-                                // SECCIÓN DE COMPRADORES ADICIONALES (ESPOSA, SOCIO, ETC)
-                                Forms\Components\Section::make('Compradores Adicionales')
-                                    ->description('Agregue aquí si es una compra conyugal (matrimonio) o hay copropietarios.')
-                                    ->schema([
-                                        Forms\Components\Repeater::make('compradores_adicionales')
-                                            ->label('Agregar Persona (+)')
-                                            ->itemLabel(fn (array $state): ?string => $state['nombre_completo'] ?? null)
-                                            ->schema([
-                                                Forms\Components\Grid::make(2)->schema([
-                                                    Forms\Components\TextInput::make('nombre_completo')
-                                                        ->label('Nombre Completo')
-                                                        ->required(),
-                                                    
-                                                    // SELECTOR DE RELACIÓN
-                                                    Forms\Components\Select::make('relacion')
-                                                        ->label('Relación con el titular')
-                                                        ->options([
-                                                            'Esposo(a)' => 'Esposo(a)',
-                                                            'Concubino(a)' => 'Concubino(a)',
-                                                            'Padre/Madre' => 'Padre/Madre',
-                                                            'Hijo(a)' => 'Hijo(a)',
-                                                            'Socio' => 'Socio',
-                                                            'Otro' => 'Otro (Especificar)',
-                                                        ])
-                                                        ->required()
-                                                        ->live(), // Para mostrar el campo de texto si elige "Otro"
-
-                                                    Forms\Components\TextInput::make('otra_relacion')
-                                                        ->label('Especifique relación')
-                                                        ->placeholder('Ej. Amigo, Primo...')
-                                                        ->visible(fn (Forms\Get $get) => $get('relacion') === 'Otro'),
-                                                ]),
-
-                                                // LOGICA DE DOMICILIO COMPARTIDO
-                                                Forms\Components\Toggle::make('mismo_domicilio')
-                                                    ->label('¿Comparte el mismo domicilio que el comprador principal?')
-                                                    ->onColor('success')
-                                                    ->offColor('danger')
-                                                    ->default(true)
-                                                    ->live(), // Reactivo para mostrar/ocultar campos
-
-                                                // CAMPOS DE DIRECCIÓN (Solo si NO comparten domicilio)
-                                                Forms\Components\Group::make()
-                                                    ->visible(fn (Forms\Get $get) => ! $get('mismo_domicilio'))
-                                                    ->schema([
-                                                        Forms\Components\Fieldset::make('Domicilio Particular')
-                                                            ->schema([
-                                                                Forms\Components\TextInput::make('calle')->label('Calle y Número')->required(),
-                                                                Forms\Components\TextInput::make('colonia')->label('Colonia')->required(),
-                                                                Forms\Components\TextInput::make('ciudad')->label('Ciudad'),
-                                                                Forms\Components\TextInput::make('estado')->label('Estado'),
-                                                                Forms\Components\TextInput::make('cp')->label('C.P.'),
-                                                            ])
-                                                    ]),
-                                            ])
-                                            ->collapsible()
-                                            ->collapsed(),
-                                    ]),
-
                                 Forms\Components\Section::make('Datos Económicos')
                                     ->schema([
                                         Forms\Components\Select::make('comprador_actividad')
@@ -146,6 +87,123 @@ class SaleResource extends Resource
                                                 Forms\Components\TextInput::make('ingresos')->numeric()->prefix('$')->label('Ingresos Extra'),
                                             ])->columns(2),
                                     ]),
+
+                                // SECCIÓN DE COMPRADORES ADICIONALES (ESPOSA, SOCIO, ETC)
+                                Forms\Components\Section::make('Compradores Adicionales')
+                                    ->description('Agregue aquí si es una compra conyugal (matrimonio) o hay copropietarios.')
+                                    ->schema([
+                                        Forms\Components\Repeater::make('compradores_adicionales')
+                                            ->label('Agregar Comprador (+)')
+                                            ->itemLabel(fn (array $state): ?string => trim(($state['nombres'] ?? '') . ' ' . ($state['ap_paterno'] ?? '')) ?: null)
+                                            ->schema([
+                                                Forms\Components\Grid::make(3)->schema([
+                                                    Forms\Components\TextInput::make('nombres')
+                                                        ->label('Nombre(s)')
+                                                        ->required(),
+                                                    Forms\Components\TextInput::make('ap_paterno')
+                                                        ->label('Apellido Paterno')
+                                                        ->required(),
+                                                    Forms\Components\TextInput::make('ap_materno')
+                                                        ->label('Apellido Materno'),
+                                                ]),
+
+                                                Forms\Components\Grid::make(2)->schema([
+                                                    Forms\Components\TextInput::make('telefono')
+                                                        ->tel()
+                                                        ->label('Teléfono Fijo'),
+                                                    Forms\Components\TextInput::make('celular')
+                                                        ->tel()
+                                                        ->label('Celular'),
+                                                    Forms\Components\TextInput::make('email')
+                                                        ->email()
+                                                        ->label('Email'),
+                                                    Forms\Components\DatePicker::make('fecha_nacimiento')
+                                                        ->label('Fecha Nacimiento'),
+                                                    Forms\Components\TextInput::make('rfc')
+                                                        ->label('RFC'),
+                                                    Forms\Components\TextInput::make('curp')
+                                                        ->label('CURP'),
+                                                ]),
+
+                                                Forms\Components\Grid::make(2)->schema([
+                                                    // SELECTOR DE RELACIÓN
+                                                    Forms\Components\Select::make('relacion')
+                                                        ->label('Relación con el titular')
+                                                        ->options([
+                                                            'Esposo(a)' => 'Esposo(a)',
+                                                            'Concubino(a)' => 'Concubino(a)',
+                                                            'Padre/Madre' => 'Padre/Madre',
+                                                            'Hijo(a)' => 'Hijo(a)',
+                                                            'Socio' => 'Socio',
+                                                            'Otro' => 'Otro (Especificar)',
+                                                        ])
+                                                        ->required()
+                                                        ->live(),
+
+                                                    Forms\Components\TextInput::make('otra_relacion')
+                                                        ->label('Especifique relación')
+                                                        ->placeholder('Ej. Amigo, Primo...')
+                                                        ->visible(fn (Forms\Get $get) => $get('relacion') === 'Otro'),
+                                                ]),
+
+                                                // LÓGICA DE DOMICILIO COMPARTIDO
+                                                Forms\Components\Toggle::make('mismo_domicilio')
+                                                    ->label('¿Comparte el mismo domicilio que el comprador principal?')
+                                                    ->onColor('success')
+                                                    ->offColor('danger')
+                                                    ->default(true)
+                                                    ->live(),
+
+                                                // CAMPOS DE DIRECCIÓN (Solo si NO comparten domicilio)
+                                                Forms\Components\Group::make()
+                                                    ->visible(fn (Forms\Get $get) => ! $get('mismo_domicilio'))
+                                                    ->schema([
+                                                        Forms\Components\Fieldset::make('Domicilio Particular')
+                                                            ->schema([
+                                                                Forms\Components\TextInput::make('calle')->label('Calle y Número'),
+                                                                Forms\Components\TextInput::make('colonia')->label('Colonia'),
+                                                                Forms\Components\TextInput::make('ciudad')->label('Ciudad'),
+                                                                Forms\Components\TextInput::make('estado')->label('Estado'),
+                                                                Forms\Components\TextInput::make('cp')->label('C.P.'),
+                                                            ])
+                                                    ]),
+
+                                                // DATOS ECONÓMICOS DEL COMPRADOR ADICIONAL
+                                                Forms\Components\Fieldset::make('Datos Económicos')
+                                                    ->schema([
+                                                        Forms\Components\Grid::make(2)->schema([
+                                                            Forms\Components\Select::make('actividad')
+                                                                ->label('Tipo de Actividad')
+                                                                ->options([
+                                                                    'Empleado' => 'Empleado',
+                                                                    'Profesionista' => 'Profesionista',
+                                                                    'Empresario' => 'Empresario',
+                                                                    'Inversionista' => 'Inversionista',
+                                                                    'Otro' => 'Otro',
+                                                                ]),
+                                                            Forms\Components\TextInput::make('empresa')
+                                                                ->label('Empresa'),
+                                                            Forms\Components\TextInput::make('ingresos')
+                                                                ->numeric()
+                                                                ->prefix('$')
+                                                                ->label('Ingresos Mensuales'),
+                                                            Forms\Components\TextInput::make('tipo_comprobacion')
+                                                                ->label('Comprobación de ingresos'),
+                                                        ]),
+                                                        Forms\Components\Repeater::make('actividades_adicionales')
+                                                            ->label('Agregar Actividad Extra (+)')
+                                                            ->schema([
+                                                                Forms\Components\TextInput::make('actividad')->label('Actividad Extra'),
+                                                                Forms\Components\TextInput::make('ingresos')->numeric()->prefix('$')->label('Ingresos Extra'),
+                                                            ])->columns(2)
+                                                            ->collapsible()
+                                                            ->collapsed(),
+                                                    ]),
+                                            ])
+                                            ->collapsible()
+                                            ->collapsed(),
+                                    ]),
+
                             ]),
 
                         // PESTAÑA 2: VENDEDOR
