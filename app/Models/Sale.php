@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Buyer;
+use App\Models\Seller;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Sale extends Model
@@ -72,5 +74,15 @@ class Sale extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+    
+    public function buyer(): BelongsTo
+    {
+        return $this->belongsTo(Buyer::class);
+    }
+
+    public function seller(): BelongsTo
+    {
+        return $this->belongsTo(Seller::class);
     }
 }
