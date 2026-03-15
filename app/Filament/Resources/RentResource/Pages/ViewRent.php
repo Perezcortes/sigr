@@ -1256,7 +1256,6 @@ class ViewRent extends EditRecord
                                     ]),
                             ]),
 
-                        // ========== TAB: INVESTIGACIÓN ==========
                         // ========== TAB: PÓLIZA DE RENTA (Antes Investigación) ==========
                         Forms\Components\Tabs\Tab::make('Póliza de Renta')
                             ->icon('heroicon-o-shield-check')
@@ -1366,6 +1365,64 @@ class ViewRent extends EditRecord
                                         // El botón desaparece si la renta ya pasó de la fase de documentación
                                         ->visible(fn ($record) => in_array($record->estatus, ['nueva', 'documentacion'])),
                                 ])->fullWidth(),
+                            ]),
+
+                        // ========== TAB: ADMINISTRACIÓN ==========
+                        Forms\Components\Tabs\Tab::make('Administración')
+                            ->icon('heroicon-o-briefcase')
+                            ->schema([
+                                Forms\Components\Section::make('Gestión de la Propiedad')
+                                    ->description('Configure quién administra la propiedad y las alertas de cobro.')
+                                    ->schema([
+                                        // EL CHECK PRINCIPAL: ¿Lo administra el agente o el propietario?
+                                        Forms\Components\Toggle::make('is_administrada_por_agente')
+                                            ->label('¿El agente administrará esta propiedad?')
+                                            ->helperText('Si se activa, el agente recibirá las alertas de pago en lugar del propietario y la renta aparecerá en "Mis Administraciones".')
+                                            ->onColor('success')
+                                            ->offColor('gray')
+                                            ->live(),
+
+                                        Forms\Components\Grid::make(2)->schema([
+                                            Forms\Components\TextInput::make('dia_cobro_renta')
+                                                ->label('Día de cobro mensual')
+                                                ->numeric()
+                                                ->minValue(1)
+                                                ->maxValue(31)
+                                                ->placeholder('Ej. 5 (para el día 5 del mes)')
+                                                ->suffix('del mes'),
+                                                
+                                            Forms\Components\Textarea::make('notas_administracion')
+                                                ->label('Notas internas de administración')
+                                                ->rows(2),
+                                        ]),
+
+                                        Forms\Components\Fieldset::make('Configuración de Alertas (Recordatorios Automáticos)')
+                                            ->schema([
+                                                Forms\Components\Toggle::make('enviar_recordatorio_inquilino')
+                                                    ->label('Enviar recordatorio de pago al Inquilino')
+                                                    ->default(true),
+                                                
+                                                Forms\Components\Toggle::make('enviar_recordatorio_propietario')
+                                                    ->label('Enviar aviso de cobro al Propietario')
+                                                    ->default(true)
+                                                    // Si el agente administra, sugerimos apagar las alertas al propietario
+                                                    ->disabled(fn (Forms\Get $get) => $get('is_administrada_por_agente'))
+                                                    ->dehydrated()
+                                                    ->helperText(fn (Forms\Get $get) => $get('is_administrada_por_agente') ? 'Desactivado porque el agente administra la propiedad.' : ''),
+                                            ])->columns(2),
+                                            
+                                        // Botón de Envío
+                                        Forms\Components\Actions::make([
+                                            Forms\Components\Actions\Action::make('guardar_administracion')
+                                                ->label('Guardar Configuración')
+                                                ->color('primary')
+                                                ->icon('heroicon-o-check')
+                                                ->action(function () {
+                                                    $this->save();
+                                                    \Filament\Notifications\Notification::make()->success()->title('Configuración guardada')->send();
+                                                }),
+                                        ]),
+                                    ]),
                             ]),
                     ]),
                 
