@@ -41,6 +41,7 @@ class SaleResource extends Resource
                             Forms\Components\Select::make('buyer_id')
                                 ->label('SELECCIONAR COMPRADOR*')
                                 ->relationship('buyer', 'nombres', function (Builder $query) {
+                                    /** @var \App\Models\User $user */
                                     $user = auth()->user();
                                     if ($user->hasRole('Administrador')) { return $query; }
                                     return $query->where('user_id', $user->id)->orWhereNull('user_id');
@@ -63,6 +64,7 @@ class SaleResource extends Resource
                             Forms\Components\Select::make('seller_id')
                                 ->label('SELECCIONAR PROPIETARIO / VENDEDOR*')
                                 ->relationship('seller', 'nombres', function (Builder $query) {
+                                    /** @var \App\Models\User $user */
                                     $user = auth()->user();
                                     if ($user->hasRole('Administrador')) { return $query; }
                                     return $query->where('user_id', $user->id)->orWhereNull('user_id');
@@ -118,25 +120,112 @@ class SaleResource extends Resource
                                         ]),
                                     ]),
 
+                                // SECCIÓN DE COMPRADORES ADICIONALES 
                                 Forms\Components\Section::make('Compradores Adicionales')
-                                    ->description('Agregue aquí si es una compra conyugal o hay copropietarios.')
+                                    ->description('Agregue aquí si es una compra conyugal (matrimonio) o hay copropietarios.')
                                     ->schema([
                                         Forms\Components\Repeater::make('compradores_adicionales')
-                                            ->label('Agregar Persona (+)')
+                                            ->label('Agregar Comprador (+)')
+                                            ->itemLabel(fn (array $state): ?string => trim(($state['nombres'] ?? '') . ' ' . ($state['ap_paterno'] ?? '')) ?: null)
                                             ->schema([
-                                                Forms\Components\Grid::make(2)->schema([
-                                                    Forms\Components\TextInput::make('nombre_completo')->label('Nombre Completo')->required(),
-                                                    Forms\Components\Select::make('relacion')->label('Relación')->options(['Esposo(a)' => 'Esposo(a)', 'Socio' => 'Socio', 'Otro' => 'Otro'])->required()->live(),
-                                                    Forms\Components\TextInput::make('otra_relacion')->label('Especifique')->visible(fn (Forms\Get $get) => $get('relacion') === 'Otro'),
+                                                Forms\Components\Grid::make(3)->schema([
+                                                    Forms\Components\TextInput::make('nombres')->label('Nombre(s)')->required(),
+                                                    Forms\Components\TextInput::make('ap_paterno')->label('Apellido Paterno')->required(),
+                                                    Forms\Components\TextInput::make('ap_materno')->label('Apellido Materno'),
                                                 ]),
-                                            ])->collapsed(),
+                                                Forms\Components\Grid::make(2)->schema([
+                                                    Forms\Components\TextInput::make('telefono')->tel()->label('Teléfono Fijo'),
+                                                    Forms\Components\TextInput::make('celular')->tel()->label('Celular'),
+                                                    Forms\Components\TextInput::make('email')->email()->label('Email'),
+                                                    Forms\Components\DatePicker::make('fecha_nacimiento')->label('Fecha Nacimiento'),
+                                                    Forms\Components\TextInput::make('rfc')->label('RFC'),
+                                                    Forms\Components\TextInput::make('curp')->label('CURP'),
+                                                ]),
+                                                Forms\Components\Grid::make(2)->schema([
+                                                    Forms\Components\Select::make('relacion')
+                                                        ->label('Relación con el titular')
+                                                        ->options([
+                                                            'Esposo(a)' => 'Esposo(a)',
+                                                            'Concubino(a)' => 'Concubino(a)',
+                                                            'Padre/Madre' => 'Padre/Madre',
+                                                            'Hijo(a)' => 'Hijo(a)',
+                                                            'Socio' => 'Socio',
+                                                            'Otro' => 'Otro (Especificar)',
+                                                        ])
+                                                        ->required()
+                                                        ->live(),
+                                                    Forms\Components\TextInput::make('otra_relacion')
+                                                        ->label('Especifique relación')
+                                                        ->visible(fn (Forms\Get $get) => $get('relacion') === 'Otro'),
+                                                ]),
+                                                
+                                                Forms\Components\Toggle::make('mismo_domicilio')
+                                                    ->label('¿Comparte el mismo domicilio que el comprador principal?')
+                                                    ->onColor('success')
+                                                    ->offColor('danger')
+                                                    ->default(true)
+                                                    ->live(),
+                                                    
+                                                Forms\Components\Group::make()
+                                                    ->visible(fn (Forms\Get $get) => ! $get('mismo_domicilio'))
+                                                    ->schema([
+                                                        Forms\Components\Fieldset::make('Domicilio Particular')
+                                                            ->schema([
+                                                                Forms\Components\TextInput::make('calle')->label('Calle y Número')->required(),
+                                                                Forms\Components\TextInput::make('colonia')->label('Colonia')->required(),
+                                                                Forms\Components\TextInput::make('ciudad')->label('Ciudad'),
+                                                                Forms\Components\TextInput::make('estado')->label('Estado'),
+                                                                Forms\Components\TextInput::make('cp')->label('C.P.'),
+                                                            ])
+                                                    ]),
+                                                    
+                                                // DATOS ECONÓMICOS DEL COMPRADOR ADICIONAL 
+                                                Forms\Components\Fieldset::make('Datos Económicos')
+                                                    ->schema([
+                                                        Forms\Components\Grid::make(2)->schema([
+                                                            Forms\Components\Select::make('actividad')
+                                                                ->label('Tipo de Actividad')
+                                                                ->options([
+                                                                    'Empleado' => 'Empleado',
+                                                                    'Profesionista' => 'Profesionista',
+                                                                    'Empresario' => 'Empresario',
+                                                                    'Inversionista' => 'Inversionista',
+                                                                    'Otro' => 'Otro',
+                                                                ]),
+                                                            Forms\Components\TextInput::make('empresa')->label('Empresa'),
+                                                            Forms\Components\TextInput::make('ingresos')->numeric()->prefix('$')->label('Ingresos Mensuales'),
+                                                            Forms\Components\TextInput::make('tipo_comprobacion')->label('Comprobación de ingresos'),
+                                                        ]),
+                                                        Forms\Components\Repeater::make('actividades_adicionales')
+                                                            ->label('Agregar Actividad Extra (+)')
+                                                            ->schema([
+                                                                Forms\Components\TextInput::make('actividad')->label('Actividad Extra'),
+                                                                Forms\Components\TextInput::make('ingresos')->numeric()->prefix('$')->label('Ingresos Extra'),
+                                                            ])->columns(2)->collapsible()->collapsed(),
+                                                    ]),
+                                            ])->collapsible()->collapsed(),
                                     ]),
 
+                                // DATOS ECONÓMICOS DEL COMPRADOR PRINCIPAL 
                                 Forms\Components\Section::make('Datos Económicos')
                                     ->schema([
-                                        Forms\Components\Select::make('comprador_actividad')->options(['Empleado' => 'Empleado', 'Empresario' => 'Empresario', 'Otro' => 'Otro'])->label('Actividad'),
+                                        Forms\Components\Select::make('comprador_actividad')
+                                            ->options([
+                                                'Empleado' => 'Empleado',
+                                                'Profesionista' => 'Profesionista',
+                                                'Empresario' => 'Empresario',
+                                                'Inversionista' => 'Inversionista',
+                                                'Otro' => 'Otro',
+                                            ])->label('Tipo de Actividad'),
                                         Forms\Components\TextInput::make('comprador_empresa')->label('Empresa'),
                                         Forms\Components\TextInput::make('comprador_ingresos')->numeric()->prefix('$')->label('Ingresos Mensuales'),
+                                        Forms\Components\TextInput::make('comprador_tipo_comprobacion')->label('Comprobación de ingresos'),
+                                        Forms\Components\Repeater::make('comprador_actividades_adicionales')
+                                            ->label('Agregar Actividad (+)')
+                                            ->schema([
+                                                Forms\Components\TextInput::make('actividad')->label('Actividad Extra'),
+                                                Forms\Components\TextInput::make('ingresos')->numeric()->prefix('$')->label('Ingresos Extra'),
+                                            ])->columns(2),
                                     ]),
                             ]),
 
@@ -198,6 +287,7 @@ class SaleResource extends Resource
     {
         return $table
             ->modifyQueryUsing(function (Builder $query) {
+                /** @var \App\Models\User $user */
                 $user = auth()->user();
                 if (! $user->hasRole('Administrador')) {
                     $query->where('user_id', $user->id);
