@@ -102,40 +102,96 @@ class TenantResource extends Resource
 
                     // --- COLUMNA DERECHA ---
                     Forms\Components\Group::make()->columnSpan(1)->schema([
-                        Forms\Components\Section::make('Acciones')->schema([
-                            
-                            Forms\Components\Actions::make([
-                                Forms\Components\Actions\Action::make('enviar_email')
-                                    ->label('Enviar Email')
-                                    ->icon('heroicon-m-envelope')
-                                    ->color('gray')
-                                    ->action(function (?Tenant $record) {
-                                        Notification::make()->success()->title('Email registrado')->send();
-                                    })->visible(fn (?Tenant $record) => $record !== null),
+                        Forms\Components\Tabs::make('CRM Tabs')
+                            ->tabs([
+                                // --- NOTAS Y ACCIONES ---
+                                Forms\Components\Tabs\Tab::make('Notas y Seguimiento')
+                                    ->icon('heroicon-m-document-text')
+                                    ->schema([
+                                        
+                                        // Botonera de acciones
+                                        Forms\Components\Actions::make([
+                                            
+                                            Forms\Components\Actions\Action::make('agregar_nota')
+                                                ->label('Agregar Nota')
+                                                ->icon('heroicon-m-pencil-square')
+                                                ->color('warning')
+                                                ->form([
+                                                    Forms\Components\Textarea::make('nota')
+                                                        ->label('Escribe aquí tu nota')
+                                                        ->required()
+                                                        ->rows(3),
+                                                ])
+                                                ->action(function (array $data, ?Tenant $record) {
+                                                    if($record) {
+                                                        $hist = $record->historial_acciones ?? [];
+                                                        $hist[] = ['fecha' => now()->format('d/m/Y H:i'), 'accion' => 'Nota: ' . $data['nota']];
+                                                        $record->update(['historial_acciones' => $hist]);
+                                                    }
+                                                })->visible(fn (?Tenant $record) => $record !== null),
 
-                                Forms\Components\Actions\Action::make('llamar')
-                                    ->label('Llamar')
-                                    ->icon('heroicon-m-phone')
-                                    ->color('gray')
-                                    ->action(function (?Tenant $record) {
-                                        Notification::make()->success()->title('Llamada registrada')->send();
-                                    })->visible(fn (?Tenant $record) => $record !== null),
-                            ])->fullWidth(),
+                                            Forms\Components\Actions\Action::make('crear_cita')
+                                                ->label('Cita')
+                                                ->icon('heroicon-m-calendar')
+                                                ->color('primary')
+                                                ->form([
+                                                    Forms\Components\DatePicker::make('fecha')->required(),
+                                                    Forms\Components\TimePicker::make('hora')->required(),
+                                                    Forms\Components\Textarea::make('observaciones'),
+                                                ])
+                                                ->action(function (array $data, ?Tenant $record) {
+                                                    if($record) {
+                                                        $hist = $record->historial_acciones ?? [];
+                                                        $hist[] = ['fecha' => now()->format('d/m/Y H:i'), 'accion' => "Cita: {$data['fecha']} a las {$data['hora']} - " . ($data['observaciones'] ?? '')];
+                                                        $record->update(['historial_acciones' => $hist]);
+                                                    }
+                                                })->visible(fn (?Tenant $record) => $record !== null),
 
-                            Forms\Components\Actions::make([
-                                Forms\Components\Actions\Action::make('whatsapp')
-                                    ->label('WhatsApp')
-                                    ->icon('heroicon-m-chat-bubble-left-ellipsis')
-                                    ->color('success')
-                                    ->action(function (?Tenant $record) {
-                                        if($record) {
-                                            $telefono = $record->tipo_persona === 'fisica' ? $record->telefono_celular : $record->telefono;
-                                            return redirect()->away("https://wa.me/52" . $telefono);
-                                        }
-                                    })->visible(fn (?Tenant $record) => $record !== null),
-                            ])->fullWidth(),
+                                            Forms\Components\Actions\Action::make('whatsapp')
+                                                ->label('WhatsApp')
+                                                ->icon('heroicon-m-chat-bubble-left-ellipsis')
+                                                ->color('success')
+                                                ->action(function (?Tenant $record) {
+                                                    if($record) {
+                                                        $hist = $record->historial_acciones ?? [];
+                                                        $hist[] = ['fecha' => now()->format('d/m/Y H:i'), 'accion' => 'WhatsApp iniciado'];
+                                                        $record->update(['historial_acciones' => $hist]);
+                                                        $telefono = $record->tipo_persona === 'fisica' ? $record->telefono_celular : $record->telefono;
+                                                        return redirect()->away("https://wa.me/52" . $telefono);
+                                                    }
+                                                })->visible(fn (?Tenant $record) => $record !== null),
 
-                        ])->visible(fn ($record) => $record !== null),
+                                            Forms\Components\Actions\Action::make('registrar_llamada')
+                                                ->label('Llamada')
+                                                ->icon('heroicon-m-phone')
+                                                ->color('gray')
+                                                ->requiresConfirmation()
+                                                ->action(function (?Tenant $record) {
+                                                    if($record) {
+                                                        $hist = $record->historial_acciones ?? [];
+                                                        $hist[] = ['fecha' => now()->format('d/m/Y H:i'), 'accion' => 'Llamada telefónica registrada'];
+                                                        $record->update(['historial_acciones' => $hist]);
+                                                    }
+                                                })->visible(fn (?Tenant $record) => $record !== null),
+                                        ]),
+
+                                        // Muro de historial
+                                        Forms\Components\ViewField::make('historial_acciones')
+                                            ->view('filament.forms.components.lead-history')
+                                            ->label('')
+                                            ->visible(fn (?Tenant $record) => $record !== null && !empty($record->historial_acciones)),
+                                    ]),
+
+                                // --- MENSAJES / WHATSAPP ---
+                                Forms\Components\Tabs\Tab::make('WhatsApp')
+                                    ->icon('heroicon-m-chat-bubble-bottom-center-text')
+                                    ->schema([
+                                        Forms\Components\Placeholder::make('info_whatsapp')
+                                            ->label('Chat de WhatsApp')
+                                            ->content('En la siguiente fase, conectaremos este panel con la Evolution API para ver los mensajes en vivo aquí mismo.'),
+                                    ]),
+                            ])
+                            ->columnSpanFull(),
                     ]),
                 ]),
             ]);
