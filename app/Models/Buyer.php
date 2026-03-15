@@ -4,6 +4,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * @property string $nombres
+ * @property string $ap_paterno
+ * @property string|null $ap_materno
+ */
+
 class Buyer extends Model
 {
     protected $guarded = [];

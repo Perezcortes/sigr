@@ -8,6 +8,12 @@ use App\Models\Buyer;
 use App\Models\Seller;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property string $nombres
+ * @property string $ap_paterno
+ * @property string|null $ap_materno
+ */
+
 class Sale extends Model
 {
     use HasFactory;

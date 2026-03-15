@@ -41,7 +41,7 @@ class LeadResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\Grid::make(4)->schema([
+                Forms\Components\Grid::make(2)->schema([
                     
                     // COLUMNA IZQUIERDA (Perfil del Contacto)
                     Forms\Components\Group::make()->columnSpan(1)->schema([
@@ -126,7 +126,7 @@ class LeadResource extends Resource
                     ]),
 
                     // COLUMNA DERECHA (Pestañas estilo Nocnok)
-                    Forms\Components\Group::make()->columnSpan(3)->schema([
+                    Forms\Components\Group::make()->columnSpan(1)->schema([
                         
                         Forms\Components\Tabs::make('CRM Tabs')
                             ->tabs([
@@ -239,7 +239,7 @@ class LeadResource extends Resource
                                     ]),
 
                                 // --- MENSAJES / WHATSAPP ---
-                                Forms\Components\Tabs\Tab::make('Mensajes WhatsApp')
+                                Forms\Components\Tabs\Tab::make('WhatsApp')
                                     ->icon('heroicon-m-chat-bubble-bottom-center-text')
                                     ->schema([
                                         Forms\Components\Placeholder::make('info_whatsapp')
