@@ -46,6 +46,11 @@ class Rent extends Model
         'municipio',
         'estado',
         'codigo_postal',
+        'is_administrada_por_agente',
+        'dia_cobro_renta',
+        'enviar_recordatorio_inquilino',
+        'enviar_recordatorio_propietario',
+        'notas_administracion',
     ];
 
     protected $casts = [
@@ -57,6 +62,9 @@ class Rent extends Model
         'porcentaje_comision_principal' => 'decimal:2',
         'comisiones_divididas' => 'array', 
         'fecha_firma' => 'date',
+        'is_administrada_por_agente' => 'boolean',
+        'enviar_recordatorio_inquilino' => 'boolean',
+        'enviar_recordatorio_propietario' => 'boolean',
     ];
 
     /**
@@ -89,25 +97,87 @@ class Rent extends Model
             unset($cambios['updated_at']);
 
             if (count($cambios) > 0 && auth()->check()) {
-                $mensaje = "El sistema registró los siguientes cambios:\n";
-                
-                foreach ($cambios as $columna => $nuevoValor) {
-                    $valorAnterior = $rent->getOriginal($columna);
-                    
-                    // Formatear arrays o nulos para que no explote el texto
-                    $antiguo = is_array($valorAnterior) ? json_encode($valorAnterior) : ($valorAnterior ?: 'Vacío');
-                    $nuevo = is_array($nuevoValor) ? json_encode($nuevoValor) : ($nuevoValor ?: 'Vacío');
+                $mensaje = "El sistema registró las siguientes actualizaciones en el expediente:\n";
+                $cambiosReales = 0; // Para no guardar comentarios vacíos
 
-                    $mensaje .= "- " . ucfirst(str_replace('_', ' ', $columna)) . ": cambió de '$antiguo' a '$nuevo'.\n";
+                // 1. DICCIONARIO
+                $nombresLegibles = [
+                    'office_id' => 'Sucursal',
+                    'asesor_id' => 'Agente asignado',
+                    'tenant_id' => 'Inquilino',
+                    'owner_id' => 'Propietario',
+                    'property_id' => 'Inmueble',
+                    'application_id' => 'Solicitud de arrendamiento',
+                    'estatus' => 'Estatus de la operación',
+                    'is_administrada_por_agente' => 'Administración a cargo del agente',
+                    'enviar_recordatorio_inquilino' => 'Aviso de cobro al inquilino',
+                    'enviar_recordatorio_propietario' => 'Notificación al propietario',
+                    'dia_cobro_renta' => 'Día de cobro mensual',
+                    'renta' => 'Monto de renta',
+                    'monto_comision' => 'Monto de comisión',
+                ];
+
+                // 2. FUNCIÓN TRADUCTORA: Convierte IDs y booleanos en texto real
+                $formatearValor = function($columna, $valor) {
+                    if ($valor === null || $valor === '') return 'Sin asignar';
+
+                    // Traducir los "1" y "0" a "Sí" y "No"
+                    if (in_array($columna, ['is_administrada_por_agente', 'enviar_recordatorio_inquilino', 'enviar_recordatorio_propietario', 'tiene_fiador'])) {
+                        return $valor ? 'Sí' : 'No';
+                    }
+
+                    // Buscar nombres reales en lugar de IDs
+                    if ($columna === 'office_id') {
+                        $rel = \App\Models\Office::find($valor);
+                        return $rel ? $rel->nombre : $valor;
+                    }
+                    if ($columna === 'asesor_id') {
+                        $rel = \App\Models\User::find($valor);
+                        return $rel ? $rel->name : $valor;
+                    }
+                    if ($columna === 'property_id') {
+                        $rel = \App\Models\Property::find($valor);
+                        return $rel ? trim(($rel->calle ?? '') . ' ' . ($rel->numero_exterior ?? '')) : $valor;
+                    }
+
+                    // Poner mayúsculas a los estatus (ej. 'analisis' -> 'Análisis')
+                    if ($columna === 'estatus') return ucfirst($valor);
+
+                    // Formatear arrays o repetidores para que no pongan código raro
+                    if (is_array($valor) || (is_string($valor) && is_array(json_decode($valor, true)))) {
+                        return "Lista actualizada";
+                    }
+
+                    return $valor;
+                };
+
+                // 3. ARMAMOS EL MENSAJE
+                foreach ($cambios as $columna => $nuevoValor) {
+                    // Ignoramos campos técnicos o irrelevantes
+                    if (in_array($columna, ['created_at', 'deleted_at', 'hash_id'])) continue;
+
+                    $valorAnterior = $rent->getOriginal($columna);
+
+                    $antiguo = $formatearValor($columna, $valorAnterior);
+                    $nuevo = $formatearValor($columna, $nuevoValor);
+
+                    // Solo reportar si realmente cambió visualmente (evita spam)
+                    if ($antiguo !== $nuevo) {
+                        $nombreEtiqueta = $nombresLegibles[$columna] ?? ucfirst(str_replace('_', ' ', $columna));
+                        $mensaje .= "• $nombreEtiqueta: cambió de '$antiguo' a '$nuevo'.\n";
+                        $cambiosReales++;
+                    }
                 }
 
-                // Crear el comentario automático
-                RentComment::create([
-                    'rent_id' => $rent->id,
-                    'user_id' => auth()->id(),
-                    'comment' => trim($mensaje),
-                    'status' => 'activa',
-                ]);
+                // 4. GUARDAR COMENTARIO (Solo si hubo cambios reales legibles)
+                if ($cambiosReales > 0) {
+                    \App\Models\RentComment::create([
+                        'rent_id' => $rent->id,
+                        'user_id' => auth()->id(),
+                        'comment' => trim($mensaje),
+                        'status' => 'activa',
+                    ]);
+                }
             }
         });
     }

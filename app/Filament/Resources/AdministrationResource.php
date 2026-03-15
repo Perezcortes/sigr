@@ -19,10 +19,10 @@ class AdministrationResource extends Resource
     protected static ?string $navigationLabel = 'Mis Administraciones';
     protected static ?string $modelLabel = 'Administración';
     protected static ?string $pluralModelLabel = 'Administraciones';
-    protected static ?string $navigationGroup = 'Mis Administraciones';
+    protected static ?string $navigationGroup = 'Rentas';
     protected static ?string $slug = 'mis-administraciones';
     protected static ?string $navigationIcon = 'heroicon-o-briefcase';
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 4;
 
     public static function resolveRecordRouteBinding(int | string $key): ?\Illuminate\Database\Eloquent\Model
     {
@@ -32,8 +32,11 @@ class AdministrationResource extends Resource
     
     public static function getEloquentQuery(): Builder
     {
-        // Solo mostramos rentas activas
-        $query = parent::getEloquentQuery()->where('estatus', 'activa'); 
+        // Solo mostramos rentas activas Y que estén marcadas para ser administradas por el agente
+        $query = parent::getEloquentQuery()
+            ->where('estatus', 'activa')
+            ->where('is_administrada_por_agente', true); 
+            
         $user = Auth::user();
 
         if (! $user) return $query;
