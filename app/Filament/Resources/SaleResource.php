@@ -253,9 +253,21 @@ class SaleResource extends Resource
                         Forms\Components\Tabs\Tab::make('3. Operación')
                             ->icon('heroicon-o-clipboard-document-check')
                             ->schema([
-                                Forms\Components\Select::make('estatus_operacion')
-                                    ->options(['En búsqueda' => 'En búsqueda', 'Oferta aceptada' => 'Oferta aceptada', 'Contrato firmado' => 'Contrato firmado', 'Cerrada' => 'Cerrada', 'Cancelada' => 'Cancelada'])
-                                    ->default('En búsqueda')->required()->label('Estatus'),
+                                Forms\Components\Grid::make(2)->schema([
+                                    Forms\Components\Select::make('estatus_operacion')
+                                        ->options(['En búsqueda' => 'En búsqueda', 'Oferta aceptada' => 'Oferta aceptada', 'Contrato firmado' => 'Contrato firmado', 'Cerrada' => 'Cerrada', 'Cancelada' => 'Cancelada'])
+                                        ->default('En búsqueda')->required()->label('Estatus'),
+                                        
+                                    Forms\Components\Select::make('momento_cobro_comision')
+                                        ->label('¿Cuándo se cobra la comisión?')
+                                        ->options([
+                                            'a_la_venta' => 'A la firma del contrato',
+                                            'a_la_escrituracion' => 'A la escrituración',
+                                        ])
+                                        ->default('a_la_venta')
+                                        ->required(),
+                                ]),
+                                
                                 Forms\Components\Grid::make(2)->schema([
                                     Forms\Components\TextInput::make('monto_operacion')->numeric()->prefix('$')->label('Precio Pactado')->live(onBlur: true)
                                         ->afterStateUpdated(fn (Forms\Get $get, Forms\Set $set) => $get('comision_porcentaje') ? $set('comision_monto', $get('monto_operacion') * ($get('comision_porcentaje') / 100)) : null),
