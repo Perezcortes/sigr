@@ -12,6 +12,7 @@ use App\Filament\Resources\UserResource;
 use App\Filament\Resources\SaleResource;
 use App\Filament\Resources\LeadResource;
 use App\Filament\Resources\AdministrationResource;
+use App\Filament\Resources\PayableOperationResource;
 use App\Filament\Widgets\ResumenDashboardWidget;
 use App\Filament\Widgets\RentasMensualesChartWidget;
 use App\Filament\Widgets\SolicitudesMensualesChartWidget;
@@ -110,6 +111,7 @@ class AdminPanelProvider extends PanelProvider
                 SaleResource::class,
                 LeadResource::class,
                 AdministrationResource::class,
+                PayableOperationResource::class,
             ])
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
             ->pages([
