@@ -169,6 +169,27 @@ class Rent extends Model
                     }
                 }
 
+                // --- DISPARADOR DE COBRO (CENTRO DE PAGOS) ---
+                if ($rent->isDirty('estatus') && $rent->estatus === 'activa') {
+                    \App\Models\PayableOperation::firstOrCreate(
+                        [
+                            'payable_type' => Rent::class,
+                            'payable_id' => $rent->id,
+                        ],
+                        [
+                            'user_id' => $rent->asesor_id, // El agente
+                            'nombre_cliente' => $rent->tenant ? trim("{$rent->tenant->nombres} {$rent->tenant->primer_apellido}") : 'Sin nombre',
+                            'fecha_firma' => $rent->fecha_firma ?? now(),
+                            'monto_operacion' => $rent->renta ?? 0,
+                            'monto_comision' => $rent->monto_comision ?? 0,
+                            'regalia' => ($rent->monto_comision ?? 0) * 0.12, // 12% de regalía
+                            'estatus' => 'pendiente de pago',
+                            // Inicia el conteo regresivo de 10 días para la suspensión
+                            'fecha_vencimiento' => now()->addDays(10), 
+                        ]
+                    );
+                }
+
                 // 4. GUARDAR COMENTARIO (Solo si hubo cambios reales legibles)
                 if ($cambiosReales > 0) {
                     \App\Models\RentComment::create([
