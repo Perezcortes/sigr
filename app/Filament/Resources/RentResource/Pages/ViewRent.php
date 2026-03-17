@@ -499,9 +499,62 @@ class ViewRent extends EditRecord
                                                 Forms\Components\Section::make('Datos del Obligado solidario / Fiador')
                                                     ->schema([
                                                         Forms\Components\Select::make('tiene_fiador')
-                                                            ->label('¿Tiene fiador?')
+                                                            ->label('¿Tiene fiador u obligado solidario?')
                                                             ->options(['si' => 'Sí', 'no' => 'No'])
-                                                            ->default('no'),
+                                                            ->default('no')
+                                                            ->live()
+                                                            ->required(),
+
+                                                        // === SE MUESTRA SOLO SI ES "SÍ" ===
+                                                        Forms\Components\Group::make([
+                                                            Forms\Components\Select::make('fiador_tipo_persona')
+                                                                ->label('Tipo de Persona')
+                                                                ->options(['fisica' => 'Persona física', 'moral' => 'Persona moral'])
+                                                                ->live()
+                                                                ->required(),
+
+                                                            Forms\Components\Select::make('fiador_tipo')
+                                                                ->label('Tipo')
+                                                                ->options(['Obligado solidario' => 'Obligado solidario', 'Fiador' => 'Fiador'])
+                                                                ->live()
+                                                                ->required(),
+
+                                                            // Campos para Persona Física
+                                                            Forms\Components\TextInput::make('fiador_nombres')
+                                                                ->label('Nombre(s)')
+                                                                ->visible(fn (Forms\Get $get) => $get('fiador_tipo_persona') === 'fisica')
+                                                                ->required(fn (Forms\Get $get) => $get('fiador_tipo_persona') === 'fisica'),
+                                                            Forms\Components\TextInput::make('fiador_primer_apellido')
+                                                                ->label('Primer Apellido')
+                                                                ->visible(fn (Forms\Get $get) => $get('fiador_tipo_persona') === 'fisica')
+                                                                ->required(fn (Forms\Get $get) => $get('fiador_tipo_persona') === 'fisica'),
+                                                            Forms\Components\TextInput::make('fiador_segundo_apellido')
+                                                                ->label('Segundo Apellido')
+                                                                ->visible(fn (Forms\Get $get) => $get('fiador_tipo_persona') === 'fisica'),
+                                                            Forms\Components\Select::make('fiador_sexo')
+                                                                ->label('Sexo')
+                                                                ->options(['Masculino' => 'Masculino', 'Femenino' => 'Femenino'])
+                                                                ->visible(fn (Forms\Get $get) => $get('fiador_tipo_persona') === 'fisica'),
+
+                                                            // Campos para Persona Moral
+                                                            Forms\Components\TextInput::make('fiador_razon_social')
+                                                                ->label('Nombre / Razón Social')
+                                                                ->visible(fn (Forms\Get $get) => $get('fiador_tipo_persona') === 'moral')
+                                                                ->required(fn (Forms\Get $get) => $get('fiador_tipo_persona') === 'moral')
+                                                                ->columnSpan(2),
+                                                            Forms\Components\TextInput::make('fiador_rfc')
+                                                                ->label('RFC')
+                                                                ->visible(fn (Forms\Get $get) => $get('fiador_tipo_persona') === 'moral'),
+
+                                                            // Compartidos
+                                                            Forms\Components\TextInput::make('fiador_email')
+                                                                ->label('Correo')
+                                                                ->email()
+                                                                ->required(),
+                                                        ])
+                                                        ->columns(2)
+                                                        ->visible(fn (Forms\Get $get) => $get('tiene_fiador') === 'si')
+                                                        ->columnSpanFull(),
                                                     ]),
                                                 
                                                 Forms\Components\Actions::make([
@@ -511,11 +564,40 @@ class ViewRent extends EditRecord
                                                         ->icon('heroicon-o-check')
                                                         ->action(function () {
                                                             $this->save();
-                                                            \Filament\Notifications\Notification::make()->success()->title('Datos del fiador guardados')->send();
+                                                            \Filament\Notifications\Notification::make()->success()->title('Configuración de fiador guardada')->send();
                                                         }),
-                                                    Forms\Components\Actions\Action::make('edit_guarantor')->label('Editar solicitud del fiador')->color('primary'),
-                                                    Forms\Components\Actions\Action::make('send_guarantor')->label('Enviar solicitud al fiador')->color('success'),
-                                                    Forms\Components\Actions\Action::make('copy_link_guarantor')->label('Copiar link')->color('gray'),
+                                                        
+                                                    // BOTONES QUE SOLO SALEN SI "tiene_fiador" ES SÍ
+                                                    Forms\Components\Actions\Action::make('edit_guarantor')
+                                                        ->label(fn (Forms\Get $get) => 'Editar solicitud del ' . strtolower($get('fiador_tipo') ?? 'fiador'))
+                                                        ->color('primary')
+                                                        ->visible(fn (Forms\Get $get) => $get('tiene_fiador') === 'si')
+                                                        ->action(function () {
+                                                            // Creamos el expediente en blanco atado a esta renta para ir a llenarlo
+                                                            $guarantorRequest = \App\Models\GuarantorRequest::firstOrCreate(
+                                                                ['rent_id' => $this->record->id],
+                                                                [
+                                                                    'tipo_persona' => $this->record->fiador_tipo_persona ?? 'fisica',
+                                                                    'tipo_figura' => $this->record->fiador_tipo ?? 'Fiador',
+                                                                    'nombres' => $this->record->fiador_nombres,
+                                                                    'primer_apellido' => $this->record->fiador_primer_apellido,
+                                                                    'segundo_apellido' => $this->record->fiador_segundo_apellido,
+                                                                    'razon_social' => $this->record->fiador_razon_social,
+                                                                    'email' => $this->record->fiador_email,
+                                                                    'rfc' => $this->record->fiador_rfc,
+                                                                    'estatus' => 'nueva',
+                                                                ]
+                                                            );
+                                                            $this->redirect(\App\Filament\Resources\GuarantorRequestResource::getUrl('edit', ['record' => $guarantorRequest]));
+                                                        }),
+                                                    Forms\Components\Actions\Action::make('send_guarantor')
+                                                        ->label(fn (Forms\Get $get) => 'Enviar solicitud al ' . strtolower($get('fiador_tipo') ?? 'fiador'))
+                                                        ->color('success')
+                                                        ->visible(fn (Forms\Get $get) => $get('tiene_fiador') === 'si'),
+                                                    Forms\Components\Actions\Action::make('copy_link_guarantor')
+                                                        ->label('Copiar link')
+                                                        ->color('gray')
+                                                        ->visible(fn (Forms\Get $get) => $get('tiene_fiador') === 'si'),
                                                 ]),
                                             ]),
 
