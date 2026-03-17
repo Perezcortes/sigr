@@ -34,8 +34,17 @@ class Rent extends Model
         'comisiones_divididas',     
         'plazo_arrendamiento',
         'fecha_firma',       
-        // Fiador
+        // Obligado solidario / fiador
         'tiene_fiador',
+        'fiador_tipo_persona',
+        'fiador_tipo',
+        'fiador_nombres',
+        'fiador_primer_apellido',
+        'fiador_segundo_apellido',
+        'fiador_sexo',
+        'fiador_razon_social',
+        'fiador_rfc',
+        'fiador_email',
         // Datos de la propiedad
         'tipo_propiedad',
         'calle',
