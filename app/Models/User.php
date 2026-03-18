@@ -41,6 +41,8 @@ class User extends Authenticatable implements HasMedia, HasAvatar, FilamentUser
         'is_active',
         'is_owner',
         'is_tenant',
+        'is_buyer', 
+        'is_seller', 
         'office_id',
     ];
 
@@ -67,6 +69,8 @@ class User extends Authenticatable implements HasMedia, HasAvatar, FilamentUser
             'is_active' => 'boolean',
             'is_owner' => 'boolean',
             'is_tenant' => 'boolean',
+            'is_buyer' => 'boolean', 
+            'is_seller' => 'boolean',
         ];
     }
 

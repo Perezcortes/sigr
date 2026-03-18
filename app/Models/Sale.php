@@ -4,7 +4,15 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Buyer;
+use App\Models\Seller;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+/**
+ * @property string $nombres
+ * @property string $ap_paterno
+ * @property string|null $ap_materno
+ */
 
 class Sale extends Model
 {
@@ -47,7 +55,6 @@ class Sale extends Model
     {
         static::saving(function (Sale $sale) {
             // Concatenar automáticamente el nombre del cliente principal para mostrar en la tabla
-            // Si hay nombre, úsalo, si no, pon 'Sin Nombre'
             $nombre = $sale->comprador_nombres ?? '';
             $apellido = $sale->comprador_ap_paterno ?? '';
             
@@ -64,6 +71,39 @@ class Sale extends Model
                 $sale->user_id = auth()->id();
             }
         });
+
+        // --- DISPARADOR DE COBRO (CENTRO DE PAGOS) ---
+        static::updated(function (Sale $sale) {
+            $debeCobrarse = false;
+            
+            if ($sale->isDirty('estatus_operacion')) {
+                if ($sale->momento_cobro_comision === 'a_la_venta' && $sale->estatus_operacion === 'Contrato firmado') {
+                    $debeCobrarse = true;
+                } 
+                elseif ($sale->momento_cobro_comision === 'a_la_escrituracion' && $sale->estatus_operacion === 'Cerrada') {
+                    $debeCobrarse = true;
+                }
+            }
+
+            if ($debeCobrarse) {
+                \App\Models\PayableOperation::firstOrCreate(
+                    [
+                        'payable_type' => Sale::class,
+                        'payable_id' => $sale->id,
+                    ],
+                    [
+                        'user_id' => $sale->user_id, 
+                        'nombre_cliente' => $sale->nombre_cliente_principal,
+                        'fecha_firma' => now(), 
+                        'monto_operacion' => $sale->monto_operacion ?? 0,
+                        'monto_comision' => $sale->comision_monto ?? 0,
+                        'regalia' => ($sale->comision_monto ?? 0) * 0.12, // 12% de la comisión
+                        'estatus' => 'pendiente de pago',
+                        'fecha_vencimiento' => now()->addDays(10), 
+                    ]
+                );
+            }
+        });
     }
 
     /**
@@ -72,5 +112,15 @@ class Sale extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+    
+    public function buyer(): BelongsTo
+    {
+        return $this->belongsTo(Buyer::class);
+    }
+
+    public function seller(): BelongsTo
+    {
+        return $this->belongsTo(Seller::class);
     }
 }
