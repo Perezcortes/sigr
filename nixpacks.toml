@@ -1,5 +1,5 @@
-[phases.setup]
-nixPkgs = ["php83", "php83Extensions.pdo_mysql", "php83Extensions.mbstring", "php83Extensions.xml", "php83Extensions.curl", "php83Extensions.zip", "php83Extensions.gd", "php83Extensions.intl", "php83Extensions.bcmath", "php83Extensions.tokenizer", "php83Extensions.ctype", "php83Extensions.openssl", "php83Extensions.pcre", "php83Extensions.redis", "php83Extensions.fileinfo", "php83Extensions.exif", "composer"]
+[variables]
+NIXPACKS_PHP_VERSION = "8.3"
 
 [phases.build]
 cmds = [
@@ -13,4 +13,4 @@ cmds = [
 ]
 
 [start]
-cmd = "php artisan migrate --force && php-fpm"
+cmd = "php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=8000"
