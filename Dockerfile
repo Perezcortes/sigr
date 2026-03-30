@@ -1,12 +1,6 @@
 # syntax=docker/dockerfile:1
 # Laravel 12 + Filament — PHP 8.3 fijo (compatible con openspout / Excel)
-
-FROM node:22-alpine AS frontend
-WORKDIR /app
-COPY package.json package-lock.json* ./
-RUN npm ci
-COPY . .
-RUN npm run build
+# vendor antes del frontend: Vite importa CSS desde vendor/filament (no va en el contexto por .dockerignore)
 
 # PHP con extensiones requeridas por Composer (vendor) y runtime (app)
 FROM php:8.3-cli-bookworm AS php-base
@@ -36,6 +30,14 @@ COPY composer.json composer.lock ./
 RUN composer install --no-dev --no-scripts --no-autoloader
 COPY . .
 RUN composer dump-autoload --optimize --no-dev
+
+FROM node:22-alpine AS frontend
+WORKDIR /app
+COPY package.json package-lock.json* ./
+RUN npm ci
+COPY --from=vendor /app/vendor ./vendor
+COPY . .
+RUN npm run build
 
 FROM php-base AS app
 WORKDIR /var/www/html
