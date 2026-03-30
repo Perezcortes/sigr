@@ -54,8 +54,4 @@ USER www-data
 EXPOSE 8000
 
 # APP_KEY y DB vienen del entorno en Dokploy. Migraciones: comando post-deploy recomendado.
-CMD php artisan storage:link 2>/dev/null || true \
-    && php artisan config:cache \
-    && php artisan route:cache \
-    && php artisan view:cache \
-    && php artisan serve --host=0.0.0.0 --port=8000
+CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
