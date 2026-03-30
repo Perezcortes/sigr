@@ -8,16 +8,8 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-FROM composer:2 AS vendor
-WORKDIR /app
-ENV COMPOSER_ALLOW_SUPERUSER=1
-COPY composer.json composer.lock ./
-RUN composer install --no-dev --no-scripts --no-autoloader
-COPY . .
-RUN composer dump-autoload --optimize --no-dev
-
-FROM php:8.3-cli-bookworm AS app
-
+# PHP con extensiones requeridas por Composer (vendor) y runtime (app)
+FROM php:8.3-cli-bookworm AS php-base
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libicu-dev \
     libpng-dev \
@@ -35,7 +27,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         intl \
         opcache \
     && rm -rf /var/lib/apt/lists/*
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+ENV COMPOSER_ALLOW_SUPERUSER=1
 
+FROM php-base AS vendor
+WORKDIR /app
+COPY composer.json composer.lock ./
+RUN composer install --no-dev --no-scripts --no-autoloader
+COPY . .
+RUN composer dump-autoload --optimize --no-dev
+
+FROM php-base AS app
 WORKDIR /var/www/html
 
 COPY --from=vendor /app/vendor ./vendor
