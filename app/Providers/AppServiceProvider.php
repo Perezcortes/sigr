@@ -9,6 +9,7 @@ use App\Policies\ServicePolicy;
 use App\Models\Ticket;
 use App\Policies\TicketPolicy;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\Gate;
 use App\Filament\Resources\AdministrationResource\RelationManagers\ServicesRelationManager;
 use App\Filament\Resources\AdministrationResource\RelationManagers\TicketsRelationManager;
@@ -28,6 +29,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        if (str_starts_with((string) config('app.url'), 'https://')) {
+            URL::forceScheme('https');
+        }
+
         Livewire::setScriptRoute(function ($handle) {
             return Route::get('/vendor/livewire/livewire.js', $handle);
         });
