@@ -138,233 +138,233 @@ class ViewRent extends EditRecord
                 Forms\Components\Tabs::make('Tabs')
                     ->columnSpanFull()
                     ->tabs([
-                // ========== TAB: INFORMACIÓN ==========
-                Forms\Components\Tabs\Tab::make('Información')
-                    ->icon('heroicon-o-information-circle')
-                    ->schema([
-
-                        Forms\Components\Section::make('Datos de la renta')
+                        // ========== TAB: INFORMACIÓN ==========
+                        Forms\Components\Tabs\Tab::make('Información')
+                            ->icon('heroicon-o-information-circle')
                             ->schema([
-                                Forms\Components\TextInput::make('folio')->label('Folio')->disabled(),
-                                Forms\Components\Select::make('office_id')
-                                    ->relationship('office', 'nombre')
-                                    ->label('Sucursal (Oficina)')
-                                    ->disabled()
-                                    ->dehydrated(),
 
-                                Forms\Components\Select::make('asesor_id')
-                                    ->relationship('asesor', 'name')
-                                    ->label('Agente Asignado')
-                                    ->disabled(fn () => !auth()->user()->hasRole('Administrador'))
-                                    ->dehydrated()
-                                    ->required(),
-                                Forms\Components\TextInput::make('inmobiliaria')->label('Inmobiliaria*')->disabled(),
-
-                                Forms\Components\Select::make('estatus')
-                                    ->label('Estatus')
-                                    ->options([
-                                        'nueva' => 'Nueva',
-                                        'documentacion' => 'Documentación',
-                                        'analisis' => 'Análisis',
-                                        'aprobada' => 'Aprobada',
-                                        'programar_firma' => 'Programar firma',
-                                        'activa' => 'Activa',
-                                        'rechazada' => 'Rechazada',
-                                        'cancelada' => 'Cancelada',
-                                        'vencida' => 'Vencida',
-                                    ])
-                                    ->default('nueva')
-                                    ->required(),
-
-                                Forms\Components\Select::make('tipo_inmueble')
-                                    ->label('Tipo de inmueble')
-                                    ->options([
-                                        'residencial' => 'Inmuebles Residenciales',
-                                        'comercial' => 'Inmuebles Comerciales',
-                                    ])
-                                    ->default('residencial')
-                                    ->required(),
-                            ])
-                            ->columns(2),
-
-                        Forms\Components\Section::make('Esquema de Comisiones y Pagos')
-                            ->schema([
-                                Forms\Components\Grid::make(3)
+                                Forms\Components\Section::make('Datos de la renta')
                                     ->schema([
+                                        Forms\Components\TextInput::make('folio')->label('Folio')->disabled(),
+                                        Forms\Components\Select::make('office_id')
+                                            ->relationship('office', 'nombre')
+                                            ->label('Sucursal (Oficina)')
+                                            ->disabled()
+                                            ->dehydrated(),
 
-                                        Forms\Components\Group::make()
+                                        Forms\Components\Select::make('asesor_id')
+                                            ->relationship('asesor', 'name')
+                                            ->label('Agente Asignado')
+                                            ->disabled(fn () => !auth()->user()->hasRole('Administrador'))
+                                            ->dehydrated()
+                                            ->required(),
+                                        Forms\Components\TextInput::make('inmobiliaria')->label('Inmobiliaria*')->disabled(),
+
+                                        Forms\Components\Select::make('estatus')
+                                            ->label('Estatus')
+                                            ->options([
+                                                'nueva' => 'Nueva',
+                                                'documentacion' => 'Documentación',
+                                                'analisis' => 'Análisis',
+                                                'aprobada' => 'Aprobada',
+                                                'programar_firma' => 'Programar firma',
+                                                'activa' => 'Activa',
+                                                'rechazada' => 'Rechazada',
+                                                'cancelada' => 'Cancelada',
+                                                'vencida' => 'Vencida',
+                                            ])
+                                            ->default('nueva')
+                                            ->required(),
+
+                                        Forms\Components\Select::make('tipo_inmueble')
+                                            ->label('Tipo de inmueble')
+                                            ->options([
+                                                'residencial' => 'Inmuebles Residenciales',
+                                                'comercial' => 'Inmuebles Comerciales',
+                                            ])
+                                            ->default('residencial')
+                                            ->required(),
+                                    ])
+                                    ->columns(2),
+
+                                Forms\Components\Section::make('Esquema de Comisiones y Pagos')
+                                    ->schema([
+                                        Forms\Components\Grid::make(3)
                                             ->schema([
-                                                Forms\Components\Grid::make(2)->schema([
-                                                    Forms\Components\TextInput::make('renta')
-                                                        ->label('Monto de renta')
-                                                        ->numeric()
-                                                        ->prefix('$')
-                                                        ->required()
-                                                        ->placeholder('0.00')
-                                                        ->live(onBlur: true)
-                                                        ->afterStateUpdated(function (Forms\Set $set, $state) {
-                                                            $set('monto_comision', $state);
-                                                        }),
 
-                                                    Forms\Components\TextInput::make('monto_comision')
-                                                        ->label('Monto total de la comisión')
-                                                        ->numeric()
-                                                        ->prefix('$')
-                                                        ->required()
-                                                        ->live(onBlur: true)
-                                                        ->placeholder('0.00'),
-                                                ]),
-
-                                                Forms\Components\TextInput::make('porcentaje_comision_principal')
-                                                    ->label('% Comisión para mí (Agente Principal)')
-                                                    ->numeric()
-                                                    ->suffix('%')
-                                                    ->default(100)
-                                                    ->readOnly()
-                                                    ->helperText('Se ajusta automáticamente al dividir la comisión.'),
-
-                                                Forms\Components\Repeater::make('comisiones_divididas')
-                                                    ->label('Dividir Comisión (Agentes Externos)')
+                                                Forms\Components\Group::make()
                                                     ->schema([
-                                                        Forms\Components\TextInput::make('nombre_agente')->label('Nombre')->required()->live(onBlur: true),
-                                                        Forms\Components\TextInput::make('email')->email()->label('Email'),
-                                                        Forms\Components\TextInput::make('telefono')->tel()->label('Teléfono'),
-                                                        Forms\Components\TextInput::make('porcentaje')
-                                                            ->label('% Comisión')
+                                                        Forms\Components\Grid::make(2)->schema([
+                                                            Forms\Components\TextInput::make('renta')
+                                                                ->label('Monto de renta')
+                                                                ->numeric()
+                                                                ->prefix('$')
+                                                                ->required()
+                                                                ->placeholder('0.00')
+                                                                ->live(onBlur: true)
+                                                                ->afterStateUpdated(function (Forms\Set $set, $state) {
+                                                                    $set('monto_comision', $state);
+                                                                }),
+
+                                                            Forms\Components\TextInput::make('monto_comision')
+                                                                ->label('Monto total de la comisión')
+                                                                ->numeric()
+                                                                ->prefix('$')
+                                                                ->required()
+                                                                ->live(onBlur: true)
+                                                                ->placeholder('0.00'),
+                                                        ]),
+
+                                                        Forms\Components\TextInput::make('porcentaje_comision_principal')
+                                                            ->label('% Comisión para mí (Agente Principal)')
                                                             ->numeric()
                                                             ->suffix('%')
-                                                            ->required()
-                                                            ->live(onBlur: true)
-                                                            // Recalcular el porcentaje principal si el usuario modifica este campo a mano
-                                                            ->afterStateUpdated(function (Forms\Get $get, Forms\Set $set) {
-                                                                $items = $get('../../comisiones_divididas') ?? [];
-                                                                $sum = collect($items)->sum('porcentaje');
-                                                                $set('../../porcentaje_comision_principal', max(0, 100 - $sum));
+                                                            ->default(100)
+                                                            ->readOnly()
+                                                            ->helperText('Se ajusta automáticamente al dividir la comisión.'),
+
+                                                        Forms\Components\Repeater::make('comisiones_divididas')
+                                                            ->label('Dividir Comisión (Agentes Externos)')
+                                                            ->schema([
+                                                                Forms\Components\TextInput::make('nombre_agente')->label('Nombre')->required()->live(onBlur: true),
+                                                                Forms\Components\TextInput::make('email')->email()->label('Email'),
+                                                                Forms\Components\TextInput::make('telefono')->tel()->label('Teléfono'),
+                                                                Forms\Components\TextInput::make('porcentaje')
+                                                                    ->label('% Comisión')
+                                                                    ->numeric()
+                                                                    ->suffix('%')
+                                                                    ->required()
+                                                                    ->live(onBlur: true)
+                                                                    // Recalcular el porcentaje principal si el usuario modifica este campo a mano
+                                                                    ->afterStateUpdated(function (Forms\Get $get, Forms\Set $set) {
+                                                                        $items = $get('../../comisiones_divididas') ?? [];
+                                                                        $sum = collect($items)->sum('porcentaje');
+                                                                        $set('../../porcentaje_comision_principal', max(0, 100 - $sum));
+                                                                    })
+                                                            ])
+                                                            ->columns(4)
+                                                            ->addActionLabel('Dividir comisión (Añadir agente)')
+                                                            ->defaultItems(0)
+                                                            ->live()
+                                                            // LA LÓGICA AUTOMÁTICA DE DIVISIÓN (Al añadir/quitar agentes)
+                                                            ->afterStateUpdated(function (Forms\Set $set, $state) {
+                                                                if (!is_array($state)) {
+                                                                    return;
+                                                                }
+
+                                                                $count = count($state);
+                                                                if ($count > 0) {
+                                                                    // Calcula partes iguales
+                                                                    $share = round(100 / ($count + 1), 2);
+                                                                    $newState = [];
+
+                                                                    foreach ($state as $key => $item) {
+                                                                        $item['porcentaje'] = $share;
+                                                                        $newState[$key] = $item;
+                                                                    }
+
+                                                                    // Actualiza el array de agentes
+                                                                    $set('comisiones_divididas', $newState);
+
+                                                                    // Te asigna lo que sobra para que cierre en 100%
+                                                                    $set('porcentaje_comision_principal', round(100 - ($share * $count), 2));
+                                                                } else {
+                                                                    // Si quitas a todos los agentes, vuelve al 100%
+                                                                    $set('porcentaje_comision_principal', 100);
+                                                                }
+                                                            }),
+                                                    ])->columnSpan(2),
+
+                                                Forms\Components\Section::make('Resumen de comisiones')
+                                                    ->description('Distribución de la comisión')
+                                                    ->schema([
+                                                        Forms\Components\Placeholder::make('grafica_comisiones')
+                                                            ->hiddenLabel()
+                                                            ->content(function (Forms\Get $get) {
+                                                                $montoTotal = (float) $get('monto_comision') ?: 0;
+                                                                $pctPrincipal = (float) $get('porcentaje_comision_principal') ?: 100;
+                                                                $externos = $get('comisiones_divididas') ?? [];
+
+                                                                $nombrePrincipal = auth()->user()->name ?? 'Yo';
+                                                                $montoPrincipal = ($montoTotal * $pctPrincipal) / 100;
+
+                                                                $colores = ['bg-amber-500', 'bg-rose-500', 'bg-purple-500', 'bg-cyan-500'];
+                                                                $colorIdx = 0;
+
+                                                                $html = "<div class='w-full h-6 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden flex mb-6 shadow-inner'>";
+                                                                $html .= "<div class='bg-primary-600 h-full transition-all duration-300' style='width: {$pctPrincipal}%' title='Mío: {$pctPrincipal}%'></div>";
+
+                                                                $leyendaHtml = "<ul class='space-y-3 text-sm'>";
+                                                                $leyendaHtml .= "<li class='flex items-center justify-between p-2 bg-primary-50 dark:bg-primary-900/20 rounded-lg border border-primary-100 dark:border-primary-800'>
+                                                                    <span class='flex items-center gap-2'>
+                                                                        <span class='w-3 h-3 rounded-full bg-primary-600 shadow-sm'></span>
+                                                                        <strong class='text-primary-700 dark:text-primary-400'>{$nombrePrincipal} (Yo)</strong>
+                                                                    </span>
+                                                                    <div class='text-right'>
+                                                                        <span class='text-xs text-gray-500 block'>" . number_format($pctPrincipal, 1) . "%</span>
+                                                                        <strong class='text-base text-primary-700 dark:text-primary-400'>$" . number_format($montoPrincipal, 2) . "</strong>
+                                                                    </div>
+                                                                </li>";
+
+                                                                foreach ($externos as $ext) {
+                                                                    $pct = (float) ($ext['porcentaje'] ?? 0);
+                                                                    if ($pct <= 0) {
+                                                                        continue;
+                                                                    }
+
+                                                                    $montoExt = ($montoTotal * $pct) / 100;
+                                                                    $nombreExt = $ext['nombre_agente'] ?: 'Agente Externo';
+                                                                    $colorClase = $colores[$colorIdx % count($colores)];
+
+                                                                    $html .= "<div class='{$colorClase} h-full border-l border-white/20 transition-all duration-300' style='width: {$pct}%' title='{$nombreExt}: {$pct}%'></div>";
+
+                                                                    $leyendaHtml .= "<li class='flex items-center justify-between p-2 hover:bg-gray-50 dark:hover:bg-white/5 rounded-lg transition-colors'>
+                                                                        <span class='flex items-center gap-2'>
+                                                                            <span class='w-3 h-3 rounded-full {$colorClase} shadow-sm'></span>
+                                                                            <span class='text-gray-700 dark:text-gray-300 font-medium'>{$nombreExt}</span>
+                                                                        </span>
+                                                                        <div class='text-right'>
+                                                                            <span class='text-xs text-gray-500 block'>" . number_format($pct, 1) . "%</span>
+                                                                            <strong class='text-gray-900 dark:text-gray-100'>$" . number_format($montoExt, 2) . "</strong>
+                                                                        </div>
+                                                                    </li>";
+
+                                                                    $colorIdx++;
+                                                                }
+
+                                                                $html .= "</div>";
+                                                                $leyendaHtml .= "</ul>";
+
+                                                                $totalHtml = "<div class='mt-6 pt-4 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center'>
+                                                                    <span class='text-gray-500 font-medium'>Total a repartir</span>
+                                                                    <strong class='text-lg'>$" . number_format($montoTotal, 2) . "</strong>
+                                                                </div>";
+
+                                                                return new \Illuminate\Support\HtmlString($html . $leyendaHtml . $totalHtml);
                                                             })
-                                                    ])
-                                                    ->columns(4)
-                                                    ->addActionLabel('Dividir comisión (Añadir agente)')
-                                                    ->defaultItems(0)
-                                                    ->live()
-                                                    // LA LÓGICA AUTOMÁTICA DE DIVISIÓN (Al añadir/quitar agentes)
-                                                    ->afterStateUpdated(function (Forms\Set $set, $state) {
-                                                        if (!is_array($state)) {
-                                                            return;
-                                                        }
+                                                    ])->columnSpan(1),
+                                            ]),
 
-                                                        $count = count($state);
-                                                        if ($count > 0) {
-                                                            // Calcula partes iguales
-                                                            $share = round(100 / ($count + 1), 2);
-                                                            $newState = [];
-
-                                                            foreach ($state as $key => $item) {
-                                                                $item['porcentaje'] = $share;
-                                                                $newState[$key] = $item;
-                                                            }
-
-                                                            // Actualiza el array de agentes
-                                                            $set('comisiones_divididas', $newState);
-
-                                                            // Te asigna lo que sobra para que cierre en 100%
-                                                            $set('porcentaje_comision_principal', round(100 - ($share * $count), 2));
-                                                        } else {
-                                                            // Si quitas a todos los agentes, vuelve al 100%
-                                                            $set('porcentaje_comision_principal', 100);
-                                                        }
-                                                    }),
-                                            ])->columnSpan(2),
-
-                                        Forms\Components\Section::make('Resumen de comisiones')
-                                            ->description('Distribución de la comisión')
-                                            ->schema([
-                                                Forms\Components\Placeholder::make('grafica_comisiones')
-                                                    ->hiddenLabel()
-                                                    ->content(function (Forms\Get $get) {
-                                                        $montoTotal = (float) $get('monto_comision') ?: 0;
-                                                        $pctPrincipal = (float) $get('porcentaje_comision_principal') ?: 100;
-                                                        $externos = $get('comisiones_divididas') ?? [];
-
-                                                        $nombrePrincipal = auth()->user()->name ?? 'Yo';
-                                                        $montoPrincipal = ($montoTotal * $pctPrincipal) / 100;
-
-                                                        $colores = ['bg-amber-500', 'bg-rose-500', 'bg-purple-500', 'bg-cyan-500'];
-                                                        $colorIdx = 0;
-
-                                                        $html = "<div class='w-full h-6 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden flex mb-6 shadow-inner'>";
-                                                        $html .= "<div class='bg-primary-600 h-full transition-all duration-300' style='width: {$pctPrincipal}%' title='Mío: {$pctPrincipal}%'></div>";
-
-                                                        $leyendaHtml = "<ul class='space-y-3 text-sm'>";
-                                                        $leyendaHtml .= "<li class='flex items-center justify-between p-2 bg-primary-50 dark:bg-primary-900/20 rounded-lg border border-primary-100 dark:border-primary-800'>
-                                                            <span class='flex items-center gap-2'>
-                                                                <span class='w-3 h-3 rounded-full bg-primary-600 shadow-sm'></span>
-                                                                <strong class='text-primary-700 dark:text-primary-400'>{$nombrePrincipal} (Yo)</strong>
-                                                            </span>
-                                                            <div class='text-right'>
-                                                                <span class='text-xs text-gray-500 block'>" . number_format($pctPrincipal, 1) . "%</span>
-                                                                <strong class='text-base text-primary-700 dark:text-primary-400'>$" . number_format($montoPrincipal, 2) . "</strong>
-                                                            </div>
-                                                        </li>";
-
-                                                        foreach ($externos as $ext) {
-                                                            $pct = (float) ($ext['porcentaje'] ?? 0);
-                                                            if ($pct <= 0) {
-                                                                continue;
-                                                            }
-
-                                                            $montoExt = ($montoTotal * $pct) / 100;
-                                                            $nombreExt = $ext['nombre_agente'] ?: 'Agente Externo';
-                                                            $colorClase = $colores[$colorIdx % count($colores)];
-
-                                                            $html .= "<div class='{$colorClase} h-full border-l border-white/20 transition-all duration-300' style='width: {$pct}%' title='{$nombreExt}: {$pct}%'></div>";
-
-                                                            $leyendaHtml .= "<li class='flex items-center justify-between p-2 hover:bg-gray-50 dark:hover:bg-white/5 rounded-lg transition-colors'>
-                                                                <span class='flex items-center gap-2'>
-                                                                    <span class='w-3 h-3 rounded-full {$colorClase} shadow-sm'></span>
-                                                                    <span class='text-gray-700 dark:text-gray-300 font-medium'>{$nombreExt}</span>
-                                                                </span>
-                                                                <div class='text-right'>
-                                                                    <span class='text-xs text-gray-500 block'>" . number_format($pct, 1) . "%</span>
-                                                                    <strong class='text-gray-900 dark:text-gray-100'>$" . number_format($montoExt, 2) . "</strong>
-                                                                </div>
-                                                            </li>";
-
-                                                            $colorIdx++;
-                                                        }
-
-                                                        $html .= "</div>";
-                                                        $leyendaHtml .= "</ul>";
-
-                                                        $totalHtml = "<div class='mt-6 pt-4 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center'>
-                                                            <span class='text-gray-500 font-medium'>Total a repartir</span>
-                                                            <strong class='text-lg'>$" . number_format($montoTotal, 2) . "</strong>
-                                                        </div>";
-
-                                                        return new \Illuminate\Support\HtmlString($html . $leyendaHtml . $totalHtml);
-                                                    })
-                                            ])->columnSpan(1),
+                                        Forms\Components\Actions::make([
+                                            Forms\Components\Actions\Action::make('guardar_general')
+                                                ->label('Guardar Información')
+                                                ->color('primary')
+                                                ->icon('heroicon-o-check')
+                                                ->action(function () {
+                                                    $this->save();
+                                                    \Filament\Notifications\Notification::make()
+                                                        ->success()
+                                                        ->title('Datos guardados')
+                                                        ->send();
+                                                }),
+                                            Forms\Components\Actions\Action::make('cancelar')
+                                                ->label('Cancelar')
+                                                ->color('gray')
+                                                ->icon('heroicon-o-x-mark')
+                                                ->url(fn () => RentResource::getUrl('index')),
+                                        ]),
                                     ]),
-
-                                Forms\Components\Actions::make([
-                                    Forms\Components\Actions\Action::make('guardar_general')
-                                        ->label('Guardar Información')
-                                        ->color('primary')
-                                        ->icon('heroicon-o-check')
-                                        ->action(function () {
-                                            $this->save();
-                                            \Filament\Notifications\Notification::make()
-                                                ->success()
-                                                ->title('Datos guardados')
-                                                ->send();
-                                        }),
-                                    Forms\Components\Actions\Action::make('cancelar')
-                                        ->label('Cancelar')
-                                        ->color('gray')
-                                        ->icon('heroicon-o-x-mark')
-                                        ->url(fn () => RentResource::getUrl('index')),
                                 ]),
-                            ]),
-                        ]),
 
                         // ========== TAB: SOLICITUDES ==========
                         Forms\Components\Tabs\Tab::make('Solicitudes')
@@ -1603,92 +1603,152 @@ class ViewRent extends EditRecord
                             ]),
                     ]),
 
-                // SECCIÓN GLOBAL DE COMENTARIOS (ABAJO)
+                // SECCIÓN GLOBAL DE COMENTARIOS Y BITÁCORA
                 Forms\Components\Section::make('Bitácora y Comentarios')
                     ->description('Historial de la operación y notas de seguimiento.')
                     ->icon('heroicon-o-chat-bubble-left-right')
                     ->columnSpanFull()
                     ->extraAttributes(['class' => 'mt-4 bg-gray-50 dark:bg-white/5'])
                     ->schema([
-                        Forms\Components\Group::make()->schema([
-                            // Campo para nuevo comentario
-                            Forms\Components\Textarea::make('new_comment_content')
-                                ->hiddenLabel()
-                                ->placeholder('Escribe una nueva nota o comentario...')
-                                ->rows(2)
-                                ->extraInputAttributes(['class' => 'border-gray-300 focus:border-[#26cad3] focus:ring-[#26cad3]']),
-
-                            // Botón de guardar
-                            Forms\Components\Actions::make([
-                                Forms\Components\Actions\Action::make('guardar_comentario')
-                                    ->label('Publicar Comentario')
-                                    ->color('primary')
-                                    ->icon('heroicon-m-paper-airplane')
-                                    ->action(function (Forms\Get $get, Forms\Set $set) {
-                                        $content = $get('new_comment_content');
-                                        if (!$content) {
-                                            return;
-                                        }
-
-                                        RentComment::create([
-                                            'rent_id' => $this->record->id,
-                                            'user_id' => auth()->id(),
-                                            'comment' => $content,
-                                            'status' => 'activa',
-                                        ]);
-
-                                        $set('new_comment_content', '');
-                                        \Filament\Notifications\Notification::make()->success()->title('Comentario registrado')->send();
-                                    }),
-                            ])->alignRight(),
-                        ]),
-
-                        // Lista de comentarios
-                        Forms\Components\Placeholder::make('comments_list')
-                            ->hiddenLabel()
-                            ->content(function () {
-                                $comments = $this->record->comments()->with('user')->orderBy('created_at', 'desc')->get();
-
-                                if ($comments->isEmpty()) {
-                                    return new \Illuminate\Support\HtmlString('
-                                        <div class="flex flex-col items-center justify-center p-8 text-center bg-white border border-gray-200 border-dashed rounded-xl dark:bg-gray-800 dark:border-gray-700 mt-4">
-                                            <p class="text-sm text-gray-500">Sin comentarios aún</p>
-                                        </div>
-                                    ');
-                                }
-
-                                $html = '<div class="space-y-3 max-h-[400px] overflow-y-auto pr-2 mt-4">';
-                                foreach ($comments as $comment) {
-                                    $user = $comment->user;
-                                    $userName = $user ? $user->name : 'Sistema Automático';
-                                    $date = $comment->created_at->format('d M Y, h:i A');
-
-                                    $bgClass = $user ? 'bg-white dark:bg-gray-800' : 'bg-blue-50 dark:bg-blue-900/20';
-                                    $borderClass = $user ? 'border-gray-200 dark:border-gray-700' : 'border-[#26cad3]/30';
-                                    $initials = collect(explode(' ', $userName))->map(fn ($w) => strtoupper(substr($w, 0, 1)))->take(2)->implode('');
-                                    $iconBg = $user ? 'bg-[#161848]' : 'bg-[#26cad3]';
-
-                                    $html .= "
-                                        <div class='flex items-start gap-3'>
-                                            <div class='flex-shrink-0'>
-                                                <div class='flex items-center justify-center w-10 h-10 rounded-full {$iconBg} text-white text-xs font-bold shadow-sm'>
-                                                    {$initials}
-                                                </div>
-                                            </div>
-                                            <div class='flex-1 min-w-0'>
-                                                <div class='{$bgClass} border {$borderClass} rounded-lg rounded-tl-none shadow-sm p-4'>
-                                                    <div class='flex items-center justify-between mb-1'>
-                                                        <h4 class='text-sm font-bold text-[#161848] dark:text-white'>{$userName}</h4>
-                                                        <span class='text-xs text-gray-400'>{$date}</span>
-                                                    </div>
-                                                    <p class='text-sm text-gray-600 dark:text-gray-300 whitespace-pre-wrap'>{$comment->comment}</p>
-                                                </div>
-                                            </div>
-                                        </div>";
-                                }
-                                $html .= '</div>';
-                                return new \Illuminate\Support\HtmlString($html);
-                            }),
+                        Forms\Components\Tabs::make('TabsComentarios')
+                            ->tabs([
+                                
+                                // === PESTAÑA 1: COMENTARIOS (Por defecto) ===
+                                Forms\Components\Tabs\Tab::make('Comentarios')
+                                    ->icon('heroicon-m-chat-bubble-bottom-center-text')
+                                    ->badge(fn () => $this->record->comments()->where('comment', 'not like', 'El sistema registró%')->count()) 
+                                    ->schema([
+                                        Forms\Components\Group::make()->schema([
+                                            Forms\Components\Textarea::make('new_comment_content')
+                                                ->hiddenLabel()
+                                                ->placeholder('Escribe una nueva nota o comentario...')
+                                                ->rows(2)
+                                                ->extraInputAttributes(['class' => 'border-gray-300 focus:border-[#26cad3] focus:ring-[#26cad3]']),
+                
+                                            Forms\Components\Actions::make([
+                                                Forms\Components\Actions\Action::make('guardar_comentario')
+                                                    ->label('Publicar Comentario')
+                                                    ->color('primary')
+                                                    ->icon('heroicon-m-paper-airplane')
+                                                    ->action(function (Forms\Get $get, Forms\Set $set) {
+                                                        $content = $get('new_comment_content');
+                                                        if (!$content) return;
+                
+                                                        \App\Models\RentComment::create([
+                                                            'rent_id' => $this->record->id,
+                                                            'user_id' => auth()->id(),
+                                                            'comment' => $content,
+                                                            'status' => 'activa',
+                                                        ]);
+                
+                                                        $set('new_comment_content', '');
+                                                        \Filament\Notifications\Notification::make()->success()->title('Comentario registrado')->send();
+                                                    }),
+                                            ])->alignRight(),
+                                        ]),
+                
+                                        Forms\Components\Placeholder::make('comments_list_manual')
+                                            ->hiddenLabel()
+                                            ->content(function () {
+                                                // Filtramos para excluir los mensajes del sistema
+                                                $comments = $this->record->comments()
+                                                    ->where('comment', 'not like', 'El sistema registró%')
+                                                    ->with('user')
+                                                    ->orderBy('created_at', 'desc')
+                                                    ->get();
+                
+                                                if ($comments->isEmpty()) {
+                                                    return new \Illuminate\Support\HtmlString('
+                                                        <div class="flex flex-col items-center justify-center p-8 text-center bg-white border border-gray-200 border-dashed rounded-xl dark:bg-gray-800 dark:border-gray-700 mt-4">
+                                                            <p class="text-sm text-gray-500">Sin comentarios aún</p>
+                                                        </div>
+                                                    ');
+                                                }
+                
+                                                $html = '<div class="space-y-3 max-h-[400px] overflow-y-auto pr-2 mt-4">';
+                                                foreach ($comments as $comment) {
+                                                    $userName = $comment->user->name ?? 'Usuario Desconocido';
+                                                    $date = $comment->created_at->format('d M Y, h:i A');
+                
+                                                    $initials = collect(explode(' ', $userName))->map(fn ($w) => strtoupper(substr($w, 0, 1)))->take(2)->implode('');
+                
+                                                    $html .= "
+                                                        <div class='flex items-start gap-3'>
+                                                            <div class='flex-shrink-0'>
+                                                                <div class='flex items-center justify-center w-10 h-10 rounded-full bg-[#161848] text-white text-xs font-bold shadow-sm'>
+                                                                    {$initials}
+                                                                </div>
+                                                            </div>
+                                                            <div class='flex-1 min-w-0'>
+                                                                <div class='bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg rounded-tl-none shadow-sm p-4'>
+                                                                    <div class='flex items-center justify-between mb-1'>
+                                                                        <h4 class='text-sm font-bold text-[#161848] dark:text-white'>{$userName}</h4>
+                                                                        <span class='text-xs text-gray-400'>{$date}</span>
+                                                                    </div>
+                                                                    <p class='text-sm text-gray-600 dark:text-gray-300 whitespace-pre-wrap'>{$comment->comment}</p>
+                                                                </div>
+                                                            </div>
+                                                        </div>";
+                                                }
+                                                $html .= '</div>';
+                                                return new \Illuminate\Support\HtmlString($html);
+                                            }),
+                                    ]),
+                
+                                // === PESTAÑA 2: BITÁCORA DEL SISTEMA ===
+                                Forms\Components\Tabs\Tab::make('Bitácora')
+                                    ->icon('heroicon-m-clipboard-document-list')
+                                    ->badge(fn () => $this->record->comments()->where('comment', 'like', 'El sistema registró%')->count())
+                                    ->badgeColor('info')
+                                    ->schema([
+                                        Forms\Components\Placeholder::make('comments_list_system')
+                                            ->hiddenLabel()
+                                            ->content(function () {
+                                                // Filtramos para incluir SOLO los mensajes del sistema
+                                                $comments = $this->record->comments()
+                                                    ->where('comment', 'like', 'El sistema registró%')
+                                                    ->with('user')
+                                                    ->orderBy('created_at', 'desc')
+                                                    ->get();
+                
+                                                if ($comments->isEmpty()) {
+                                                    return new \Illuminate\Support\HtmlString('
+                                                        <div class="flex flex-col items-center justify-center p-8 text-center bg-white border border-gray-200 border-dashed rounded-xl dark:bg-gray-800 dark:border-gray-700 mt-4">
+                                                            <p class="text-sm text-gray-500">Sin registros en la bitácora aún</p>
+                                                        </div>
+                                                    ');
+                                                }
+                
+                                                $html = '<div class="space-y-3 max-h-[400px] overflow-y-auto pr-2 mt-4">';
+                                                foreach ($comments as $comment) {
+                                                    $userName = $comment->user->name ?? 'Sistema';
+                                                    $date = $comment->created_at->format('d M Y, h:i A');
+                
+                                                    $initials = collect(explode(' ', $userName))->map(fn ($w) => strtoupper(substr($w, 0, 1)))->take(2)->implode('');
+                
+                                                    $html .= "
+                                                        <div class='flex items-start gap-3 opacity-90 hover:opacity-100 transition-opacity'>
+                                                            <div class='flex-shrink-0'>
+                                                                <div class='flex items-center justify-center w-8 h-8 rounded-full bg-[#26cad3] text-white text-xs font-bold shadow-sm mt-1'>
+                                                                    {$initials}
+                                                                </div>
+                                                            </div>
+                                                            <div class='flex-1 min-w-0'>
+                                                                <div class='bg-blue-50 dark:bg-blue-900/20 border border-[#26cad3]/30 rounded-lg rounded-tl-none shadow-sm p-4'>
+                                                                    <div class='flex items-center justify-between mb-2'>
+                                                                        <span class='text-sm font-bold text-[#161848] dark:text-white'>{$userName} <span class='font-normal text-gray-500'>actualizó el registro:</span></span>
+                                                                        <span class='text-xs text-gray-400'>{$date}</span>
+                                                                    </div>
+                                                                    <p class='text-sm text-gray-700 dark:text-gray-200 whitespace-pre-wrap leading-relaxed'>" . str_replace(['El sistema registró las siguientes actualizaciones en el expediente:', 'El sistema registró los siguientes cambios:'], '', $comment->comment) . "</p>
+                                                                </div>
+                                                            </div>
+                                                        </div>";
+                                                }
+                                                $html .= '</div>';
+                                                return new \Illuminate\Support\HtmlString($html);
+                                            }),
+                                    ]),
+                            ]),
                     ]),
             ]);
     }
