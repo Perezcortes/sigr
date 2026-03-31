@@ -28,6 +28,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // El Administrador se salta todas las reglas
+        Gate::before(function ($user, $ability) {
+            return $user->hasRole('Administrador') ? true : null;
+        });
+
+        // Configuración de Livewire
         Livewire::setScriptRoute(function ($handle) {
             return Route::get('/vendor/livewire/livewire.js', $handle);
         });
@@ -42,7 +48,11 @@ class AppServiceProvider extends ServiceProvider
             TicketsRelationManager::class
         );
 
+        // Registro de Políticas manuales
         Gate::policy(Service::class, ServicePolicy::class);
         Gate::policy(Ticket::class, TicketPolicy::class);
+        
+        // Conexión de la Política de Roles de Spatie
+        Gate::policy(\Spatie\Permission\Models\Role::class, \App\Policies\RolePolicy::class);
     }
 }
