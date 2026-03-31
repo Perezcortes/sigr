@@ -7,6 +7,7 @@ use App\Filament\Resources\OwnerResource;
 use App\Filament\Resources\RentResource;
 use App\Filament\Resources\TenantResource;
 use App\Filament\Resources\GuarantorRequestResource;
+use App\Filament\Resources\RoleResource;
 use App\Filament\Resources\TenantRequestResource;
 use App\Filament\Resources\OwnerRequestResource;
 use App\Filament\Resources\UserResource;
@@ -114,6 +115,7 @@ class AdminPanelProvider extends PanelProvider
                 AdministrationResource::class,
                 PayableOperationResource::class,
                 GuarantorRequestResource::class,
+                RoleResource::class,
             ])
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
             ->pages([
