@@ -31,6 +31,7 @@ class UserResource extends Resource
     {
         return $form
             ->schema([
+                // --- SECCIÓN 1: DATOS PERSONALES ---
                 Forms\Components\Section::make('Información del Usuario')
                     ->schema([
                         // Nombre y Correo
@@ -65,7 +66,7 @@ class UserResource extends Resource
                         Forms\Components\TextInput::make('password')
                             ->label('CONTRASEÑA')
                             ->password()
-                            ->dehydrateStateUsing(fn ($state) => Hash::make($state))
+                            ->dehydrateStateUsing(fn ($state) => \Illuminate\Support\Facades\Hash::make($state))
                             ->dehydrated(fn ($state) => filled($state))
                             ->required(fn (string $context): bool => $context === 'create')
                             ->maxLength(255),
@@ -86,29 +87,63 @@ class UserResource extends Resource
                                     ->offColor('danger')
                                     ->default(true),
                                     
-                                // Banderas adicionales ocultas o visibles según necesites
+                                // Banderas adicionales ocultas o visibles según se necesite
                                 Forms\Components\Toggle::make('is_owner')->label('Es Propietario'),
                                 Forms\Components\Toggle::make('is_tenant')->label('Es Inquilino'),
                             ]),
 
                         Forms\Components\Select::make('office_id')
                             ->label('Oficina Asignada')
-                            ->relationship('office', 'nombre') // Asegúrate que tu modelo Office tenga columna 'nombre' o 'name'
+                            ->relationship('office', 'nombre') 
                             ->searchable()
                             ->preload()
-                            // Solo mostramos esto si el usuario actual es Admin, 
-                            // o dejamos que se vea siempre si esa es la regla.
+                            // Solo mostramos esto si el usuario actual es Admin
                             ->visible(fn () => auth()->user()->hasRole('Administrador')),
 
                         // Imagen de Perfil
-                        SpatieMediaLibraryFileUpload::make('avatar')
+                        \Filament\Forms\Components\SpatieMediaLibraryFileUpload::make('avatar')
                             ->label('IMAGEN DE PERFIL')
-                            ->collection('profile-images') // Colección definida en tu modelo
+                            ->collection('profile-images') 
                             ->avatar() // Formato circular
                             ->alignCenter()
                             ->columnSpanFull(),
                     ])
-                    ->columns(2) // Estructura de 2 columnas como en tu imagen
+                    ->columns(2), 
+
+                // --- SECCIÓN 2: PERMISOS DIRECTOS DINÁMICOS ---
+                Forms\Components\Section::make('Permisos Directos del Usuario')
+                    ->description('Asigna permisos adicionales. Los permisos del Rol seleccionado arriba ya están incluidos.')
+                    ->schema([
+                        Forms\Components\Select::make('permissions')
+                            ->label('PERMISOS EXTRA')
+                            ->multiple()
+                            ->relationship('permissions', 'name')
+                            ->preload()
+                            ->searchable()
+                            // 1. Formulario en modal para crear nuevos permisos al vuelo
+                            ->createOptionForm([
+                                Forms\Components\TextInput::make('name')
+                                    ->label('Nombre del nuevo permiso')
+                                    ->placeholder('Ej: Exportar reportes Excel')
+                                    ->required()
+                                    ->unique(table: 'permissions', column: 'name')
+                            ])
+                            // 2. Lógica para guardarlo en la base de datos de Spatie
+                            ->createOptionUsing(function (array $data) {
+                                $permiso = \Spatie\Permission\Models\Permission::create([
+                                    'name' => $data['name'],
+                                    'guard_name' => 'web',
+                                ]);
+                                return $permiso->id;
+                            })
+                            // 3. Candado: Solo el Administrador ve el botón "+"
+                            ->createOptionAction(fn (\Filament\Forms\Components\Actions\Action $action) => 
+                                $action->visible(fn () => auth()->user()->hasRole('Administrador'))
+                            )
+                            ->columnSpanFull(),
+                    ])
+                    ->collapsible() 
+                    ->collapsed(false),
             ]);
     }
 
