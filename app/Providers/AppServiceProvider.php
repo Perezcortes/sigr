@@ -29,9 +29,27 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // URLs en HTTPS: evita assets/Livewire en http cuando APP_URL sigue en http (staging, env mal copiado).
+        if (str_starts_with((string) config('app.url'), 'https://')) {
+            URL::forceScheme('https');
+        }
         // El Administrador se salta todas las reglas
         Gate::before(function ($user, $ability) {
             return $user->hasRole('Administrador') ? true : null;
+        });
+
+        // Dokploy/Traefik: aunque APP_URL sea http://n1.rentas.com, el proxy termina en HTTPS.
+        $this->app->booted(function () {
+            if ($this->app->runningInConsole()) {
+                return;
+            }
+
+            $request = $this->app->make('request');
+            $forwardedProto = $request->header('X-Forwarded-Proto');
+
+            if (is_string($forwardedProto) && str_contains($forwardedProto, 'https')) {
+                URL::forceScheme('https');
+            }
         });
 
         // Configuración de Livewire
