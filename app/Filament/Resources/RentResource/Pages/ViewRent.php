@@ -572,7 +572,64 @@ class ViewRent extends EditRecord
                                                         })
                                                         ->visible(fn () => $this->record->tenant),
                                                     Forms\Components\Actions\Action::make('send_tenant')->label('Enviar solicitud al inquilino')->color('success'),
-                                                    Forms\Components\Actions\Action::make('copy_link_tenant')->label('Copiar link')->color('gray'),
+                                                    Forms\Components\Actions\Action::make('copy_link_tenant')
+                                                        ->label('Copiar link')
+                                                        ->color('gray')
+                                                        ->icon('heroicon-o-link')
+                                                        ->visible(fn () => $this->record->tenant)
+                                                        ->action(function (\Filament\Forms\Components\Actions\Action $action) {
+                                                            
+                                                            // 1. Nos aseguramos de que el expediente exista en la BD. Si no, lo creamos igual que en el botón Editar.
+                                                            $tenantRequest = \App\Models\TenantRequest::firstOrCreate(
+                                                                [
+                                                                    'tenant_id' => $this->record->tenant_id,
+                                                                    'rent_id' => $this->record->id
+                                                                ],
+                                                                [
+                                                                    'estatus' => 'nueva',
+                                                                    'nombres' => $this->record->tenant->nombres,
+                                                                    'primer_apellido' => $this->record->tenant->primer_apellido,
+                                                                    'segundo_apellido' => $this->record->tenant->segundo_apellido,
+                                                                    'email' => $this->record->tenant->email,
+                                                                    'rfc' => $this->record->tenant->rfc,
+                                                                ]
+                                                            );
+                                                    
+                                                            // 2. Armamos la URL pública real
+                                                            $urlPublica = route('solicitud.inquilino.publica', $tenantRequest->id);
+                                                    
+                                                            // 3. Magia Negra: Inyectamos JS nativo con un "Fallback" que fuerza el copiado incluso sin HTTPS
+                                                            $action->getLivewire()->js("
+                                                                const texto = '{$urlPublica}';
+                                                                
+                                                                // Intento 1: API Moderna (Requiere HTTPS o Localhost seguro)
+                                                                if (navigator.clipboard && window.isSecureContext) {
+                                                                    navigator.clipboard.writeText(texto);
+                                                                } else {
+                                                                    // Intento 2: Fallback tradicional a prueba de balas
+                                                                    let textArea = document.createElement('textarea');
+                                                                    textArea.value = texto;
+                                                                    textArea.style.position = 'fixed';
+                                                                    textArea.style.opacity = '0';
+                                                                    document.body.appendChild(textArea);
+                                                                    textArea.focus();
+                                                                    textArea.select();
+                                                                    try {
+                                                                        document.execCommand('copy');
+                                                                    } catch (err) {
+                                                                        console.error('No se pudo copiar', err);
+                                                                    }
+                                                                    document.body.removeChild(textArea);
+                                                                }
+                                                            ");
+                                                    
+                                                            // 4. Mostramos la notificación verde
+                                                            \Filament\Notifications\Notification::make()
+                                                                ->success()
+                                                                ->title('¡Link copiado!')
+                                                                ->body('El enlace ya está en tu portapapeles, listo para enviarse por WhatsApp o Correo.')
+                                                                ->send();
+                                                        }),
                                                     Forms\Components\Actions\Action::make('export_pdf_tenant')->label('Exportar PDF')->color('warning'),
                                                 ]),
                                             ]),
