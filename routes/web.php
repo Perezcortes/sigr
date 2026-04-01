@@ -12,3 +12,5 @@ Route::get('/', function () {
 Route::get('/solicitudes/inquilino/{record}', PublicTenantRequest::class)->name('solicitud.inquilino.publica');
 // Ruta pública para que el propietario llene su solicitud
 Route::get('/solicitudes/propietario/{record}', PublicOwnerRequest::class)->name('solicitud.propietario.publica');
+// Ruta pública para que el fiador llene su solicitud
+Route::get('/solicitudes/fiador/{record}', \App\Livewire\PublicGuarantorRequest::class)->name('solicitud.fiador.publica');
