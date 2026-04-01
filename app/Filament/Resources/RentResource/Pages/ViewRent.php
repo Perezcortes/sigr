@@ -960,7 +960,63 @@ class ViewRent extends EditRecord
                                                         })
                                                         ->visible(fn () => $this->record->owner),
                                                     Forms\Components\Actions\Action::make('send_owner')->label('Enviar solicitud al propietario')->color('success'),
-                                                    Forms\Components\Actions\Action::make('copy_link_owner')->label('Copiar link')->color('gray'),
+                                                    Forms\Components\Actions\Action::make('copy_link_owner')
+                                                        ->label('Copiar link')
+                                                        ->color('gray')
+                                                        ->icon('heroicon-o-link')
+                                                        ->visible(fn () => $this->record->owner)
+                                                        ->action(function (\Filament\Forms\Components\Actions\Action $action) {
+                                                            
+                                                            // Nos aseguramos de que el expediente exista en la BD
+                                                            $ownerRequest = \App\Models\OwnerRequest::firstOrCreate(
+                                                                [
+                                                                    'owner_id' => $this->record->owner_id,
+                                                                    'rent_id' => $this->record->id
+                                                                ],
+                                                                [
+                                                                    'estatus' => 'nueva',
+                                                                    'nombres' => $this->record->owner->nombres,
+                                                                    'primer_apellido' => $this->record->owner->primer_apellido,
+                                                                    'segundo_apellido' => $this->record->owner->segundo_apellido,
+                                                                    'email' => $this->record->owner->email,
+                                                                    'rfc' => $this->record->owner->rfc,
+                                                                ]
+                                                            );
+                                                            
+                                                            // Armamos la URL pública real del propietario
+                                                            $urlPublica = route('solicitud.propietario.publica', $ownerRequest->id);
+                                                            
+                                                            $action->getLivewire()->js("
+                                                                const texto = '{$urlPublica}';
+                                                                
+                                                                // Intento 1: API Moderna
+                                                                if (navigator.clipboard && window.isSecureContext) {
+                                                                    navigator.clipboard.writeText(texto);
+                                                                } else {
+                                                                    // Intento 2: Fallback tradicional
+                                                                    let textArea = document.createElement('textarea');
+                                                                    textArea.value = texto;
+                                                                    textArea.style.position = 'fixed';
+                                                                    textArea.style.opacity = '0';
+                                                                    document.body.appendChild(textArea);
+                                                                    textArea.focus();
+                                                                    textArea.select();
+                                                                    try {
+                                                                        document.execCommand('copy');
+                                                                    } catch (err) {
+                                                                        console.error('No se pudo copiar', err);
+                                                                    }
+                                                                    document.body.removeChild(textArea);
+                                                                }
+                                                            ");
+                                                            
+                                                            // Mostramos notificación de éxito
+                                                            \Filament\Notifications\Notification::make()
+                                                                ->success()
+                                                                ->title('¡Link copiado!')
+                                                                ->body('El enlace de la solicitud del propietario ya está en tu portapapeles.')
+                                                                ->send();
+                                                        }),
                                                     Forms\Components\Actions\Action::make('export_pdf_owner')->label('Exportar PDF')->color('warning'),
                                                 ]),
                                             ]),
