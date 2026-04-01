@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use Filament\Support\Colors\Color;
+use Filament\Support\Facades\FilamentColor;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
 use App\Models\Service;
@@ -28,6 +30,16 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        FilamentColor::register([
+            'primary' => Color::hex('#161848'),   // Azul Marino
+            'secondary' => Color::hex('#26cad3'), // Cian
+            'info' => Color::hex('#26cad3'),      // Cian
+            'success' => Color::hex('#26cad3'),   // Cian
+            'warning' => Color::hex('#fe5f3b'),   // Naranja
+            'danger' => Color::hex('#fe5f3b'),    // Naranja
+            'gray' => Color::Slate,               // Gris base para el modo oscuro
+        ]);
+        
         // El Administrador se salta todas las reglas
         Gate::before(function ($user, $ability) {
             return $user->hasRole('Administrador') ? true : null;
