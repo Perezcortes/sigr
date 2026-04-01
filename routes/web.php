@@ -5,7 +5,7 @@ use App\Livewire\PublicTenantRequest;
 use App\Livewire\PublicOwnerRequest;
 
 Route::get('/', function () {
-    return view('welcome');
+    return redirect('/admin/login');
 });
 
 // Ruta pública para que el inquilino llene su solicitud
