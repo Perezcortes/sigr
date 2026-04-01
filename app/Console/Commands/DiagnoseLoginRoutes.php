@@ -56,24 +56,19 @@ class DiagnoseLoginRoutes extends Command
 
         $this->table(['Métodos', 'URI', 'Nombre', 'Acción'], $tableData);
 
-        // Verificar si POST está presente
+        // Filament 3: admin/login solo es GET; el envío va por Livewire (p. ej. POST a /livewire/update).
         $hasPost = $loginRoutes->contains(function ($route) {
             return in_array('POST', $route->methods());
         });
 
         if (!$hasPost) {
             $this->newLine();
-            $this->error('❌ PROBLEMA DETECTADO: No se encontró ruta POST para admin/login');
-            $this->warn('Solución: Ejecuta los siguientes comandos:');
-            $this->line('  php artisan route:clear');
-            $this->line('  php artisan optimize:clear');
-            $this->line('  rm -f bootstrap/cache/routes*.php');
-            $this->line('  php artisan route:cache');
-            return 1;
+            $this->info('ℹ️  Filament 3: login es GET en admin/login; no hace falta POST ahí (usa Livewire).');
+            $this->warn('Si ves 405 al enviar el formulario, suele ser Livewire sin cargar (HTTPS/APP_URL/proxy).');
+        } else {
+            $this->newLine();
+            $this->info('✅ También hay POST registrado en una ruta admin/login (poco habitual en Filament 3).');
         }
-
-        $this->newLine();
-        $this->info('✅ Las rutas de login están correctamente registradas (GET y POST)');
 
         // Verificar archivos de caché
         $this->newLine();
