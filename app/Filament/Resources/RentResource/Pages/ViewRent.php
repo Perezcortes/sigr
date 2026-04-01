@@ -721,8 +721,34 @@ class ViewRent extends EditRecord
                                                         ->color('primary')
                                                         ->icon('heroicon-o-check')
                                                         ->action(function () {
+                                                            // Guardamos los cambios básicos en la tabla de la Renta (Rent)
                                                             $this->save();
-                                                            \Filament\Notifications\Notification::make()->success()->title('Configuración de fiador guardada')->send();
+
+                                                            // Buscamos si el Fiador ya tiene una solicitud pública creada
+                                                            $guarantorRequest = \App\Models\GuarantorRequest::where('rent_id', $this->record->id)->first();
+
+                                                            // Si existe, la actualizamos con los datos frescos que acabamos de guardar
+                                                            if ($guarantorRequest) {
+                                                                // Obtenemos la versión más reciente de la renta para extraer los datos correctos
+                                                                $rent = $this->record->fresh();
+
+                                                                $guarantorRequest->update([
+                                                                    'tipo_persona' => $rent->fiador_tipo_persona ?? 'fisica',
+                                                                    'tipo_figura' => $rent->fiador_tipo ?? 'Fiador',
+                                                                    'nombres' => $rent->fiador_nombres,
+                                                                    'primer_apellido' => $rent->fiador_primer_apellido,
+                                                                    'segundo_apellido' => $rent->fiador_segundo_apellido,
+                                                                    'razon_social' => $rent->fiador_razon_social,
+                                                                    'email' => $rent->fiador_email,
+                                                                    'rfc' => $rent->fiador_rfc,
+                                                                    'sexo' => $rent->fiador_sexo, // En caso de que se use
+                                                                ]);
+                                                            }
+
+                                                            \Filament\Notifications\Notification::make()->success()->title('Configuración de fiador guardada y sincronizada')->send();
+
+                                                            // Recargamos la vista para asegurar que no haya "fantasmas" visuales
+                                                            $this->redirect(\App\Filament\Resources\RentResource::getUrl('view', ['record' => $this->record]));
                                                         }),
 
                                                     // BOTONES QUE SOLO SALEN SI "tiene_fiador" ES SÍ
@@ -755,7 +781,48 @@ class ViewRent extends EditRecord
                                                     Forms\Components\Actions\Action::make('copy_link_guarantor')
                                                         ->label('Copiar link')
                                                         ->color('gray')
-                                                        ->visible(fn (Forms\Get $get) => $get('tiene_fiador') === 'si'),
+                                                        ->icon('heroicon-o-link')
+                                                        ->visible(fn (Forms\Get $get) => $get('tiene_fiador') === 'si')
+                                                        ->action(function (\Filament\Forms\Components\Actions\Action $action) {
+
+                                                            // 1. Creamos o buscamos el expediente
+                                                            $guarantorRequest = \App\Models\GuarantorRequest::firstOrCreate(
+                                                                ['rent_id' => $this->record->id],
+                                                                [
+                                                                    'estatus' => 'nueva',
+                                                                    'tipo_persona' => $this->record->fiador_tipo_persona ?? 'fisica',
+                                                                    'tipo_figura' => $this->record->fiador_tipo ?? 'Fiador',
+                                                                    'nombres' => $this->record->fiador_nombres,
+                                                                    'primer_apellido' => $this->record->fiador_primer_apellido,
+                                                                    'segundo_apellido' => $this->record->fiador_segundo_apellido,
+                                                                    'email' => $this->record->fiador_email,
+                                                                    'rfc' => $this->record->fiador_rfc,
+                                                                ]
+                                                            );
+
+                                                            // 2. Armamos la URL
+                                                            $urlPublica = route('solicitud.fiador.publica', $guarantorRequest->id);
+
+                                                            // 3. Magia JS para copiar
+                                                            $action->getLivewire()->js("
+                                                                const texto = '{$urlPublica}';
+                                                                if (navigator.clipboard && window.isSecureContext) {
+                                                                    navigator.clipboard.writeText(texto);
+                                                                } else {
+                                                                    let textArea = document.createElement('textarea');
+                                                                    textArea.value = texto;
+                                                                    textArea.style.position = 'fixed';
+                                                                    textArea.style.opacity = '0';
+                                                                    document.body.appendChild(textArea);
+                                                                    textArea.focus();
+                                                                    textArea.select();
+                                                                    try { document.execCommand('copy'); } catch (err) {}
+                                                                    document.body.removeChild(textArea);
+                                                                }
+                                                            ");
+
+                                                            \Filament\Notifications\Notification::make()->success()->title('¡Link copiado!')->body('El enlace del fiador está listo para enviarse.')->send();
+                                                        }),
                                                 ]),
                                             ]),
 
