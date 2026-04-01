@@ -232,7 +232,9 @@ class TenantResource extends Resource
                 ->email()
                 ->required(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica')
                 ->same('email')
-                ->maxLength(255),
+                ->maxLength(255)
+                ->dehydrated(false)
+                ->formatStateUsing(fn ($record) => $record?->email), // Auto-rellénalo al abrir,
 
             Forms\Components\Radio::make('nacionalidad')
                 ->label('Nacionalidad')

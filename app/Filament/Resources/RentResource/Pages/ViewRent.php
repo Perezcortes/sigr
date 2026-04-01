@@ -56,26 +56,32 @@ class ViewRent extends EditRecord
             $this->data['office_id'] = auth()->user()->office_id;
         }
 
-        if ($this->record->tenant) {
-            $this->data['tenant_tipo_persona'] = $this->record->tenant->tipo_persona;
-            $this->data['tenant_nombres'] = $this->record->tenant->nombres;
-            $this->data['tenant_primer_apellido'] = $this->record->tenant->primer_apellido;
-            $this->data['tenant_segundo_apellido'] = $this->record->tenant->segundo_apellido;
-            $this->data['tenant_sexo'] = $this->record->tenant->sexo;
-            $this->data['tenant_razon_social'] = $this->record->tenant->razon_social;
-            $this->data['tenant_rfc'] = $this->record->tenant->rfc;
-            $this->data['tenant_email'] = $this->record->tenant->email;
+        // Extraemos el Inquilino
+        $tenant = $this->record->tenant?->fresh();
+        
+        if ($tenant) {
+            $this->data['tenant_tipo_persona'] = $tenant->tipo_persona;
+            $this->data['tenant_nombres'] = $tenant->nombres;
+            $this->data['tenant_primer_apellido'] = $tenant->primer_apellido;
+            $this->data['tenant_segundo_apellido'] = $tenant->segundo_apellido;
+            $this->data['tenant_sexo'] = $tenant->sexo;
+            $this->data['tenant_razon_social'] = $tenant->razon_social;
+            $this->data['tenant_rfc'] = $tenant->rfc;
+            $this->data['tenant_email'] = $tenant->email;
         }
 
-        if ($this->record->owner) {
-            $this->data['owner_tipo_persona'] = $this->record->owner->tipo_persona;
-            $this->data['owner_nombres'] = $this->record->owner->nombres;
-            $this->data['owner_primer_apellido'] = $this->record->owner->primer_apellido;
-            $this->data['owner_segundo_apellido'] = $this->record->owner->segundo_apellido;
-            $this->data['owner_sexo'] = $this->record->owner->sexo;
-            $this->data['owner_razon_social'] = $this->record->owner->razon_social;
-            $this->data['owner_rfc'] = $this->record->owner->rfc;
-            $this->data['owner_email'] = $this->record->owner->email;
+        // extraemos el Propietario
+        $owner = $this->record->owner?->fresh();
+
+        if ($owner) {
+            $this->data['owner_tipo_persona'] = $owner->tipo_persona;
+            $this->data['owner_nombres'] = $owner->nombres;
+            $this->data['owner_primer_apellido'] = $owner->primer_apellido;
+            $this->data['owner_segundo_apellido'] = $owner->segundo_apellido;
+            $this->data['owner_sexo'] = $owner->sexo;
+            $this->data['owner_razon_social'] = $owner->razon_social;
+            $this->data['owner_rfc'] = $owner->rfc;
+            $this->data['owner_email'] = $owner->email;
         }
 
         if ($this->record->application_id) {
@@ -453,7 +459,7 @@ class ViewRent extends EditRecord
                                                         Forms\Components\Placeholder::make('current_tenant_info')
                                                             ->label('Información actual del inquilino')
                                                             ->content(function () {
-                                                                $tenant = $this->record->tenant;
+                                                                $tenant = $this->record->tenant?->fresh();
                                                                 if (!$tenant) {
                                                                     return 'No hay inquilino asignado';
                                                                 }
@@ -524,7 +530,17 @@ class ViewRent extends EditRecord
                                                                     $updateData['segundo_apellido'] = null;
                                                                     $updateData['sexo'] = null;
                                                                 }
+
                                                                 $this->record->tenant->update($updateData);
+
+                                                                // Sincronizamos la solicitud (TenantRequest) si ya existe
+                                                                $tenantRequest = \App\Models\TenantRequest::where('tenant_id', $this->record->tenant_id)
+                                                                    ->where('rent_id', $this->record->id)
+                                                                    ->first();
+
+                                                                if ($tenantRequest) {
+                                                                    $tenantRequest->update($updateData);
+                                                                }
 
                                                                 // Persistir application_id y actualizar tenant_id si está presente
                                                                 if (isset($this->data['application_id'])) {
@@ -572,7 +588,64 @@ class ViewRent extends EditRecord
                                                         })
                                                         ->visible(fn () => $this->record->tenant),
                                                     Forms\Components\Actions\Action::make('send_tenant')->label('Enviar solicitud al inquilino')->color('success'),
-                                                    Forms\Components\Actions\Action::make('copy_link_tenant')->label('Copiar link')->color('gray'),
+                                                    Forms\Components\Actions\Action::make('copy_link_tenant')
+                                                        ->label('Copiar link')
+                                                        ->color('gray')
+                                                        ->icon('heroicon-o-link')
+                                                        ->visible(fn () => $this->record->tenant)
+                                                        ->action(function (\Filament\Forms\Components\Actions\Action $action) {
+                                                            
+                                                            // Nos aseguramos de que el expediente exista en la BD. Si no, lo creamos igual que en el botón Editar.
+                                                            $tenantRequest = \App\Models\TenantRequest::firstOrCreate(
+                                                                [
+                                                                    'tenant_id' => $this->record->tenant_id,
+                                                                    'rent_id' => $this->record->id
+                                                                ],
+                                                                [
+                                                                    'estatus' => 'nueva',
+                                                                    'nombres' => $this->record->tenant->nombres,
+                                                                    'primer_apellido' => $this->record->tenant->primer_apellido,
+                                                                    'segundo_apellido' => $this->record->tenant->segundo_apellido,
+                                                                    'email' => $this->record->tenant->email,
+                                                                    'rfc' => $this->record->tenant->rfc,
+                                                                ]
+                                                            );
+                                                    
+                                                            // Armamos la URL pública real
+                                                            $urlPublica = route('solicitud.inquilino.publica', $tenantRequest->id);
+                                                    
+                                                            // Inyectamos JS nativo con un "Fallback" que fuerza el copiado incluso sin HTTPS
+                                                            $action->getLivewire()->js("
+                                                                const texto = '{$urlPublica}';
+                                                                
+                                                                // Intento 1: API (Requiere HTTPS o Localhost seguro)
+                                                                if (navigator.clipboard && window.isSecureContext) {
+                                                                    navigator.clipboard.writeText(texto);
+                                                                } else {
+                                                                    // Intento 2: Fallback tradicional 
+                                                                    let textArea = document.createElement('textarea');
+                                                                    textArea.value = texto;
+                                                                    textArea.style.position = 'fixed';
+                                                                    textArea.style.opacity = '0';
+                                                                    document.body.appendChild(textArea);
+                                                                    textArea.focus();
+                                                                    textArea.select();
+                                                                    try {
+                                                                        document.execCommand('copy');
+                                                                    } catch (err) {
+                                                                        console.error('No se pudo copiar', err);
+                                                                    }
+                                                                    document.body.removeChild(textArea);
+                                                                }
+                                                            ");
+                                                    
+                                                            // Mostramos la notificación verde
+                                                            \Filament\Notifications\Notification::make()
+                                                                ->success()
+                                                                ->title('¡Link copiado!')
+                                                                ->body('El enlace ya está en tu portapapeles, listo para enviarse por WhatsApp o Correo.')
+                                                                ->send();
+                                                        }),
                                                     Forms\Components\Actions\Action::make('export_pdf_tenant')->label('Exportar PDF')->color('warning'),
                                                 ]),
                                             ]),
@@ -844,7 +917,17 @@ class ViewRent extends EditRecord
                                                                     $updateData['segundo_apellido'] = null;
                                                                     $updateData['sexo'] = null;
                                                                 }
+                                                                
                                                                 $this->record->owner->update($updateData);
+
+                                                                // Sincronizamos la solicitud (OwnerRequest) si ya existe
+                                                                $ownerRequest = \App\Models\OwnerRequest::where('owner_id', $this->record->owner_id)
+                                                                    ->where('rent_id', $this->record->id)
+                                                                    ->first();
+                                                                    
+                                                                if ($ownerRequest) {
+                                                                    $ownerRequest->update($updateData);
+                                                                }
 
                                                                 // Persistir owner_id si está presente
                                                                 if (isset($this->data['owner_id'])) {
