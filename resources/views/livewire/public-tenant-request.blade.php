@@ -26,13 +26,19 @@
 
                         <div class="mt-8 flex flex-col-reverse sm:flex-row justify-end items-center gap-4 border-t border-gray-200 dark:border-gray-800/50 pt-6">
                             
-                            <button type="button" onclick="window.location.reload()" class="w-full sm:w-auto px-6 py-2.5 bg-white dark:bg-[#0f1133] border border-gray-300 dark:border-white/10 text-gray-700 dark:text-gray-300 font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-white/5 transition-colors text-sm shadow-sm">
+                            <button 
+                                type="button" 
+                                onclick="window.location.reload()" 
+                                class="w-full sm:w-auto px-6 py-2.5 bg-white dark:bg-[#0f1133] border border-gray-300 dark:border-white/10 text-gray-700 dark:text-gray-300 font-bold rounded-lg hover:bg-gray-50 dark:hover:bg-white/5 transition-all text-sm shadow-sm">
                                 Cancelar
                             </button>
                             
-                            <button type="submit" class="fi-btn-primary w-full sm:w-auto px-8 py-2.5 rounded-lg text-sm px-4 py-2 flex items-center justify-center font-bold shadow-sm">
+                            <button 
+                                type="submit" 
+                                class="w-full sm:w-auto px-8 py-2.5 bg-[#161848] dark:bg-[#26cad3] text-white dark:text-[#161848] font-bold rounded-lg hover:opacity-90 transform hover:scale-[1.02] transition-all text-sm shadow-md">
                                 Guardar
                             </button>
+                            
                         </div>
                     </form>
                 @endif

@@ -9,11 +9,19 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     
     <title>Solicitud de Arrendamiento</title>
+
+    <link rel="preconnect" href="https://fonts.bunny.net">
+    <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700,800&display=swap" rel="stylesheet" />
     
+    <style>
+        body, html, .fi-body { 
+            font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important; 
+        }
+    </style>
     @filamentStyles
     @vite(['resources/css/app.css', 'resources/css/filament/admin/theme.css'])
 </head>
-<body class="fi-body antialiased bg-gray-100 dark:bg-gray-950 text-gray-900 dark:text-gray-100 transition-colors duration-300 relative">
+<body class="fi-body font-sans antialiased bg-gray-100 dark:bg-gray-950 text-gray-900 dark:text-gray-100 transition-colors duration-300 relative">
     
     <button 
         @click="theme = theme === 'dark' ? 'light' : 'dark'" 

@@ -19,34 +19,35 @@ class PublicTenantRequest extends Component implements HasForms
 
     public function mount(TenantRequest $record): void
     {
-        // Guardamos el registro y llenamos el formulario con los datos que ya tenga
-        $this->record = $record;
-        $this->form->fill($record->toArray());
+        $this->record = $record->load(['rent', 'tenant']);
+        
+        $this->form->fill($this->record->attributesToArray());
     }
 
     public function form(Form $form): Form
     {
-        // ¡Magia! Reciclamos exactamente el mismo formulario que tienes en tu panel de Admin
         return TenantRequestResource::form($form)
             ->statePath('data')
-            ->model($this->record);
+            ->model($this->record)
+            ->operation('edit'); 
     }
 
     public function save(): void
     {
-        // Obtenemos la información, actualizamos la base de datos y marcamos como enviado
         $data = $this->form->getState();
-        $this->record->update($data);
         
-        // Opcional: Cambiar el estatus automáticamente a 'en_proceso' cuando el cliente lo llena
+        $this->record->update($data);
         $this->record->update(['estatus' => 'en_proceso']);
+
+        if (method_exists($this->record, 'syncWithTenant')) {
+            $this->record->syncWithTenant();
+        }
 
         $this->isSubmitted = true;
     }
 
     public function render()
     {
-        // Le indicamos que use el layout público sin menú que creamos en el Paso 1
         return view('livewire.public-tenant-request')
             ->layout('components.layouts.public');
     }
