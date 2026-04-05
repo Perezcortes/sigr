@@ -164,6 +164,15 @@ class Tenant extends Model
         'historial_acciones' => 'array',
     ];
 
+    protected static function booted(): void
+    {
+        static::creating(function (Tenant $tenant) {
+            if (empty($tenant->tipo_persona)) {
+                $tenant->tipo_persona = 'fisica';
+            }
+        });
+    }
+
     /**
      * Relación con User
      */
