@@ -22,6 +22,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/profile/tenant', [OwnerTenantProfileController::class, 'updateTenant']);
 
     Route::get('/properties', [PropertyController::class, 'index']);
+    Route::post('/properties', [PropertyController::class, 'store']);
     Route::get('/properties/{property}', [PropertyController::class, 'show']);
 });
 
