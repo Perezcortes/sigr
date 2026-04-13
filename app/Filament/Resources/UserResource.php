@@ -11,6 +11,8 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Hash;
 use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 
 class UserResource extends Resource
 {
@@ -23,7 +25,25 @@ class UserResource extends Resource
 
     public static function canViewAny(): bool
     {
-        // Solo puede ver el menú si es Administrador
+        // Admin, Gerente y Asesor pueden ver el menú de Usuarios
+        return auth()->user()->hasAnyRole(['Administrador', 'Gerente', 'Asesor']);
+    }
+
+    public static function canCreate(): bool
+    {
+        // Solo el Administrador puede crear usuarios nuevos
+        return auth()->user()->hasRole('Administrador');
+    }
+
+    public static function canEdit(Model $record): bool
+    {
+        // Solo el Administrador puede editar a los usuarios
+        return auth()->user()->hasRole('Administrador');
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        // Solo el Administrador puede eliminar
         return auth()->user()->hasRole('Administrador');
     }
 
@@ -66,6 +86,7 @@ class UserResource extends Resource
                         Forms\Components\TextInput::make('password')
                             ->label('CONTRASEÑA')
                             ->password()
+                            ->revealable()
                             ->dehydrateStateUsing(fn ($state) => \Illuminate\Support\Facades\Hash::make($state))
                             ->dehydrated(fn ($state) => filled($state))
                             ->required(fn (string $context): bool => $context === 'create')
@@ -74,6 +95,7 @@ class UserResource extends Resource
                         Forms\Components\TextInput::make('password_confirmation')
                             ->label('CONFIRMAR CONTRASEÑA')
                             ->password()
+                            ->revealable()
                             ->required(fn (string $context): bool => $context === 'create')
                             ->same('password')
                             ->dehydrated(false), // No se guarda en la BD
@@ -147,6 +169,24 @@ class UserResource extends Resource
             ]);
     }
 
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+        $user = auth()->user();
+
+        // El Administrador ve absolutamente todo
+        if ($user->hasRole('Administrador')) {
+            return $query;
+        }
+
+        // Gerentes y Asesores solo ven los usuarios que pertenecen a su misma oficina
+        if ($user->hasAnyRole(['Gerente', 'Asesor'])) {
+            return $query->where('office_id', $user->office_id);
+        }
+
+        return $query;
+    }
+
     public static function table(Table $table): Table
     {
         return $table
@@ -171,8 +211,9 @@ class UserResource extends Resource
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
                         'Administrador' => 'danger',
+                        'Gerente' => 'info', 
                         'Asesor' => 'warning',
-                        'Usuario' => 'success',
+                        'Usuario', 'Cliente' => 'success',
                         default => 'gray',
                     }),
 
@@ -193,11 +234,16 @@ class UserResource extends Resource
                     ->label('Filtrar por Rol'),
             ])
             ->actions([
+                Tables\Actions\ViewAction::make()
+                    ->iconButton()
+                    ->tooltip('Ver detalles'),
+                    
                 Tables\Actions\EditAction::make()
-                    ->iconButton() // Convierte el botón a solo icono
+                    ->iconButton()
                     ->tooltip('Editar'),
+                    
                 Tables\Actions\DeleteAction::make()
-                    ->iconButton() // Convierte el botón a solo icono
+                    ->iconButton()
                     ->tooltip('Eliminar'),
             ])
             ->actionsColumnLabel('ACCIONES')

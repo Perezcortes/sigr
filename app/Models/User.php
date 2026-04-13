@@ -74,13 +74,13 @@ class User extends Authenticatable implements HasMedia, HasAvatar, FilamentUser
         ];
     }
 
+    /**
+     * Determina quién puede acceder al panel de Filament.
+     */
     public function canAccessPanel(Panel $panel): bool
     {
-        // Aquí defines quién puede entrar al admin.
-        // Por ahora retornamos true si el usuario está activo.
-        // Opcionalmente se puede validar: return $this->hasRole('Administrador') && $this->is_active;
-        
-        return true; 
+        // Solo los usuarios con estos roles pueden ver la pantalla de login o entrar al panel
+        return $this->hasAnyRole(['Administrador', 'Gerente', 'Asesor']);
     }
 
     /**

@@ -12,6 +12,7 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Filament\Forms\Components\Actions\Action;
 use Filament\Forms\Components\Actions;
 use Filament\Notifications\Notification;
@@ -39,6 +40,39 @@ class TenantResource extends Resource
     public static function getCluster(): ?string
     {
         return null;
+    }
+
+    public static function canViewAny(): bool
+    {
+        return auth()->user()->hasAnyRole(['Administrador', 'Gerente', 'Asesor']);
+    }
+
+    public static function canCreate(): bool
+    {
+        // Administradores y Asesores pueden crear inquilinos
+        return auth()->user()->hasAnyRole(['Administrador', 'Asesor']);
+    }
+
+    public static function canEdit(Model $record): bool
+    {
+        $user = auth()->user();
+
+        if ($user->hasRole('Administrador')) {
+            return true;
+        }
+
+        if ($user->hasRole('Asesor')) {
+            // El asesor solo edita si él es el titular asignado a este inquilino
+            return $record->asesor_id === $user->id;
+        }
+
+        // El Gerente solo lee, no edita
+        return false;
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        return auth()->user()->hasRole('Administrador');
     }
 
     public static function form(Form $form): Form
@@ -560,17 +594,23 @@ class TenantResource extends Resource
         $query = parent::getEloquentQuery();
         $user = auth()->user();
 
-        // Si es Admin, ve todo.
+        // Administrador ve todo
         if ($user->hasRole('Administrador')) {
             return $query;
         }
 
-        // Si es Asesor, solo ve los registros donde él es el 'asesor_id'
+        // Gerente ve a los inquilinos que atienden los asesores de SU oficina
+        if ($user->hasRole('Gerente')) {
+            return $query->whereHas('asesor', function ($q) use ($user) {
+                $q->where('office_id', $user->office_id);
+            });
+        }
+
+        // Asesor solo ve a sus propios inquilinos
         if ($user->hasRole('Asesor')) {
             return $query->where('asesor_id', $user->id);
         }
 
-        // Por defecto, restringir o mostrar todo según el caso
         return $query;
     }
 
@@ -654,11 +694,16 @@ class TenantResource extends Resource
                     ]),
             ])
             ->actions([
+                Tables\Actions\ViewAction::make()
+                    ->iconButton()
+                    ->tooltip('Ver detalles'),
+
                 Tables\Actions\EditAction::make()
-                    ->iconButton() // Convierte el botón a solo icono
+                    ->iconButton() 
                     ->tooltip('Editar'),
+
                 Tables\Actions\DeleteAction::make()
-                    ->iconButton() // Convierte el botón a solo icono
+                    ->iconButton() 
                     ->tooltip('Eliminar'),
             ])
             ->actionsColumnLabel('ACCIONES') 
