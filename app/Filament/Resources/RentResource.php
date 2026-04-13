@@ -16,6 +16,7 @@ use Filament\Tables\Table;
 use Filament\Forms\Components\Select;
 use Filament\Tables\Columns\TextColumn;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 
 class RentResource extends Resource
 {
@@ -30,6 +31,64 @@ class RentResource extends Resource
     public static function getCluster(): ?string
     {
         return null;
+    }
+
+    public static function canViewAny(): bool
+    {
+        return auth()->user()->hasAnyRole(['Administrador', 'Gerente', 'Asesor']);
+    }
+
+    public static function canCreate(): bool
+    {
+        // Administradores y Asesores pueden crear rentas. Los Gerentes NO (solo leen).
+        return auth()->user()->hasAnyRole(['Administrador', 'Asesor']);
+    }
+
+    public static function canEdit(Model $record): bool
+    {
+        $user = auth()->user();
+
+        // Admin y Gerente pueden entrar a la pantalla de edición
+        // (Recuerda que al Gerente le vamos a congelar los campos por dentro)
+        if ($user->hasAnyRole(['Administrador', 'Gerente'])) {
+            return true; 
+        }
+
+        if ($user->hasRole('Asesor')) {
+            // El asesor solo puede editar la renta si él es el titular (asesor)
+            return $record->asesor_id === $user->id;
+        }
+
+        return false;
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        // Solo el Administrador puede borrar rentas
+        return auth()->user()->hasRole('Administrador');
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+        $user = auth()->user();
+
+        // El Administrador ve TODO sin filtros
+        if ($user->hasRole('Administrador')) {
+            return $query;
+        }
+
+        // El Gerente ve todas las rentas que pertenezcan a su misma oficina
+        if ($user->hasRole('Gerente')) {
+            return $query->where('office_id', $user->office_id);
+        }
+
+        // El Asesor solo ve las rentas que él mismo está gestionando
+        if ($user->hasRole('Asesor')) {
+            return $query->where('asesor_id', $user->id);
+        }
+
+        return $query;
     }
 
     public static function form(Form $form): Form

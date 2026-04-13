@@ -159,10 +159,18 @@ class ViewRent extends EditRecord
                                             ->dehydrated(),
 
                                         Forms\Components\Select::make('asesor_id')
-                                            ->relationship('asesor', 'name')
+                                            ->relationship('asesor', 'name', function (Builder $query) {
+                                                // Filtramos para que la lista solo muestre usuarios con rol Asesor o Gerente
+                                                return $query->whereHas('roles', function ($q) {
+                                                    $q->whereIn('name', ['Asesor', 'Gerente']);
+                                                });
+                                            })
                                             ->label('Agente Asignado')
-                                            ->disabled(fn () => !auth()->user()->hasRole('Administrador'))
+                                            ->default(fn () => auth()->id()) // Se auto-asigna al usuario actual al abrir el formulario
+                                            ->disabled(fn () => !auth()->user()->hasRole('Administrador')) // Bloqueado para Asesores/Gerentes (solo el Admin puede reasignar a otra persona)
                                             ->dehydrated()
+                                            ->searchable() // Añadimos buscador por si el Admin tiene una lista muy larga
+                                            ->preload()
                                             ->required(),
                                         Forms\Components\TextInput::make('inmobiliaria')->label('Inmobiliaria*')->disabled(),
 
