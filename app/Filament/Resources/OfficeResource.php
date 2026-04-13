@@ -205,8 +205,11 @@ class OfficeResource extends Resource
                     ->label('Ciudad'),
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
+                Tables\Actions\EditAction::make()
+                    ->iconButton() 
+                    ->tooltip('Editar'), 
             ])
+            ->actionsColumnLabel('ACCIONES') 
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
