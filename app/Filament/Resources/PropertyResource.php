@@ -13,6 +13,7 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
 
 class PropertyResource extends Resource
@@ -31,6 +32,41 @@ class PropertyResource extends Resource
     public static function getCluster(): ?string
     {
         return null;
+    }
+
+    public static function canViewAny(): bool
+    {
+        return auth()->user()->hasAnyRole(['Administrador', 'Gerente', 'Asesor']);
+    }
+
+    public static function canCreate(): bool
+    {
+        // Administradores y Asesores pueden crear propiedades.
+        return auth()->user()->hasAnyRole(['Administrador', 'Asesor']);
+    }
+
+    public static function canEdit(Model $record): bool
+    {
+        $user = auth()->user();
+
+        if ($user->hasRole('Administrador')) {
+            return true;
+        }
+
+        if ($user->hasRole('Asesor')) {
+            // El asesor solo edita si el dueño de esta propiedad está asignado a él
+            return $record->user && 
+                   $record->user->owner && 
+                   $record->user->owner->asesor_id === $user->id;
+        }
+
+        // El Gerente solo lee, no edita
+        return false;
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        return auth()->user()->hasRole('Administrador');
     }
 
     public static function form(Form $form): Form
@@ -551,17 +587,22 @@ class PropertyResource extends Resource
         $query = parent::getEloquentQuery();
         $user = auth()->user();
 
+        // Administrador ve todas las propiedades
         if ($user->hasRole('Administrador')) {
             return $query;
         }
 
-        if ($user->hasRole('Asesor')) {
-            // Filtrar propiedades donde el Propietario (Owner) esté asignado a este Asesor
-            // Asumiendo que Property tiene 'user_id' (el dueño) 
-            // y Owner tiene 'user_id' y 'asesor_id'.
-            
+        // Gerente ve las propiedades que pertenecen a los clientes de SU oficina
+        if ($user->hasRole('Gerente')) {
             return $query->whereHas('user', function ($q) use ($user) {
-                // Buscamos en la tabla users -> owners
+                // Buscamos que el usuario dueño de la propiedad pertenezca a la oficina del gerente
+                $q->where('office_id', $user->office_id);
+            });
+        }
+
+        // Asesor ve solo las propiedades de sus propios clientes
+        if ($user->hasRole('Asesor')) {
+            return $query->whereHas('user', function ($q) use ($user) {
                 $q->whereHas('owner', function ($q2) use ($user) {
                     $q2->where('asesor_id', $user->id);
                 });
