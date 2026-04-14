@@ -6,6 +6,7 @@ namespace App\Models;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -35,6 +36,14 @@ class User extends Authenticatable implements HasMedia, HasAvatar, FilamentUser
         'name',
         'email',
         'mobile',
+        'telefono',
+        'whatsapp',
+        'facebook',
+        'instagram',
+        'linkedin',
+        'about_me',
+        'zone_estate_id',
+        'zone_city_ids',
         'password',
         //'role_id',
         'last_seen',
@@ -66,6 +75,7 @@ class User extends Authenticatable implements HasMedia, HasAvatar, FilamentUser
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'zone_city_ids' => 'array',
             'is_active' => 'boolean',
             'is_owner' => 'boolean',
             'is_tenant' => 'boolean',
@@ -154,5 +164,17 @@ class User extends Authenticatable implements HasMedia, HasAvatar, FilamentUser
     public function owner(): HasOne
     {
         return $this->hasOne(Owner::class);
+    }
+
+    public function zoneEstate(): BelongsTo
+    {
+        return $this->belongsTo(Estate::class, 'zone_estate_id');
+    }
+
+    public function zoneCities()
+    {
+        $cityIds = array_filter((array) ($this->zone_city_ids ?? []));
+
+        return City::query()->whereIn('id', $cityIds)->get();
     }
 }

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\AdvisorSearchController;
 use App\Http\Controllers\Api\LeadWebhookController;
 use App\Http\Controllers\Api\OwnerTenantProfileController;
 use App\Http\Controllers\Api\PropertyController;
@@ -10,6 +11,8 @@ use Illuminate\Support\Facades\Route;
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/webhooks/leads/nocnok', [LeadWebhookController::class, 'handle']);
+Route::get('/advisors/suggestions', [AdvisorSearchController::class, 'suggestions']);
+Route::get('/advisors/search', [AdvisorSearchController::class, 'search']);
 
 // Rutas protegidas (requieren autenticación)
 Route::middleware('auth:sanctum')->group(function () {
