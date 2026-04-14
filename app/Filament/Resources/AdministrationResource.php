@@ -24,6 +24,12 @@ class AdministrationResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-briefcase';
     protected static ?int $navigationSort = 4;
 
+    public static function canCreate(): bool
+    {
+        // Desactivamos la creación manual porque se generan solas desde las Rentas
+        return false;
+    }
+
     public static function resolveRecordRouteBinding(int | string $key): ?\Illuminate\Database\Eloquent\Model
     {
         // Usamos la función findByHash en Trait HasHashId

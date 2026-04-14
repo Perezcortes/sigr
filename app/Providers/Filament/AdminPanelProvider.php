@@ -4,6 +4,7 @@ namespace App\Providers\Filament;
 
 use App\Filament\Resources\OfficeResource;
 use App\Filament\Resources\OwnerResource;
+use App\Filament\Pages\Auth\EditProfile;
 use App\Filament\Resources\RentResource;
 use App\Filament\Resources\TenantResource;
 use App\Filament\Resources\GuarantorRequestResource;
@@ -49,7 +50,7 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
-            ->profile()
+            ->profile(EditProfile::class)
 
             ->navigationGroups([
                 'Dashboard',

@@ -3,9 +3,11 @@
 namespace App\Models;
 
 //use CWSPS154\UsersRolesPermissions\Models\HasRole;
+use App\Models\Traits\HasHashId;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -22,6 +24,7 @@ class User extends Authenticatable implements HasMedia, HasAvatar, FilamentUser
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable, HasApiTokens;
+    use HasHashId;
     use HasRoles;
     use InteractsWithMedia;
     use SoftDeletes;
@@ -35,6 +38,15 @@ class User extends Authenticatable implements HasMedia, HasAvatar, FilamentUser
         'name',
         'email',
         'mobile',
+        'telefono',
+        'whatsapp',
+        'facebook',
+        'instagram',
+        'linkedin',
+        'about_me',
+        'id_nocnok',
+        'zone_estate_id',
+        'zone_city_ids',
         'password',
         //'role_id',
         'last_seen',
@@ -66,6 +78,7 @@ class User extends Authenticatable implements HasMedia, HasAvatar, FilamentUser
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'zone_city_ids' => 'array',
             'is_active' => 'boolean',
             'is_owner' => 'boolean',
             'is_tenant' => 'boolean',
@@ -74,13 +87,13 @@ class User extends Authenticatable implements HasMedia, HasAvatar, FilamentUser
         ];
     }
 
+    /**
+     * Determina quién puede acceder al panel de Filament.
+     */
     public function canAccessPanel(Panel $panel): bool
     {
-        // Aquí defines quién puede entrar al admin.
-        // Por ahora retornamos true si el usuario está activo.
-        // Opcionalmente se puede validar: return $this->hasRole('Administrador') && $this->is_active;
-        
-        return true; 
+        // Solo los usuarios con estos roles pueden ver la pantalla de login o entrar al panel
+        return $this->hasAnyRole(['Administrador', 'Gerente', 'Asesor']);
     }
 
     /**
@@ -154,5 +167,17 @@ class User extends Authenticatable implements HasMedia, HasAvatar, FilamentUser
     public function owner(): HasOne
     {
         return $this->hasOne(Owner::class);
+    }
+
+    public function zoneEstate(): BelongsTo
+    {
+        return $this->belongsTo(Estate::class, 'zone_estate_id');
+    }
+
+    public function zoneCities()
+    {
+        $cityIds = array_filter((array) ($this->zone_city_ids ?? []));
+
+        return City::query()->whereIn('id', $cityIds)->get();
     }
 }

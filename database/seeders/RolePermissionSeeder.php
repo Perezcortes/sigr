@@ -16,7 +16,7 @@ class RolePermissionSeeder extends Seeder
     public function run(): void
     {
         // Limpiar la caché de permisos de Spatie para evitar errores
-        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+        app()->make(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
 
         // Definir la lista de permisos
         // Spatie solo necesita el 'name'. La lógica de rutas se maneja en Policies o Middleware.
