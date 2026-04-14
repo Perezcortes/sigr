@@ -61,7 +61,8 @@ class AdvisorSearchController extends Controller
             ->get(['id', 'name'])
             ->map(fn (User $advisor) => [
                 'type' => 'advisor',
-                'id' => $advisor->id,
+                'hash_id' => $advisor->hash_id,
+                'user_id_hashed' => $advisor->hash_id,
                 'name' => $advisor->name,
             ])
             ->values();
@@ -161,29 +162,31 @@ class AdvisorSearchController extends Controller
                 $matchedBy = array_values(array_unique($matchedBy));
 
                 return [
-                  'zone_state_id' => $resolvedStateId,
-                'id' => $advisor->id,
-                'name' => $advisor->name,
-                'email' => $advisor->email,
-                'telefono' => $advisor->telefono,
-                'whatsapp' => $advisor->whatsapp,
-                'facebook' => $advisor->facebook,
-                'instagram' => $advisor->instagram,
-                'linkedin' => $advisor->linkedin,
-                'about_me' => $advisor->about_me,
-                'avatar_url' => $advisor->getFilamentAvatarUrl(),
-                  'zone_estate_id' => $resolvedStateId,
-                  'zone_estate_name' => $advisor->zoneEstate?->nombre
-                      ?? Estate::query()->whereKey($resolvedStateId)->value('nombre'),
-                'zone_city_ids' => $advisor->zone_city_ids ?? [],
-                  'matched_by' => $matchedBy,
-                'zone_cities' => $advisor->zoneCities()
-                    ->map(fn (City $city) => [
-                        'id' => $city->id,
-                        'name' => $city->nombre,
-                    ])
-                    ->values(),
-              ];
+                    'hash_id' => $advisor->hash_id,
+                    'user_id_hashed' => $advisor->hash_id,
+                    'name' => $advisor->name,
+                    'email' => $advisor->email,
+                    'telefono' => $advisor->telefono,
+                    'whatsapp' => $advisor->whatsapp,
+                    'facebook' => $advisor->facebook,
+                    'instagram' => $advisor->instagram,
+                    'linkedin' => $advisor->linkedin,
+                    'about_me' => $advisor->about_me,
+                    'id_nocnok' => $advisor->id_nocnok,
+                    'avatar_url' => $advisor->getFilamentAvatarUrl(),
+                    'zone_state_id' => $resolvedStateId,
+                    'zone_estate_id' => $resolvedStateId,
+                    'zone_estate_name' => $advisor->zoneEstate?->nombre
+                        ?? Estate::query()->whereKey($resolvedStateId)->value('nombre'),
+                    'zone_city_ids' => $advisor->zone_city_ids ?? [],
+                    'matched_by' => $matchedBy,
+                    'zone_cities' => $advisor->zoneCities()
+                        ->map(fn (City $city) => [
+                            'id' => $city->id,
+                            'name' => $city->nombre,
+                        ])
+                        ->values(),
+                ];
             });
 
         return response()->json($results);

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 //use CWSPS154\UsersRolesPermissions\Models\HasRole;
+use App\Models\Traits\HasHashId;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -23,6 +24,7 @@ class User extends Authenticatable implements HasMedia, HasAvatar, FilamentUser
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable, HasApiTokens;
+    use HasHashId;
     use HasRoles;
     use InteractsWithMedia;
     use SoftDeletes;
@@ -42,6 +44,7 @@ class User extends Authenticatable implements HasMedia, HasAvatar, FilamentUser
         'instagram',
         'linkedin',
         'about_me',
+        'id_nocnok',
         'zone_estate_id',
         'zone_city_ids',
         'password',

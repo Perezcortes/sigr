@@ -101,6 +101,14 @@ class EditProfile extends \Filament\Pages\Auth\EditProfile
             ->visible(fn (): bool => $this->isAsesor());
     }
 
+    protected function getIdNocnokFormComponent(): Component
+    {
+        return TextInput::make('id_nocnok')
+            ->label('ID Nocnok')
+            ->maxLength(255)
+            ->columnSpanFull();
+    }
+
     protected function getZoneEstateFormComponent(): Component
     {
         return Select::make('zone_estate_id')
@@ -151,6 +159,7 @@ class EditProfile extends \Filament\Pages\Auth\EditProfile
                 $this->getInstagramFormComponent(),
                 $this->getLinkedinFormComponent(),
                 $this->getAboutMeFormComponent(),
+                $this->getIdNocnokFormComponent(),
                 $this->getZoneEstateFormComponent(),
                 $this->getZoneCitiesFormComponent(),
                 $this->getPasswordFormComponent(),
