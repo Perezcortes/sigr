@@ -90,6 +90,9 @@
         "preferred-install": "dist",
         "sort-packages": true,
         "platform-check": false,
+        "platform": {
+            "php": "8.3.30"
+        },
         "allow-plugins": {
             "pestphp/pest-plugin": true,
             "php-http/discovery": true
