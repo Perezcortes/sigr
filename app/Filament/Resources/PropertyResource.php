@@ -75,6 +75,26 @@ class PropertyResource extends Resource
             ->schema([
                 Forms\Components\Section::make('Información de la Propiedad')
                     ->schema([
+                        Forms\Components\Hidden::make('user_id')
+                            ->default(fn () => request()->query('user_id'))
+                            ->dehydrated(fn ($livewire) => $livewire instanceof Pages\CreateProperty && filled(request()->query('user_id'))),
+
+                        Forms\Components\Placeholder::make('owner_selected')
+                            ->label('Propietario')
+                            ->content(function () {
+                                $userId = request()->query('user_id');
+                                if (!$userId) {
+                                    return '-';
+                                }
+
+                                $user = User::find((int) $userId);
+
+                                return $user
+                                    ? $user->name . ' (' . $user->email . ')'
+                                    : 'Propietario no encontrado';
+                            })
+                            ->visible(fn ($livewire) => $livewire instanceof Pages\CreateProperty && filled(request()->query('user_id'))),
+
                         Forms\Components\Select::make('user_id')
                             ->label('Propietario')
                             ->relationship('user', 'name', modifyQueryUsing: fn (Builder $query) => $query->where('is_owner', true))
@@ -83,6 +103,7 @@ class PropertyResource extends Resource
                             ->preload()
                             ->required()
                             ->live()
+                            ->visible(fn ($livewire) => !($livewire instanceof Pages\CreateProperty && filled(request()->query('user_id'))))
                             ->afterStateUpdated(function (Forms\Set $set, $state) {
                                 if ($state) {
                                     $user = User::find($state);
@@ -530,6 +551,25 @@ class PropertyResource extends Resource
                 ->rows(3)
                 ->required()
                 ->columnSpanFull(),
+
+            // Nuevos campos - Características del inmueble
+            Forms\Components\TextInput::make('recamaras')
+                ->label('Número de habitaciones')
+                ->numeric()
+                ->minValue(0)
+                ->step(1),
+
+            Forms\Components\TextInput::make('banos')
+                ->label('Número de baños')
+                ->numeric()
+                ->minValue(0)
+                ->step('0.5'),
+
+            Forms\Components\TextInput::make('metros_cuadrados')
+                ->label('Metros cuadrados')
+                ->numeric()
+                ->minValue(0)
+                ->step('0.01'),
         ];
     }
 
