@@ -44,6 +44,7 @@ class Property extends Model
         'inventario',
         'metros_cuadrados',
         'recamaras',
+        'banos',
         // Columnas antiguas (para compatibilidad)
         'tipo',
         'direccion',
