@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\City;
+use App\Models\Municipality;
 use App\Models\Estate;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
@@ -39,17 +39,17 @@ class AdvisorSearchController extends Controller
             ])
             ->values();
 
-        $cities = City::query()
+        $cities = Municipality::query()
             ->with('estate:id,nombre')
-            ->where('nombre', 'like', "%{$query}%")
-            ->orderBy('nombre')
+            ->where('name', 'like', "%{$query}%")
+            ->orderBy('name')
             ->limit(10)
-            ->get(['id', 'nombre', 'estate_id'])
-            ->map(fn (City $city) => [
+            ->get(['id', 'name', 'state_id'])
+            ->map(fn (Municipality $city) => [
                 'type' => 'city',
                 'id' => $city->id,
-                'name' => $city->nombre,
-                'estate_id' => $city->estate_id,
+                'name' => $city->name,
+                'estate_id' => $city->state_id,
                 'estate_name' => $city->estate?->nombre,
             ])
             ->values();
@@ -98,7 +98,10 @@ class AdvisorSearchController extends Controller
 
         $advisorsQuery = $this->baseAdvisorQuery()
             ->when($estateId, fn (Builder $q) => $this->applyStateFilter($q, (int) $estateId))
-            ->when($cityId, fn (Builder $q) => $q->whereJsonContains('zone_city_ids', (int) $cityId))
+            ->when($cityId, fn (Builder $q) => $q->where(function ($query) use ($cityId) {
+                $query->whereJsonContains('zone_city_ids', (int) $cityId)
+                      ->orWhereJsonContains('zone_city_ids', (string) $cityId);
+            }))
             ->when($name !== '', fn (Builder $q) => $q->where('name', 'like', "%{$name}%"));
 
         if ($queryText !== '') {
@@ -107,8 +110,8 @@ class AdvisorSearchController extends Controller
                 ->pluck('id')
                 ->all();
 
-            $queryCityIds = City::query()
-                ->where('nombre', 'like', "%{$queryText}%")
+            $queryCityIds = Municipality::query()
+                ->where('name', 'like', "%{$queryText}%")
                 ->pluck('id')
                 ->all();
 
@@ -120,7 +123,8 @@ class AdvisorSearchController extends Controller
                 }
 
                 foreach ($queryCityIds as $cityIdFromQuery) {
-                    $q->orWhereJsonContains('zone_city_ids', (int) $cityIdFromQuery);
+                    $q->orWhereJsonContains('zone_city_ids', (int) $cityIdFromQuery)
+                      ->orWhereJsonContains('zone_city_ids', (string) $cityIdFromQuery);
                 }
             });
         }
@@ -181,9 +185,9 @@ class AdvisorSearchController extends Controller
                     'zone_city_ids' => $advisor->zone_city_ids ?? [],
                     'matched_by' => $matchedBy,
                     'zone_cities' => $advisor->zoneCities()
-                        ->map(fn (City $city) => [
+                        ->map(fn (Municipality $city) => [
                             'id' => $city->id,
-                            'name' => $city->nombre,
+                            'name' => $city->name,
                         ])
                         ->values(),
                 ];

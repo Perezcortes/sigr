@@ -18,6 +18,7 @@ use Laravel\Sanctum\HasApiTokens;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 use Filament\Models\Contracts\HasAvatar;
+use App\Models\Municipality;
 
 
 class User extends Authenticatable implements HasMedia, HasAvatar, FilamentUser
@@ -178,6 +179,6 @@ class User extends Authenticatable implements HasMedia, HasAvatar, FilamentUser
     {
         $cityIds = array_filter((array) ($this->zone_city_ids ?? []));
 
-        return City::query()->whereIn('id', $cityIds)->get();
+        return Municipality::query()->whereIn('id', $cityIds)->get();
     }
 }
