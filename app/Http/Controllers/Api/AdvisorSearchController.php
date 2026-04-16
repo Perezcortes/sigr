@@ -83,7 +83,7 @@ class AdvisorSearchController extends Controller
             'estate_id' => ['nullable', 'integer', 'exists:estates,id'],
             'state_id' => ['nullable', 'integer', 'exists:estates,id'],
             'zone_state_id' => ['nullable', 'integer', 'exists:estates,id'],
-            'city_id' => ['nullable', 'integer', 'exists:cities,id'],
+            'city_id' => ['nullable', 'integer', 'exists:municipalities,id'],
             'name' => ['nullable', 'string', 'max:255'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ]);
@@ -165,32 +165,76 @@ class AdvisorSearchController extends Controller
 
                 $matchedBy = array_values(array_unique($matchedBy));
 
-                return [
-                    'hash_id' => $advisor->hash_id,
-                    'user_id_hashed' => $advisor->hash_id,
-                    'name' => $advisor->name,
-                    'email' => $advisor->email,
-                    'telefono' => $advisor->telefono,
-                    'whatsapp' => $advisor->whatsapp,
-                    'facebook' => $advisor->facebook,
-                    'instagram' => $advisor->instagram,
-                    'linkedin' => $advisor->linkedin,
-                    'about_me' => $advisor->about_me,
-                    'id_nocnok' => $advisor->id_nocnok,
-                    'avatar_url' => $advisor->getFilamentAvatarUrl(),
-                    'zone_state_id' => $resolvedStateId,
-                    'zone_estate_id' => $resolvedStateId,
-                    'zone_estate_name' => $advisor->zoneEstate?->nombre
-                        ?? Estate::query()->whereKey($resolvedStateId)->value('nombre'),
-                    'zone_city_ids' => $advisor->zone_city_ids ?? [],
-                    'matched_by' => $matchedBy,
-                    'zone_cities' => $advisor->zoneCities()
-                        ->map(fn (Municipality $city) => [
-                            'id' => $city->id,
-                            'name' => $city->name,
-                        ])
-                        ->values(),
-                ];
+                return $this->formatAdvisorData($advisor, $resolvedStateId, $matchedBy);
+            });
+
+        return response()->json($results);
+    }
+
+    public function details(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'matched_by' => ['required', 'string', 'in:name,state,city'],
+            'name' => ['nullable', 'string', 'max:255'],
+            'hash_id' => ['nullable', 'string', 'max:255'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+        ]);
+
+        $matchedBy = $validated['matched_by'];
+        $name = trim((string) ($validated['name'] ?? ''));
+        $hashId = trim((string) ($validated['hash_id'] ?? ''));
+        $perPage = (int) ($validated['per_page'] ?? 20);
+
+        $advisorsQuery = $this->baseAdvisorQuery();
+
+        if ($matchedBy === 'name') {
+            if ($hashId !== '') {
+                $id = User::decodeId($hashId);
+                if ($id !== null) {
+                    $advisorsQuery->where('id', $id);
+                } else {
+                    $advisorsQuery->where('name', $name);
+                }
+            } else {
+                $advisorsQuery->where('name', $name);
+            }
+        } elseif ($matchedBy === 'state') {
+            $stateIds = Estate::query()
+                ->where('nombre', 'like', "%{$name}%")
+                ->pluck('id')
+                ->all();
+
+            if (empty($stateIds)) {
+                $advisorsQuery->whereRaw('1 = 0');
+            } else {
+                $advisorsQuery->where(function (Builder $q) use ($stateIds) {
+                    $this->applyStateIdsFilter($q, $stateIds);
+                });
+            }
+        } elseif ($matchedBy === 'city') {
+            $cityIds = Municipality::query()
+                ->where('name', 'like', "%{$name}%")
+                ->pluck('id')
+                ->all();
+
+            if (empty($cityIds)) {
+                $advisorsQuery->whereRaw('1 = 0');
+            } else {
+                $advisorsQuery->where(function (Builder $q) use ($cityIds) {
+                    foreach ($cityIds as $cityId) {
+                        $q->orWhereJsonContains('zone_city_ids', (int) $cityId)
+                          ->orWhereJsonContains('zone_city_ids', (string) $cityId);
+                    }
+                });
+            }
+        }
+
+        $results = $advisorsQuery
+            ->orderBy('name')
+            ->paginate($perPage)
+            ->through(function (User $advisor) use ($matchedBy) {
+                $resolvedStateId = $this->resolveStateId($advisor);
+                return $this->formatAdvisorData($advisor, $resolvedStateId, [$matchedBy]);
             });
 
         return response()->json($results);
@@ -254,5 +298,38 @@ class AdvisorSearchController extends Controller
         }
 
         return null;
+    }
+    /**
+     * @param array<int, string> $matchedBy
+     * @return array<string, mixed>
+     */
+    private function formatAdvisorData(User $advisor, ?int $resolvedStateId, array $matchedBy): array
+    {
+        return [
+            'hash_id' => $advisor->hash_id,
+            'user_id_hashed' => $advisor->hash_id,
+            'name' => $advisor->name,
+            'email' => $advisor->email,
+            'telefono' => $advisor->telefono,
+            'whatsapp' => $advisor->whatsapp,
+            'facebook' => $advisor->facebook,
+            'instagram' => $advisor->instagram,
+            'linkedin' => $advisor->linkedin,
+            'about_me' => $advisor->about_me,
+            'id_nocnok' => $advisor->id_nocnok,
+            'avatar_url' => $advisor->getFilamentAvatarUrl(),
+            'zone_state_id' => $resolvedStateId,
+            'zone_estate_id' => $resolvedStateId,
+            'zone_estate_name' => $advisor->zoneEstate?->nombre
+                ?? ($resolvedStateId !== null ? Estate::query()->whereKey($resolvedStateId)->value('nombre') : null),
+            'zone_city_ids' => $advisor->zone_city_ids ?? [],
+            'matched_by' => $matchedBy,
+            'zone_cities' => $advisor->zoneCities()
+                ->map(fn (Municipality $city) => [
+                    'id' => $city->id,
+                    'name' => $city->name,
+                ])
+                ->values(),
+        ];
     }
 }

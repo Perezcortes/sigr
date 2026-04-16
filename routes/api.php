@@ -13,6 +13,7 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::post('/webhooks/leads/nocnok', [LeadWebhookController::class, 'handle']);
 Route::get('/advisors/suggestions', [AdvisorSearchController::class, 'suggestions']);
 Route::get('/advisors/search', [AdvisorSearchController::class, 'search']);
+Route::get('/advisors/details', [AdvisorSearchController::class, 'details']);
 
 // Rutas protegidas (requieren autenticación)
 Route::middleware('auth:sanctum')->group(function () {
