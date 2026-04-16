@@ -2,8 +2,8 @@
 
 namespace App\Filament\Pages\Auth;
 
-use App\Models\City;
 use App\Models\Estate;
+use App\Models\Municipality;
 use Filament\Forms\Components\Component;
 use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\Select;
@@ -117,7 +117,7 @@ class EditProfile extends \Filament\Pages\Auth\EditProfile
             ->searchable()
             ->preload()
             ->live()
-            ->afterStateUpdated(function (callable $set): void {
+            ->afterStateUpdated(function (\Filament\Forms\Set $set): void {
                 $set('zone_city_ids', []);
             })
             ->visible(fn (): bool => $this->isAsesor());
@@ -135,10 +135,10 @@ class EditProfile extends \Filament\Pages\Auth\EditProfile
                     return [];
                 }
 
-                return City::query()
-                    ->where('estate_id', $estateId)
-                    ->orderBy('nombre')
-                    ->pluck('nombre', 'id')
+                return Municipality::query()
+                    ->where('state_id', $estateId)
+                    ->orderBy('name')
+                    ->pluck('name', 'id')
                     ->toArray();
             })
             ->searchable()
