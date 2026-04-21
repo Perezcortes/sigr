@@ -10,11 +10,23 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
+use OpenApi\Attributes as OA;
 
 class AdvisorSearchController extends Controller
 {
     private const FEATURED_ADVISORS_LIMIT = 7;
 
+    #[OA\Get(
+        path: '/api/advisors/suggestions',
+        tags: ['Advisors'],
+        summary: 'Sugerencias de estados, ciudades y asesores',
+        parameters: [
+            new OA\Parameter(name: 'query', in: 'query', required: false, schema: new OA\Schema(type: 'string')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Sugerencias obtenidas'),
+        ]
+    )]
     public function suggestions(Request $request): JsonResponse
     {
         $query = trim((string) $request->query('query', ''));
@@ -78,6 +90,22 @@ class AdvisorSearchController extends Controller
         ]);
     }
 
+    #[OA\Get(
+        path: '/api/advisors/search',
+        tags: ['Advisors'],
+        summary: 'Buscar asesores',
+        parameters: [
+            new OA\Parameter(name: 'query', in: 'query', required: false, schema: new OA\Schema(type: 'string')),
+            new OA\Parameter(name: 'estate_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'city_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'name', in: 'query', required: false, schema: new OA\Schema(type: 'string')),
+            new OA\Parameter(name: 'per_page', in: 'query', required: false, schema: new OA\Schema(type: 'integer', default: 20)),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Resultados paginados'),
+            new OA\Response(response: 422, description: 'Parámetros inválidos'),
+        ]
+    )]
     public function search(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -173,6 +201,21 @@ class AdvisorSearchController extends Controller
         return response()->json($results);
     }
 
+    #[OA\Get(
+        path: '/api/advisors/details',
+        tags: ['Advisors'],
+        summary: 'Detalles de asesores por criterio de coincidencia',
+        parameters: [
+            new OA\Parameter(name: 'matched_by', in: 'query', required: true, schema: new OA\Schema(type: 'string', enum: ['name', 'state', 'city'])),
+            new OA\Parameter(name: 'name', in: 'query', required: false, schema: new OA\Schema(type: 'string')),
+            new OA\Parameter(name: 'hash_id', in: 'query', required: false, schema: new OA\Schema(type: 'string')),
+            new OA\Parameter(name: 'per_page', in: 'query', required: false, schema: new OA\Schema(type: 'integer', default: 20)),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Resultados paginados'),
+            new OA\Response(response: 422, description: 'Parámetros inválidos'),
+        ]
+    )]
     public function details(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -242,6 +285,14 @@ class AdvisorSearchController extends Controller
         return response()->json($results);
     }
 
+    #[OA\Get(
+        path: '/api/advisors/featured',
+        tags: ['Advisors'],
+        summary: 'Obtener 7 asesores destacados aleatorios',
+        responses: [
+            new OA\Response(response: 200, description: 'Asesores destacados'),
+        ]
+    )]
     public function featured(): JsonResponse
     {
         $advisors = $this->baseAdvisorQuery()

@@ -8,6 +8,7 @@
     "require": {
         "php": "^8.2",
         "cwsps154/users-roles-permissions": "^1.0",
+        "darkaonline/l5-swagger": "^11.0",
         "filament/filament": "^3.2",
         "hashids/hashids": "^5.0",
         "laravel/framework": "^12.0",

@@ -9,12 +9,23 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use OpenApi\Attributes as OA;
 
 /**
  * Propiedades del propietario autenticado (Sanctum).
  */
 class PropertyController extends Controller
 {
+    #[OA\Get(
+        path: '/api/properties',
+        tags: ['Properties'],
+        summary: 'Listar propiedades del usuario autenticado',
+        security: [['sanctum' => []]],
+        responses: [
+            new OA\Response(response: 200, description: 'Listado de propiedades'),
+            new OA\Response(response: 401, description: 'No autenticado'),
+        ]
+    )]
     public function index(Request $request): JsonResponse
     {
         $properties = Property::query()
@@ -28,6 +39,18 @@ class PropertyController extends Controller
         ]);
     }
 
+    #[OA\Post(
+        path: '/api/properties',
+        tags: ['Properties'],
+        summary: 'Crear propiedad',
+        security: [['sanctum' => []]],
+        requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(type: 'object')),
+        responses: [
+            new OA\Response(response: 201, description: 'Propiedad creada'),
+            new OA\Response(response: 403, description: 'No autorizado'),
+            new OA\Response(response: 422, description: 'Datos inválidos'),
+        ]
+    )]
     public function store(Request $request): JsonResponse
     {
         $user = $request->user();
@@ -108,6 +131,20 @@ class PropertyController extends Controller
         ], 201);
     }
 
+    #[OA\Get(
+        path: '/api/properties/{property}',
+        tags: ['Properties'],
+        summary: 'Ver detalle de propiedad',
+        security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'property', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Detalle de propiedad'),
+            new OA\Response(response: 401, description: 'No autenticado'),
+            new OA\Response(response: 403, description: 'No autorizado'),
+        ]
+    )]
     public function show(Request $request, Property $property): JsonResponse
     {
         $this->ensureOwner($request, $property);

@@ -7,12 +7,23 @@ use App\Models\Owner;
 use App\Models\Tenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use OpenApi\Attributes as OA;
 
 /**
  * Perfil propietario (Owner) e inquilino (Tenant) para la app consumidora (Bearer Sanctum).
  */
 class OwnerTenantProfileController extends Controller
 {
+    #[OA\Get(
+        path: '/api/profile/owner',
+        tags: ['Profile'],
+        summary: 'Obtener perfil de propietario',
+        security: [['sanctum' => []]],
+        responses: [
+            new OA\Response(response: 200, description: 'Perfil obtenido'),
+            new OA\Response(response: 401, description: 'No autenticado'),
+        ]
+    )]
     public function showOwner(Request $request): JsonResponse
     {
         $owner = Owner::where('user_id', $request->user()->id)->first();
@@ -22,6 +33,17 @@ class OwnerTenantProfileController extends Controller
         ]);
     }
 
+    #[OA\Put(
+        path: '/api/profile/owner',
+        tags: ['Profile'],
+        summary: 'Guardar perfil de propietario',
+        security: [['sanctum' => []]],
+        requestBody: new OA\RequestBody(required: false, content: new OA\JsonContent(type: 'object')),
+        responses: [
+            new OA\Response(response: 200, description: 'Perfil guardado'),
+            new OA\Response(response: 401, description: 'No autenticado'),
+        ]
+    )]
     public function updateOwner(Request $request): JsonResponse
     {
         $user = $request->user();
@@ -39,6 +61,16 @@ class OwnerTenantProfileController extends Controller
         ]);
     }
 
+    #[OA\Get(
+        path: '/api/profile/tenant',
+        tags: ['Profile'],
+        summary: 'Obtener perfil de inquilino',
+        security: [['sanctum' => []]],
+        responses: [
+            new OA\Response(response: 200, description: 'Perfil obtenido'),
+            new OA\Response(response: 401, description: 'No autenticado'),
+        ]
+    )]
     public function showTenant(Request $request): JsonResponse
     {
         $tenant = Tenant::where('user_id', $request->user()->id)->first();
@@ -48,6 +80,17 @@ class OwnerTenantProfileController extends Controller
         ]);
     }
 
+    #[OA\Put(
+        path: '/api/profile/tenant',
+        tags: ['Profile'],
+        summary: 'Guardar perfil de inquilino',
+        security: [['sanctum' => []]],
+        requestBody: new OA\RequestBody(required: false, content: new OA\JsonContent(type: 'object')),
+        responses: [
+            new OA\Response(response: 200, description: 'Perfil guardado'),
+            new OA\Response(response: 401, description: 'No autenticado'),
+        ]
+    )]
     public function updateTenant(Request $request): JsonResponse
     {
         $user = $request->user();

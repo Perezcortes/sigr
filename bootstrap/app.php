@@ -14,6 +14,9 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         // Dokploy / Traefik: HTTPS y URLs correctas para assets de Livewire (evita POST nativo a admin/login → 405).
         $middleware->trustProxies(at: '*');
+        $middleware->alias([
+            'swagger.private' => \App\Http\Middleware\AllowPrivateDocs::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

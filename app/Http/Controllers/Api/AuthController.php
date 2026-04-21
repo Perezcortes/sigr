@@ -8,12 +8,31 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
+use OpenApi\Attributes as OA;
 
 class AuthController extends Controller
 {
-    /**
-     * Registrar un nuevo usuario
-     */
+    #[OA\Post(
+        path: '/api/register',
+        tags: ['Auth'],
+        summary: 'Registrar un nuevo usuario',
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['name', 'email', 'password', 'password_confirmation'],
+                properties: [
+                    new OA\Property(property: 'name', type: 'string', example: 'Juan Perez'),
+                    new OA\Property(property: 'email', type: 'string', format: 'email', example: 'juan@example.com'),
+                    new OA\Property(property: 'password', type: 'string', format: 'password', example: 'password123'),
+                    new OA\Property(property: 'password_confirmation', type: 'string', format: 'password', example: 'password123'),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 201, description: 'Usuario registrado'),
+            new OA\Response(response: 422, description: 'Datos inválidos'),
+        ]
+    )]
     public function register(Request $request)
     {
         $request->validate([
@@ -37,9 +56,25 @@ class AuthController extends Controller
         ], 201);
     }
 
-    /**
-     * Iniciar sesión
-     */
+    #[OA\Post(
+        path: '/api/login',
+        tags: ['Auth'],
+        summary: 'Iniciar sesión y obtener token',
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['email', 'password'],
+                properties: [
+                    new OA\Property(property: 'email', type: 'string', format: 'email', example: 'juan@example.com'),
+                    new OA\Property(property: 'password', type: 'string', format: 'password', example: 'password123'),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Login exitoso'),
+            new OA\Response(response: 422, description: 'Credenciales inválidas'),
+        ]
+    )]
     public function login(Request $request)
     {
         $request->validate([
@@ -64,9 +99,16 @@ class AuthController extends Controller
         ]);
     }
 
-    /**
-     * Cerrar sesión
-     */
+    #[OA\Post(
+        path: '/api/logout',
+        tags: ['Auth'],
+        summary: 'Cerrar sesión',
+        security: [['sanctum' => []]],
+        responses: [
+            new OA\Response(response: 200, description: 'Sesión cerrada'),
+            new OA\Response(response: 401, description: 'No autenticado'),
+        ]
+    )]
     public function logout(Request $request)
     {
         $request->user()->currentAccessToken()->delete();
@@ -76,9 +118,16 @@ class AuthController extends Controller
         ]);
     }
 
-    /**
-     * Obtener el usuario autenticado
-     */
+    #[OA\Get(
+        path: '/api/user',
+        tags: ['Auth'],
+        summary: 'Obtener usuario autenticado',
+        security: [['sanctum' => []]],
+        responses: [
+            new OA\Response(response: 200, description: 'Usuario autenticado'),
+            new OA\Response(response: 401, description: 'No autenticado'),
+        ]
+    )]
     public function user(Request $request)
     {
         return response()->json($request->user());
