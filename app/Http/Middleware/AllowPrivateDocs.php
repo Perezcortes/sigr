@@ -21,6 +21,11 @@ class AllowPrivateDocs
             return $next($request);
         }
 
-        abort(403, 'Swagger docs are private.');
+        $user = $request->user();
+        if ($user !== null && $user->hasRole('Administrador')) {
+            return $next($request);
+        }
+
+        abort(403, 'Swagger docs are private. Inicia sesión en el panel como Administrador o usa X-Docs-Token.');
     }
 }

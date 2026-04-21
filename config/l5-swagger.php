@@ -64,11 +64,12 @@ return [
             /*
              * Middleware allows to prevent unexpected access to API documentation
              */
+            // `web` carga sesión/cookies: en prod puedes entrar a Swagger tras login en Filament (mismo dominio).
             'middleware' => [
-                'api' => ['swagger.private'],
-                'asset' => ['swagger.private'],
-                'docs' => ['swagger.private'],
-                'oauth2_callback' => ['swagger.private'],
+                'api' => ['web', 'swagger.private'],
+                'asset' => ['web', 'swagger.private'],
+                'docs' => ['web', 'swagger.private'],
+                'oauth2_callback' => ['web', 'swagger.private'],
             ],
 
             /*
