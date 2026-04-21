@@ -13,6 +13,8 @@ use Illuminate\Support\Facades\Schema;
 
 class AdvisorSearchController extends Controller
 {
+    private const FEATURED_ADVISORS_LIMIT = 7;
+
     public function suggestions(Request $request): JsonResponse
     {
         $query = trim((string) $request->query('query', ''));
@@ -240,6 +242,24 @@ class AdvisorSearchController extends Controller
         return response()->json($results);
     }
 
+    public function featured(): JsonResponse
+    {
+        $advisors = $this->baseAdvisorQuery()
+            ->inRandomOrder()
+            ->limit(self::FEATURED_ADVISORS_LIMIT)
+            ->get()
+            ->map(function (User $advisor) {
+                $resolvedStateId = $this->resolveStateId($advisor);
+
+                return $this->formatAdvisorData($advisor, $resolvedStateId, ['featured']);
+            })
+            ->values();
+
+        return response()->json([
+            'data' => $advisors,
+        ]);
+    }
+
     private function baseAdvisorQuery(): Builder
     {
         return User::query()
@@ -323,6 +343,7 @@ class AdvisorSearchController extends Controller
             'zone_estate_name' => $advisor->zoneEstate?->nombre
                 ?? ($resolvedStateId !== null ? Estate::query()->whereKey($resolvedStateId)->value('nombre') : null),
             'zone_city_ids' => $advisor->zone_city_ids ?? [],
+            'score' => (int) ($advisor->score ?? 10),
             'matched_by' => $matchedBy,
             'zone_cities' => $advisor->zoneCities()
                 ->map(fn (Municipality $city) => [
