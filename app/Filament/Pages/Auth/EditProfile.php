@@ -9,7 +9,9 @@ use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Get;
+use Filament\Forms\Set;
 use Filament\Support\Enums\MaxWidth;
+use Illuminate\Support\Str;
 
 class EditProfile extends \Filament\Pages\Auth\EditProfile
 {
@@ -28,6 +30,37 @@ class EditProfile extends \Filament\Pages\Auth\EditProfile
             ->label('Teléfono')
             ->tel()
             ->maxLength(20)
+            ->visible(fn (): bool => $this->isAsesor());
+    }
+
+    protected function getNameFormComponent(): Component
+    {
+        return TextInput::make('name')
+            ->label(__('filament-panels::pages/auth/edit-profile.form.name.label'))
+            ->required()
+            ->maxLength(255)
+            ->live(onBlur: true)
+            ->afterStateUpdated(function (Set $set, Get $get, ?string $old, ?string $state): void {
+                $currentSlug = (string) $get('slug');
+                $oldGeneratedSlug = Str::slug((string) $old);
+
+                if (filled($currentSlug) && $currentSlug !== $oldGeneratedSlug) {
+                    return;
+                }
+
+                $set('slug', Str::slug((string) $state));
+            });
+    }
+
+    protected function getSlugFormComponent(): Component
+    {
+        return TextInput::make('slug')
+            ->label('Slug')
+            ->required()
+            ->maxLength(255)
+            ->alphaDash()
+            ->unique(table: 'users', column: 'slug', ignorable: fn () => $this->getUser())
+            ->helperText('Se autocompleta con el nombre, pero puedes editarlo.')
             ->visible(fn (): bool => $this->isAsesor());
     }
 
@@ -151,6 +184,7 @@ class EditProfile extends \Filament\Pages\Auth\EditProfile
         return $form
             ->schema([
                 $this->getNameFormComponent(),
+                $this->getSlugFormComponent(),
                 $this->getEmailFormComponent(),
                 $this->getAvatarFormComponent(),
                 $this->getPhoneFormComponent(),

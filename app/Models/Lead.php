@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\LeadCanal;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\Tenant;
 use App\Models\Owner;
@@ -15,6 +16,7 @@ class Lead extends Model
         'correo',
         'telefono',
         'origen',
+        'canal',
         'tipo_cliente',
         'calificacion_lead',
         'mensaje',
@@ -31,6 +33,7 @@ class Lead extends Model
     ];
 
     protected $casts = [
+        'canal' => LeadCanal::class,
         'payload_original' => 'array',
         'historial_acciones' => 'array',
     ];

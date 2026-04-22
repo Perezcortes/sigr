@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Enums\LeadCanal;
 use App\Filament\Resources\LeadResource\Pages;
 use App\Models\Lead;
 use App\Exports\LeadsExport;
@@ -88,7 +89,7 @@ class LeadResource extends Resource
                                     ->columnSpanFull(),
 
                                 Forms\Components\Select::make('tipo_cliente')
-                                    ->label('Tipo de operación')
+                                    ->label('Tipo de cliente')
                                     ->options([
                                         'inquilino' => 'Inquilino',
                                         'arrendador' => 'Arrendador',
@@ -98,8 +99,17 @@ class LeadResource extends Resource
                                     ])->required()
                                     ->columnSpanFull(),
 
+                                Forms\Components\Select::make('canal')
+                                    ->label('Canal')
+                                    ->options(collect(LeadCanal::cases())->mapWithKeys(
+                                        fn (LeadCanal $c): array => [$c->value => $c->getLabel()]
+                                    )->all())
+                                    ->required()
+                                    ->native(false)
+                                    ->columnSpanFull(),
+
                                 Forms\Components\Select::make('origen')
-                                    ->label('Canal / Origen')
+                                    ->label('Origen')
                                     ->options([
                                         'Nocnok' => 'Nocnok - Sitio',
                                         'Rentas.com' => 'Rentas.com',
@@ -109,7 +119,9 @@ class LeadResource extends Resource
                                         'Recomendado' => 'Recomendado',
                                         'Evento' => 'Evento',
                                         'Otro' => 'Otro',
-                                    ])->columnSpanFull(),
+                                    ])
+                                    ->native(false)
+                                    ->columnSpanFull(),
 
                                 Forms\Components\Select::make('calificacion_lead')
                                     ->label('Calificación')
@@ -295,7 +307,23 @@ class LeadResource extends Resource
                     ->color('info')
                     ->formatStateUsing(fn (string $state): string => ucfirst(str_replace('_', ' ', $state))),
 
+                Tables\Columns\TextColumn::make('canal')
+                    ->label('Canal')
+                    ->badge()
+                    ->color('gray')
+                    ->placeholder('—')
+                    ->formatStateUsing(function ($state): ?string {
+                        if ($state instanceof LeadCanal) {
+                            return $state->getLabel();
+                        }
+
+                        return is_string($state) && $state !== ''
+                            ? LeadCanal::tryFrom($state)?->getLabel()
+                            : null;
+                    }),
+
                 Tables\Columns\TextColumn::make('origen')
+                    ->label('Origen')
                     ->badge()
                     ->color('primary'),
 

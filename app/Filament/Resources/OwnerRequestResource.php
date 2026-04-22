@@ -4,11 +4,14 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\OwnerRequestResource\Pages;
 use App\Models\OwnerRequest;
+use App\Models\Property;
+use App\Models\PropertyImage;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Storage;
 
 class OwnerRequestResource extends Resource
 {
@@ -88,16 +91,32 @@ class OwnerRequestResource extends Resource
                     ->columns(2)
                     ->collapsible(),
 
+                // SECCIÓN: PROPIEDAD VINCULADA A LA RENTA
+                Forms\Components\Section::make('Propiedad vinculada a la renta')
+                    ->description('Selecciona una propiedad existente del propietario o da de alta una nueva. Esto solo vincula la propiedad a la renta.')
+                    ->schema(self::getLinkedPropertySchema())
+                    ->columns(1)
+                    ->collapsible(),
+
+                Forms\Components\Section::make('Imágenes de la Propiedad Vinculada')
+                    ->description('Carga y administra imágenes de la propiedad seleccionada.')
+                    ->schema(self::getPropertyImagesSchema())
+                    ->columns(1)
+                    ->collapsible()
+                    ->visible(fn (Forms\Get $get) => filled($get('selected_property_id'))),
+
                 // SECCIÓN: DATOS DEL INMUEBLE A ARRENDAR
                 Forms\Components\Section::make('Datos del Inmueble a Arrendar')
                     ->description('Información acerca del inmueble')
                     ->schema(self::getDatosInmuebleSchema())
+                    ->visible(fn (Forms\Get $get) => blank($get('selected_property_id')))
                     ->columns(2)
                     ->collapsible(),
 
                 // SECCIÓN: DIRECCIÓN DEL INMUEBLE
                 Forms\Components\Section::make('Dirección del Inmueble a Arrendar')
                     ->schema(self::getDireccionInmuebleSchema())
+                    ->visible(fn (Forms\Get $get) => blank($get('selected_property_id')))
                     ->columns(2)
                     ->collapsible(),
 
@@ -885,6 +904,312 @@ class OwnerRequestResource extends Resource
                 ->required(fn (Forms\Get $get) => $get('sera_representado') === 'Si')
                 ->columnSpanFull()
                 ->visible(fn (Forms\Get $get) => $get('sera_representado') === 'Si'),
+        ];
+    }
+
+    protected static function getLinkedPropertySchema(): array
+    {
+        return [
+            Forms\Components\Select::make('selected_property_id')
+                ->label('Propiedad para esta renta')
+                ->dehydrated(false)
+                ->placeholder('Sin propiedad vinculada')
+                ->live()
+                ->helperText(function (?OwnerRequest $record): string {
+                    if (! $record?->owner?->user_id) {
+                        return 'Este propietario aún no tiene un usuario portal (`owner.user_id`). Primero vincula/crea el usuario para poder seleccionar o crear propiedad.';
+                    }
+
+                    return 'Se guardará en la renta asociada a esta solicitud; no sobrescribe los datos del inmueble capturados aquí.';
+                })
+                ->disabled(fn (?OwnerRequest $record): bool => ! (bool) $record?->owner?->user_id)
+                ->options(function (?OwnerRequest $record): array {
+                    $ownerUserId = $record?->owner?->user_id;
+
+                    if (! $ownerUserId) {
+                        return [];
+                    }
+
+                    return Property::query()
+                        ->where('user_id', $ownerUserId)
+                        ->orderByDesc('id')
+                        ->limit(150)
+                        ->get()
+                        ->mapWithKeys(fn (Property $property): array => [
+                            $property->id => static::propertyOptionLabel($property),
+                        ])
+                        ->all();
+                })
+                ->afterStateUpdated(function (Forms\Set $set, $state, ?OwnerRequest $record): void {
+                    if (blank($state)) {
+                        return;
+                    }
+
+                    $ownerUserId = $record?->owner?->user_id;
+                    if (! $ownerUserId) {
+                        return;
+                    }
+
+                    $property = Property::query()
+                        ->where('id', $state)
+                        ->where('user_id', $ownerUserId)
+                        ->first();
+
+                    if (! $property) {
+                        return;
+                    }
+
+                    // Rellenamos la solicitud con datos del inmueble seleccionado para evitar recaptura.
+                    $set('tipo_inmueble', $property->tipo_inmueble);
+                    $set('uso_suelo', $property->uso_suelo);
+                    $set('mascotas', $property->mascotas);
+                    $set('mascotas_especifica', $property->mascotas_especifica);
+                    $set('precio_renta', $property->precio_renta);
+                    $set('iva_renta', $property->iva_renta);
+                    $set('frecuencia_pago', $property->frecuencia_pago);
+                    $set('frecuencia_pago_otra', $property->frecuencia_pago_otra);
+                    $set('condiciones_pago', $property->condiciones_pago);
+                    $set('deposito_garantia', $property->deposito_garantia);
+                    $set('paga_mantenimiento', $property->paga_mantenimiento);
+                    $set('quien_paga_mantenimiento', $property->quien_paga_mantenimiento);
+                    $set('mantenimiento_incluido_renta', $property->mantenimiento_incluido_renta);
+                    $set('costo_mantenimiento_mensual', $property->costo_mantenimiento_mensual);
+                    $set('instrucciones_pago', $property->instrucciones_pago);
+                    $set('requiere_seguro', $property->requiere_seguro);
+                    $set('cobertura_seguro', $property->cobertura_seguro);
+                    $set('monto_cobertura_seguro', $property->monto_cobertura_seguro);
+                    $set('servicios_pagar', $property->servicios_pagar);
+                    $set('inmueble_calle', $property->calle);
+                    $set('inmueble_numero_exterior', $property->numero_exterior);
+                    $set('inmueble_numero_interior', $property->numero_interior);
+                    $set('inmueble_codigo_postal', $property->codigo_postal);
+                    $set('inmueble_colonia', $property->colonia);
+                    $set('inmueble_delegacion_municipio', $property->delegacion_municipio);
+                    $set('inmueble_estado', $property->estado);
+                    $set('inmueble_referencias', $property->referencias_ubicacion);
+                    $set('inmueble_inventario', $property->inventario);
+                })
+                ->searchable()
+                ->getSearchResultsUsing(function (string $search, ?OwnerRequest $record): array {
+                    $ownerUserId = $record?->owner?->user_id;
+
+                    if (! $ownerUserId) {
+                        return [];
+                    }
+
+                    $term = '%' . addcslashes($search, '%_\\') . '%';
+
+                    return Property::query()
+                        ->where('user_id', $ownerUserId)
+                        ->where(function ($query) use ($term): void {
+                            $query->where('folio', 'like', $term)
+                                ->orWhere('tipo_inmueble', 'like', $term)
+                                ->orWhere('calle', 'like', $term)
+                                ->orWhere('colonia', 'like', $term)
+                                ->orWhere('delegacion_municipio', 'like', $term);
+                        })
+                        ->orderByDesc('id')
+                        ->limit(50)
+                        ->get()
+                        ->mapWithKeys(fn (Property $property): array => [
+                            $property->id => static::propertyOptionLabel($property),
+                        ])
+                        ->all();
+                })
+                ->getOptionLabelUsing(function ($value): ?string {
+                    if (blank($value)) {
+                        return null;
+                    }
+
+                    $property = Property::query()->find($value);
+
+                    return $property ? static::propertyOptionLabel($property) : null;
+                })
+                ->createOptionForm([
+                    Forms\Components\Select::make('tipo_inmueble')
+                        ->label('Tipo de inmueble')
+                        ->options([
+                            'Casa' => 'Casa',
+                            'Departamento' => 'Departamento',
+                            'Local comercial' => 'Local comercial',
+                            'Oficina' => 'Oficina',
+                            'Bodega' => 'Bodega',
+                            'Nave industrial' => 'Nave industrial',
+                            'Consultorio' => 'Consultorio',
+                            'Terreno' => 'Terreno',
+                        ])
+                        ->required(),
+                    Forms\Components\TextInput::make('precio_renta')
+                        ->label('Precio de renta')
+                        ->numeric()
+                        ->prefix('$')
+                        ->required(),
+                    Forms\Components\TextInput::make('calle')
+                        ->label('Calle')
+                        ->required(),
+                    Forms\Components\TextInput::make('numero_exterior')
+                        ->label('Número exterior')
+                        ->required(),
+                    Forms\Components\TextInput::make('codigo_postal')
+                        ->label('Código postal')
+                        ->maxLength(5)
+                        ->required(),
+                    Forms\Components\TextInput::make('colonia')
+                        ->label('Colonia')
+                        ->required(),
+                    Forms\Components\TextInput::make('delegacion_municipio')
+                        ->label('Delegación / Municipio')
+                        ->required(),
+                    Forms\Components\Select::make('estado')
+                        ->label('Estado')
+                        ->options(\App\Helpers\EstadosMexico::getEstados())
+                        ->searchable()
+                        ->required(),
+                ])
+                ->createOptionUsing(function (array $data, ?OwnerRequest $record): int {
+                    $ownerUserId = $record?->owner?->user_id;
+
+                    if (! $ownerUserId) {
+                        throw new \RuntimeException('No se puede crear propiedad sin owner.user_id.');
+                    }
+
+                    return Property::query()->create([
+                        'user_id' => $ownerUserId,
+                        'estatus' => 'disponible',
+                        'tipo_inmueble' => $data['tipo_inmueble'] ?? null,
+                        'precio_renta' => $data['precio_renta'] ?? null,
+                        'calle' => $data['calle'] ?? null,
+                        'numero_exterior' => $data['numero_exterior'] ?? null,
+                        'codigo_postal' => $data['codigo_postal'] ?? null,
+                        'colonia' => $data['colonia'] ?? null,
+                        'delegacion_municipio' => $data['delegacion_municipio'] ?? null,
+                        'estado' => $data['estado'] ?? null,
+                    ])->id;
+                }),
+        ];
+    }
+
+    protected static function propertyOptionLabel(Property $property): string
+    {
+        $tipo = $property->tipo_inmueble ?: 'Sin tipo';
+        $direccion = trim(implode(' ', array_filter([
+            $property->calle,
+            $property->numero_exterior,
+            $property->colonia,
+            $property->delegacion_municipio,
+        ])));
+
+        return "{$property->folio} | {$tipo}" . ($direccion !== '' ? " | {$direccion}" : '');
+    }
+
+    protected static function getPropertyImagesSchema(): array
+    {
+        return [
+            Forms\Components\Placeholder::make('selected_property_images')
+                ->label('')
+                ->content(function (Forms\Get $get, $livewire) {
+                    $propertyId = $get('selected_property_id');
+
+                    if (! $propertyId) {
+                        return new \Illuminate\Support\HtmlString('<div class="text-center text-gray-500 py-4">Selecciona una propiedad para ver sus imágenes.</div>');
+                    }
+
+                    $property = Property::query()->with('images')->find($propertyId);
+                    if (! $property) {
+                        return new \Illuminate\Support\HtmlString('<div class="text-center text-danger-600 py-4">Propiedad no encontrada.</div>');
+                    }
+
+                    $images = $property->images()->orderByDesc('is_portada')->orderBy('order')->get();
+                    if ($images->isEmpty()) {
+                        return new \Illuminate\Support\HtmlString('<div class="text-center text-gray-500 py-4">No hay imágenes cargadas para esta propiedad.</div>');
+                    }
+
+                    $html = '<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">';
+                    foreach ($images as $image) {
+                        $url = Storage::disk('public')->url($image->path_file);
+                        $isPortada = $image->is_portada;
+                        $borderColor = $isPortada ? 'border-success-500 ring-2 ring-success-500' : 'border-gray-200 dark:border-gray-700';
+                        $badge = $isPortada ? '<div class="absolute top-2 right-2 bg-success-500 text-white text-xs font-bold px-2 py-1 rounded shadow-sm">Portada</div>' : '';
+                        $btnPortada = $isPortada
+                            ? '<button disabled class="w-full text-xs py-1.5 rounded bg-gray-100 text-gray-400 cursor-not-allowed font-medium dark:bg-gray-700">Es Portada</button>'
+                            : '<button wire:click="setOwnerRequestPropertyPortada(' . $image->id . ')" class="w-full text-xs py-1.5 rounded bg-primary-600 text-white hover:bg-primary-500 transition font-medium">★ Hacer Portada</button>';
+                        $btnEliminar = '<button wire:click="deleteOwnerRequestPropertyImage(' . $image->id . ')" class="text-danger-500 hover:text-danger-600 p-1" title="Eliminar">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
+                            </button>';
+
+                        $html .= "
+                            <div class='group relative bg-white dark:bg-gray-900 rounded-xl border {$borderColor} shadow-sm overflow-hidden flex flex-col transition hover:shadow-md'>
+                                <div class='relative h-40 bg-gray-100'>
+                                    <img src='{$url}' class='w-full h-full object-cover' alt='Propiedad'>
+                                    {$badge}
+                                    <div class='absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2'>
+                                        <a href='{$url}' target='_blank' class='bg-white/90 text-gray-800 p-1.5 rounded-full hover:bg-white' title='Ver'><svg class='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M15 12a3 3 0 11-6 0 3 3 0 016 0z'></path><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z'></path></svg></a>
+                                    </div>
+                                </div>
+                                <div class='p-3 flex flex-col gap-2'>
+                                    <div class='flex justify-between items-center'>
+                                        <span class='text-xs text-gray-500'>ID: {$image->id}</span>
+                                        {$btnEliminar}
+                                    </div>
+                                    {$btnPortada}
+                                </div>
+                            </div>";
+                    }
+                    $html .= '</div>';
+
+                    return new \Illuminate\Support\HtmlString($html);
+                })
+                ->columnSpanFull(),
+
+            Forms\Components\Actions::make([
+                Forms\Components\Actions\Action::make('subir_imagen_propiedad_vinculada')
+                    ->label('Subir Imagen')
+                    ->color('primary')
+                    ->icon('heroicon-o-photo')
+                    ->form([
+                        Forms\Components\FileUpload::make('file')
+                            ->label('Imagen')
+                            ->directory('property-images')
+                            ->acceptedFileTypes(['image/*'])
+                            ->maxSize(5120)
+                            ->image()
+                            ->required(),
+                    ])
+                    ->action(function (array $data, Forms\Get $get) {
+                        $propertyId = $get('selected_property_id');
+                        if (! $propertyId) {
+                            \Filament\Notifications\Notification::make()
+                                ->danger()
+                                ->title('Selecciona una propiedad')
+                                ->send();
+
+                            return;
+                        }
+
+                        $property = Property::query()->find($propertyId);
+                        if (! $property) {
+                            \Filament\Notifications\Notification::make()
+                                ->danger()
+                                ->title('Propiedad no encontrada')
+                                ->send();
+
+                            return;
+                        }
+
+                        PropertyImage::query()->create([
+                            'property_id' => $property->id,
+                            'user_id' => auth()->id(),
+                            'user_name' => auth()->user()->name,
+                            'path_file' => $data['file'],
+                            'is_portada' => $property->images()->count() === 0,
+                        ]);
+
+                        \Filament\Notifications\Notification::make()
+                            ->success()
+                            ->title('Imagen subida correctamente')
+                            ->send();
+                    }),
+            ]),
         ];
     }
 

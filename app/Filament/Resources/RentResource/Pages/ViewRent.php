@@ -1106,8 +1106,17 @@ class ViewRent extends EditRecord
                                                         Forms\Components\Select::make('property_id')
                                                             ->label('Seleccionar Propiedad Disponible')
                                                             ->options(function () {
-                                                                // Mostrar solo Properties con estatus "disponible"
-                                                                $properties = Property::where('estatus', 'disponible')
+                                                                $ownerUserId = $this->record->owner?->user_id;
+                                                                $selectedPropertyId = $this->record->property_id;
+
+                                                                $properties = Property::query()
+                                                                    ->when($ownerUserId, fn ($q) => $q->where('user_id', $ownerUserId))
+                                                                    ->where(function ($q) use ($selectedPropertyId) {
+                                                                        $q->where('estatus', 'disponible');
+                                                                        if ($selectedPropertyId) {
+                                                                            $q->orWhere('id', $selectedPropertyId);
+                                                                        }
+                                                                    })
                                                                     ->orderBy('created_at', 'desc')
                                                                     ->get();
 
@@ -1141,7 +1150,18 @@ class ViewRent extends EditRecord
                                                                     $property = Property::find($state);
                                                                     if ($property) {
                                                                         // Actualizar property_id en la rent
-                                                                        $this->record->update(['property_id' => $state]);
+                                                                        $this->record->update([
+                                                                            'property_id' => $state,
+                                                                            'tipo_propiedad' => $property->tipo_inmueble ?? null,
+                                                                            'calle' => $property->calle ?? null,
+                                                                            'numero_exterior' => $property->numero_exterior ?? null,
+                                                                            'numero_interior' => $property->numero_interior ?? null,
+                                                                            'codigo_postal' => $property->codigo_postal ?? null,
+                                                                            'colonia' => $property->colonia ?? null,
+                                                                            'municipio' => $property->delegacion_municipio ?? null,
+                                                                            'estado' => $property->estado ?? null,
+                                                                            'referencias_ubicacion' => $property->referencias_ubicacion ?? null,
+                                                                        ]);
 
                                                                         // Copiar todos los datos de la propiedad a los campos de la rent
                                                                         $set('tipo_propiedad', $property->tipo_inmueble ?? '');

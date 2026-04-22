@@ -37,6 +37,7 @@ class User extends Authenticatable implements HasMedia, HasAvatar, FilamentUser
      */
     protected $fillable = [
         'name',
+        'slug',
         'email',
         'mobile',
         'telefono',
@@ -57,6 +58,7 @@ class User extends Authenticatable implements HasMedia, HasAvatar, FilamentUser
         'is_buyer', 
         'is_seller', 
         'office_id',
+        'asesor_id',
         'score',
     ];
 
@@ -161,6 +163,24 @@ class User extends Authenticatable implements HasMedia, HasAvatar, FilamentUser
     public function office(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(Office::class);
+    }
+
+    /**
+     * Asesor asignado al usuario (típicamente rol Cliente).
+     */
+    public function assignedAsesor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'asesor_id');
+    }
+
+    /**
+     * Clientes que tienen asignado a este usuario como asesor.
+     *
+     * @return HasMany<User, User>
+     */
+    public function clientesAsignados(): HasMany
+    {
+        return $this->hasMany(User::class, 'asesor_id');
     }
 
     /**

@@ -3,12 +3,22 @@
 namespace App\Filament\Resources\OwnerRequestResource\Pages;
 
 use App\Filament\Resources\OwnerRequestResource;
+use App\Models\Property;
+use App\Models\PropertyImage;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 
 class EditOwnerRequest extends EditRecord
 {
     protected static string $resource = OwnerRequestResource::class;
+
+    protected function mutateFormDataBeforeFill(array $data): array
+    {
+        $this->record->loadMissing('rent');
+        $data['selected_property_id'] = $this->record->rent?->property_id;
+
+        return $data;
+    }
 
     protected function getHeaderActions(): array
     {
@@ -41,6 +51,32 @@ class EditOwnerRequest extends EditRecord
 
     protected function mutateFormDataBeforeSave(array $data): array
     {
+        $selectedPropertyId = $data['selected_property_id'] ?? null;
+        unset($data['selected_property_id']);
+
+        if ($this->record->rent) {
+            $rentUpdate = ['property_id' => $selectedPropertyId ?: null];
+
+            if ($selectedPropertyId) {
+                $property = Property::query()->find($selectedPropertyId);
+                if ($property) {
+                    $rentUpdate = array_merge($rentUpdate, [
+                        'tipo_propiedad' => $property->tipo_inmueble,
+                        'calle' => $property->calle,
+                        'numero_exterior' => $property->numero_exterior,
+                        'numero_interior' => $property->numero_interior,
+                        'codigo_postal' => $property->codigo_postal,
+                        'colonia' => $property->colonia,
+                        'municipio' => $property->delegacion_municipio,
+                        'estado' => $property->estado,
+                        'referencias_ubicacion' => $property->referencias_ubicacion,
+                    ]);
+                }
+            }
+
+            $this->record->rent->update($rentUpdate);
+        }
+
         // Sincronizar datos con la tabla owners
         if ($this->record->owner) {
             $ownerData = [
@@ -113,5 +149,61 @@ class EditOwnerRequest extends EditRecord
         }
 
         return $data;
+    }
+
+    public function deleteOwnerRequestPropertyImage(int $id): void
+    {
+        $propertyId = $this->data['selected_property_id'] ?? null;
+        if (! $propertyId) {
+            return;
+        }
+
+        $image = PropertyImage::query()->find($id);
+        if (! $image || (int) $image->property_id !== (int) $propertyId) {
+            return;
+        }
+
+        if ($image->is_portada) {
+            $otherImage = PropertyImage::query()
+                ->where('property_id', $propertyId)
+                ->where('id', '!=', $id)
+                ->first();
+
+            if ($otherImage) {
+                $otherImage->update(['is_portada' => true]);
+            }
+        }
+
+        $image->delete();
+
+        \Filament\Notifications\Notification::make()
+            ->success()
+            ->title('Imagen eliminada')
+            ->send();
+    }
+
+    public function setOwnerRequestPropertyPortada(int $id): void
+    {
+        $propertyId = $this->data['selected_property_id'] ?? null;
+        if (! $propertyId) {
+            return;
+        }
+
+        $property = Property::query()->find($propertyId);
+        $image = PropertyImage::query()->find($id);
+        if (! $property || ! $image || (int) $image->property_id !== (int) $property->id) {
+            return;
+        }
+
+        PropertyImage::query()
+            ->where('property_id', $property->id)
+            ->update(['is_portada' => false]);
+
+        $image->update(['is_portada' => true]);
+
+        \Filament\Notifications\Notification::make()
+            ->success()
+            ->title('Imagen marcada como portada')
+            ->send();
     }
 }

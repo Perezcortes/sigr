@@ -179,6 +179,33 @@
                 }
             }
         },
+        "/api/advisors/{slug}": {
+            "get": {
+                "tags": [
+                    "Advisors"
+                ],
+                "summary": "Detalle de asesor por slug",
+                "operationId": "3074a89c4118b5ace707942f4742f97a",
+                "parameters": [
+                    {
+                        "name": "slug",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Detalle del asesor"
+                    },
+                    "404": {
+                        "description": "Asesor no encontrado"
+                    }
+                }
+            }
+        },
         "/api/register": {
             "post": {
                 "tags": [

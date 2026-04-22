@@ -5,11 +5,13 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Municipality;
 use App\Models\Estate;
+use App\Models\Property;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use OpenApi\Attributes as OA;
 
 class AdvisorSearchController extends Controller
@@ -72,12 +74,13 @@ class AdvisorSearchController extends Controller
             ->where('name', 'like', "%{$query}%")
             ->orderBy('name')
             ->limit(10)
-            ->get(['id', 'name'])
+            ->get(['id', 'name', 'slug'])
             ->map(fn (User $advisor) => [
                 'type' => 'advisor',
                 'hash_id' => $advisor->hash_id,
                 'user_id_hashed' => $advisor->hash_id,
                 'name' => $advisor->name,
+                'slug' => $advisor->slug,
             ])
             ->values();
 
@@ -311,6 +314,40 @@ class AdvisorSearchController extends Controller
         ]);
     }
 
+    #[OA\Get(
+        path: '/api/advisors/{slug}',
+        tags: ['Advisors'],
+        summary: 'Detalle de asesor por slug',
+        parameters: [
+            new OA\Parameter(name: 'slug', in: 'path', required: true, schema: new OA\Schema(type: 'string')),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Detalle del asesor'),
+            new OA\Response(response: 404, description: 'Asesor no encontrado'),
+        ]
+    )]
+    public function showBySlug(string $slug): JsonResponse
+    {
+        $advisor = $this->baseAdvisorQuery()
+            ->where('slug', $slug)
+            ->first();
+
+        if (! $advisor) {
+            return response()->json([
+                'message' => 'Asesor no encontrado.',
+            ], 404);
+        }
+
+        $resolvedStateId = $this->resolveStateId($advisor);
+
+        return response()->json([
+            'data' => [
+                'advisor' => $this->formatAdvisorData($advisor, $resolvedStateId, ['slug']),
+                'properties' => $this->getAdvisorActiveRentedProperties($advisor),
+            ],
+        ]);
+    }
+
     private function baseAdvisorQuery(): Builder
     {
         return User::query()
@@ -380,6 +417,7 @@ class AdvisorSearchController extends Controller
             'hash_id' => $advisor->hash_id,
             'user_id_hashed' => $advisor->hash_id,
             'name' => $advisor->name,
+            'slug' => $advisor->slug,
             'email' => $advisor->email,
             'telefono' => $advisor->telefono,
             'whatsapp' => $advisor->whatsapp,
@@ -403,5 +441,60 @@ class AdvisorSearchController extends Controller
                 ])
                 ->values(),
         ];
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function getAdvisorActiveRentedProperties(User $advisor): array
+    {
+        $properties = Property::query()
+            ->with(['images' => fn ($query) => $query->orderByDesc('is_portada')->orderBy('order')])
+            ->whereHas('user.owner', fn (Builder $query) => $query->where('asesor_id', $advisor->id))
+            ->whereHas('rents', fn (Builder $query) => $query->where('estatus', 'activa'))
+            ->orderByDesc('updated_at')
+            ->get();
+
+        return $properties
+            ->map(fn (Property $property) => $this->formatPropertyData($property))
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function formatPropertyData(Property $property): array
+    {
+        $cover = $property->images->firstWhere('is_portada', true) ?? $property->images->first();
+        $coverUrl = null;
+
+        if ($cover && filled($cover->path_file)) {
+            $coverUrl = url(Storage::disk('public')->url($cover->path_file));
+        }
+
+        return [
+            'id' => $property->id,
+            'folio' => $property->folio,
+            'tipo_inmueble' => $property->tipo_inmueble,
+            'uso_suelo' => $property->uso_suelo,
+            'precio_renta' => $property->precio_renta !== null ? (float) $property->precio_renta : null,
+            'estatus' => $property->estatus,
+            'direccion' => $this->formatPropertyAddress($property),
+            'cover_image_url' => $coverUrl,
+        ];
+    }
+
+    private function formatPropertyAddress(Property $property): string
+    {
+        $parts = array_filter([
+            $property->calle,
+            $property->numero_exterior ? '#'.$property->numero_exterior : null,
+            $property->colonia,
+            $property->delegacion_municipio,
+            $property->estado,
+        ]);
+
+        return $parts !== [] ? implode(', ', $parts) : ($property->nombre ?? 'Sin dirección');
     }
 }

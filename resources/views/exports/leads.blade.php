@@ -1,13 +1,13 @@
 <table>
     <thead>
     <tr>
-        <td colspan="7" align="right" valign="center" style="padding-right: 50px;">
+        <td colspan="8" align="right" valign="center" style="padding-right: 50px;">
             <img src="{{ public_path('images/logo-rentas-W.png') }}" height="60" style="margin-top: 15px;" />
         </td>
     </tr>
     
     <tr>
-        <td colspan="7" align="center" style="font-size: 16px; font-weight: bold; color: #161848; height: 30px;">
+        <td colspan="8" align="center" style="font-size: 16px; font-weight: bold; color: #161848; height: 30px;">
             REPORTE COMPLETO DE INTERESADOS
         </td>
     </tr>
@@ -19,6 +19,7 @@
         <th align="center" style="border: 1px solid #000000; vertical-align: middle;">TELÉFONO</th>
         <th align="center" style="border: 1px solid #000000; vertical-align: middle;">CORREO</th>
         <th align="center" style="border: 1px solid #000000; vertical-align: middle;">ETAPA</th>
+        <th align="center" style="border: 1px solid #000000; vertical-align: middle;">CANAL</th>
         <th align="center" style="border: 1px solid #000000; vertical-align: middle;">ORIGEN</th>
         <th align="center" style="border: 1px solid #000000; vertical-align: middle;">MENSAJE</th>
         <th align="center" style="border: 1px solid #000000; vertical-align: middle;">FECHA REGISTRO</th>
@@ -62,6 +63,7 @@
                 {{ ucfirst(str_replace('_', ' ', $lead->etapa)) }}
             </td>
             
+            <td style="border: 1px solid #dedede;">{{ $lead->canal?->getLabel() ?? '—' }}</td>
             <td style="border: 1px solid #dedede;">{{ $lead->origen }}</td>
             <td style="border: 1px solid #dedede; font-size: 10px; color: #555;">{{ $lead->mensaje }}</td>
             <td style="border: 1px solid #dedede;">{{ $lead->created_at->format('d/m/Y H:i') }}</td>
