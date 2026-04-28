@@ -15,12 +15,12 @@ return new class extends Migration
             $table->id();
             $table->foreignId('rent_id')->constrained('rents')->cascadeOnDelete();
             $table->foreignId('user_id')->constrained('users'); // Quien reporta
-            
+
             $table->string('titulo'); // Ej: Daño de ventanas, Plomería
             $table->text('descripcion')->nullable(); // Observaciones
-            $table->string('estatus')->default('sin_revisar'); // sin_revisar, en_proceso, terminado
+            $table->string('estatus', 50)->default('nueva'); // nueva, en_proceso, completada (alineado con Filament)
             $table->string('evidencia')->nullable(); // Foto
-            
+
             $table->timestamps();
         });
     }

@@ -6,17 +6,17 @@ use App\Models\Ticket;
 use Filament\Actions\Action;
 use Filament\Actions\Concerns\InteractsWithActions;
 use Filament\Actions\Contracts\HasActions;
+use Filament\Forms;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
-use Filament\Forms;
 use Filament\Notifications\Notification;
-use Livewire\Component;
 use Illuminate\Support\Facades\Auth;
+use Livewire\Component;
 
-class MaintenanceManager extends Component implements HasForms, HasActions
+class MaintenanceManager extends Component implements HasActions, HasForms
 {
-    use InteractsWithForms;
     use InteractsWithActions;
+    use InteractsWithForms;
 
     public $rentId;
 
@@ -29,10 +29,12 @@ class MaintenanceManager extends Component implements HasForms, HasActions
     {
         // Separamos los tickets: Activos vs Terminados
         $tickets = Ticket::where('rent_id', $this->rentId)->orderBy('created_at', 'desc')->get();
-        
+
+        $completed = ['completada', 'terminado'];
+
         return view('livewire.maintenance-manager', [
-            'activeTickets' => $tickets->where('estatus', '!=', 'terminado'),
-            'completedTickets' => $tickets->where('estatus', 'terminado'),
+            'activeTickets' => $tickets->filter(fn (Ticket $t) => ! in_array($t->estatus, $completed, true)),
+            'completedTickets' => $tickets->filter(fn (Ticket $t) => in_array($t->estatus, $completed, true)),
         ]);
     }
 
@@ -50,7 +52,7 @@ class MaintenanceManager extends Component implements HasForms, HasActions
                     ->label('Tipo de problema (Título)')
                     ->placeholder('Ej: Fuga de agua, Ventana rota')
                     ->required(),
-                
+
                 Forms\Components\Textarea::make('descripcion')
                     ->label('Observaciones / Detalles')
                     ->rows(3)
@@ -68,7 +70,8 @@ class MaintenanceManager extends Component implements HasForms, HasActions
                     'titulo' => $data['titulo'],
                     'descripcion' => $data['descripcion'],
                     'evidencia' => $data['evidencia'],
-                    'estatus' => 'sin_revisar',
+                    // Mismo esquema que TicketsRelationManager (ENUM / varchar en BD)
+                    'estatus' => 'nueva',
                 ]);
                 Notification::make()->title('Reporte creado')->success()->send();
             });
@@ -114,9 +117,9 @@ class MaintenanceManager extends Component implements HasForms, HasActions
                 Forms\Components\Select::make('estatus')
                     ->label('Estatus actual')
                     ->options([
-                        'sin_revisar' => 'Sin Revisar',
-                        'en_proceso' => 'En Proceso',
-                        'terminado' => 'Terminado',
+                        'nueva' => 'Nueva',
+                        'en_proceso' => 'En proceso',
+                        'completada' => 'Completada',
                     ])
                     ->selectablePlaceholder(false)
                     ->required()

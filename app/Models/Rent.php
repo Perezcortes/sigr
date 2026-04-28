@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Rent extends Model
 {
     use HasHashId;
-    
+
     protected $fillable = [
         'office_id',
         'tenant_id',
@@ -29,11 +29,11 @@ class Rent extends Model
         'estatus',
         'tipo_inmueble',
         'renta',
-        'monto_comision',                  
-        'porcentaje_comision_principal',  
-        'comisiones_divididas',     
+        'monto_comision',
+        'porcentaje_comision_principal',
+        'comisiones_divididas',
         'plazo_arrendamiento',
-        'fecha_firma',       
+        'fecha_firma',
         // Obligado solidario / fiador
         'tiene_fiador',
         'fiador_tipo_persona',
@@ -60,6 +60,18 @@ class Rent extends Model
         'enviar_recordatorio_inquilino',
         'enviar_recordatorio_propietario',
         'notas_administracion',
+        'notif_recordatorios_email',
+        'notif_recordatorios_push',
+        'notif_recordatorios_whatsapp',
+        'notif_reporte_pago_email',
+        'notif_reporte_pago_push',
+        'notif_reporte_pago_whatsapp',
+        'notif_mensajes_email',
+        'notif_mensajes_push',
+        'notif_mensajes_whatsapp',
+        'notif_mantenimiento_email',
+        'notif_mantenimiento_push',
+        'notif_mantenimiento_whatsapp',
     ];
 
     protected $casts = [
@@ -69,11 +81,23 @@ class Rent extends Model
         'renta' => 'decimal:2',
         'monto_comision' => 'decimal:2',
         'porcentaje_comision_principal' => 'decimal:2',
-        'comisiones_divididas' => 'array', 
+        'comisiones_divididas' => 'array',
         'fecha_firma' => 'date',
         'is_administrada_por_agente' => 'boolean',
         'enviar_recordatorio_inquilino' => 'boolean',
         'enviar_recordatorio_propietario' => 'boolean',
+        'notif_recordatorios_email' => 'boolean',
+        'notif_recordatorios_push' => 'boolean',
+        'notif_recordatorios_whatsapp' => 'boolean',
+        'notif_reporte_pago_email' => 'boolean',
+        'notif_reporte_pago_push' => 'boolean',
+        'notif_reporte_pago_whatsapp' => 'boolean',
+        'notif_mensajes_email' => 'boolean',
+        'notif_mensajes_push' => 'boolean',
+        'notif_mensajes_whatsapp' => 'boolean',
+        'notif_mantenimiento_email' => 'boolean',
+        'notif_mantenimiento_push' => 'boolean',
+        'notif_mantenimiento_whatsapp' => 'boolean',
     ];
 
     /**
@@ -88,7 +112,7 @@ class Rent extends Model
             if (empty($rent->folio)) {
                 $rent->folio = self::generateFolio();
             }
-            
+
             // Asignar al creador como Agente por defecto
             if (empty($rent->asesor_id) && auth()->check()) {
                 $rent->asesor_id = auth()->id();
@@ -127,8 +151,10 @@ class Rent extends Model
                 ];
 
                 // 2. FUNCIÓN TRADUCTORA: Convierte IDs y booleanos en texto real
-                $formatearValor = function($columna, $valor) {
-                    if ($valor === null || $valor === '') return 'Sin asignar';
+                $formatearValor = function ($columna, $valor) {
+                    if ($valor === null || $valor === '') {
+                        return 'Sin asignar';
+                    }
 
                     // Traducir los "1" y "0" a "Sí" y "No"
                     if (in_array($columna, ['is_administrada_por_agente', 'enviar_recordatorio_inquilino', 'enviar_recordatorio_propietario', 'tiene_fiador'])) {
@@ -137,24 +163,29 @@ class Rent extends Model
 
                     // Buscar nombres reales en lugar de IDs
                     if ($columna === 'office_id') {
-                        $rel = \App\Models\Office::find($valor);
+                        $rel = Office::find($valor);
+
                         return $rel ? $rel->nombre : $valor;
                     }
                     if ($columna === 'asesor_id') {
-                        $rel = \App\Models\User::find($valor);
+                        $rel = User::find($valor);
+
                         return $rel ? $rel->name : $valor;
                     }
                     if ($columna === 'property_id') {
-                        $rel = \App\Models\Property::find($valor);
-                        return $rel ? trim(($rel->calle ?? '') . ' ' . ($rel->numero_exterior ?? '')) : $valor;
+                        $rel = Property::find($valor);
+
+                        return $rel ? trim(($rel->calle ?? '').' '.($rel->numero_exterior ?? '')) : $valor;
                     }
 
                     // Poner mayúsculas a los estatus (ej. 'analisis' -> 'Análisis')
-                    if ($columna === 'estatus') return ucfirst($valor);
+                    if ($columna === 'estatus') {
+                        return ucfirst($valor);
+                    }
 
                     // Formatear arrays o repetidores para que no pongan código raro
                     if (is_array($valor) || (is_string($valor) && is_array(json_decode($valor, true)))) {
-                        return "Lista actualizada";
+                        return 'Lista actualizada';
                     }
 
                     return $valor;
@@ -163,7 +194,9 @@ class Rent extends Model
                 // 3. ARMAMOS EL MENSAJE
                 foreach ($cambios as $columna => $nuevoValor) {
                     // Ignoramos campos técnicos o irrelevantes
-                    if (in_array($columna, ['created_at', 'deleted_at', 'hash_id'])) continue;
+                    if (in_array($columna, ['created_at', 'deleted_at', 'hash_id'])) {
+                        continue;
+                    }
 
                     $valorAnterior = $rent->getOriginal($columna);
 
@@ -180,7 +213,7 @@ class Rent extends Model
 
                 // --- DISPARADOR DE COBRO (CENTRO DE PAGOS) ---
                 if ($rent->isDirty('estatus') && $rent->estatus === 'activa') {
-                    \App\Models\PayableOperation::firstOrCreate(
+                    PayableOperation::firstOrCreate(
                         [
                             'payable_type' => Rent::class,
                             'payable_id' => $rent->id,
@@ -194,14 +227,14 @@ class Rent extends Model
                             'regalia' => ($rent->monto_comision ?? 0) * 0.12, // 12% de regalía
                             'estatus' => 'pendiente de pago',
                             // Inicia el conteo regresivo de 10 días para la suspensión
-                            'fecha_vencimiento' => now()->addDays(10), 
+                            'fecha_vencimiento' => now()->addDays(10),
                         ]
                     );
                 }
 
                 // 4. GUARDAR COMENTARIO (Solo si hubo cambios reales legibles)
                 if ($cambiosReales > 0) {
-                    \App\Models\RentComment::create([
+                    RentComment::create([
                         'rent_id' => $rent->id,
                         'user_id' => auth()->id(),
                         'comment' => trim($mensaje),
@@ -235,24 +268,24 @@ class Rent extends Model
         }
 
         // Formatear el número con 4 dígitos (0001, 0002, etc.)
-        return $prefix . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
+        return $prefix.str_pad($newNumber, 4, '0', STR_PAD_LEFT);
     }
-    
+
     // --- Relaciones ---
 
     public function office(): BelongsTo
     {
-        return $this->belongsTo(\App\Models\Office::class);
+        return $this->belongsTo(Office::class);
     }
 
     public function tenant(): BelongsTo
     {
-        return $this->belongsTo(\App\Models\Tenant::class);
+        return $this->belongsTo(Tenant::class);
     }
 
     public function owner(): BelongsTo
     {
-        return $this->belongsTo(\App\Models\Owner::class);
+        return $this->belongsTo(Owner::class);
     }
 
     public function tenantRequests(): HasMany
@@ -301,17 +334,17 @@ class Rent extends Model
     }
 
     // Relaciones para modulo Administraciones
-    public function services(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function services(): HasMany
     {
         return $this->hasMany(Service::class);
     }
 
-    public function tickets(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function tickets(): HasMany
     {
         return $this->hasMany(Ticket::class);
     }
 
-    public function messages(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function messages(): HasMany
     {
         return $this->hasMany(Message::class);
     }
@@ -321,11 +354,11 @@ class Rent extends Model
      */
     public function asesor(): BelongsTo
     {
-        return $this->belongsTo(\App\Models\User::class, 'asesor_id');
+        return $this->belongsTo(User::class, 'asesor_id');
     }
-    
+
     // Relación con PaymentSetting
-    public function paymentSettings(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function paymentSettings(): HasMany
     {
         return $this->hasMany(PaymentSetting::class);
     }

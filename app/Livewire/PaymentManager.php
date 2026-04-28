@@ -2,42 +2,164 @@
 
 namespace App\Livewire;
 
+use App\Models\PaymentSetting;
 use App\Models\Service;
 use Filament\Actions\Action;
 use Filament\Actions\Concerns\InteractsWithActions;
 use Filament\Actions\Contracts\HasActions;
+use Filament\Forms;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
-use Filament\Forms;
 use Filament\Notifications\Notification;
-use Livewire\Component;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\HtmlString;
+use Livewire\Component;
 
-class PaymentManager extends Component implements HasForms, HasActions
+class PaymentManager extends Component implements HasActions, HasForms
 {
-    use InteractsWithForms;
     use InteractsWithActions;
+    use InteractsWithForms;
 
     public $rentId;
+
+    public int $selectedMonth;
+
+    public int $selectedYear;
+
+    public string $filterType = 'todos';
 
     public function mount($rentId)
     {
         $this->rentId = $rentId;
+        $this->selectedMonth = (int) now()->month;
+        $this->selectedYear = (int) now()->year;
     }
 
     public function render()
     {
-        $servicios = Service::where('rent_id', $this->rentId)
-            ->orderBy('created_at', 'desc')
-            ->get()
-            ->groupBy('mes_correspondiente');
+        $calendar = $this->buildMonthlyCalendar();
 
         return view('livewire.payment-manager', [
-            'serviciosPorMes' => $servicios
+            'calendar' => $calendar,
+            'monthLabel' => Carbon::create($this->selectedYear, $this->selectedMonth, 1)->translatedFormat('F Y'),
         ]);
     }
 
-    // Acción de CREAR
+    private function buildMonthlyCalendar(): array
+    {
+        $start = Carbon::create($this->selectedYear, $this->selectedMonth, 1)->startOfDay();
+        $end = $start->copy()->endOfMonth();
+        $today = now()->startOfDay();
+
+        $settings = PaymentSetting::where('rent_id', $this->rentId)
+            ->where('activo', true)
+            ->when($this->filterType !== 'todos', fn ($query) => $query->where('tipo', $this->filterType))
+            ->with('services')
+            ->get();
+
+        $reportedServices = Service::where('rent_id', $this->rentId)
+            ->whereDate('fecha_pago', '>=', $start)
+            ->whereDate('fecha_pago', '<=', $end)
+            ->when($this->filterType !== 'todos', fn ($query) => $query->where('tipo', $this->filterType))
+            ->get();
+
+        $days = [];
+        for ($day = 1; $day <= $start->daysInMonth; $day++) {
+            $date = Carbon::create($this->selectedYear, $this->selectedMonth, $day)->startOfDay();
+            $events = [];
+
+            foreach ($settings as $setting) {
+                $dueDate = $this->resolveDueDateForMonth($setting, $date);
+                if (! $dueDate || ! $dueDate->isSameDay($date)) {
+                    continue;
+                }
+
+                $paid = $setting->services()
+                    ->whereDate('fecha_pago', '>=', $dueDate->copy()->startOfMonth())
+                    ->whereDate('fecha_pago', '<=', $dueDate->copy()->endOfMonth())
+                    ->exists();
+
+                $events[] = [
+                    'id' => 'scheduled-'.$setting->id.'-'.$date->format('Ymd'),
+                    'tipo' => $setting->tipo,
+                    'source' => 'programado',
+                    'monto' => $setting->monto,
+                    'status' => $this->resolveStatus($dueDate, $paid, $today),
+                ];
+            }
+
+            foreach ($reportedServices->where(fn ($service) => Carbon::parse($service->fecha_pago)->isSameDay($date)) as $service) {
+                $events[] = [
+                    'id' => 'reported-'.$service->id,
+                    'tipo' => $service->tipo,
+                    'source' => 'reportado',
+                    'monto' => $service->monto,
+                    'status' => 'pagado',
+                ];
+            }
+
+            $days[] = [
+                'date' => $date,
+                'events' => $events,
+            ];
+        }
+
+        return $days;
+    }
+
+    private function resolveDueDateForMonth(PaymentSetting $setting, Carbon $candidateDate): ?Carbon
+    {
+        $interval = max(1, (int) ($setting->meses_intervalo ?: PaymentSetting::intervalForFrequency($setting->frecuencia ?? 'Mensual')));
+
+        if (($setting->frecuencia ?? 'Mensual') === 'Mensual') {
+            $day = min(max((int) ($setting->dia_pago ?? 1), 1), $candidateDate->daysInMonth);
+
+            return Carbon::create($candidateDate->year, $candidateDate->month, $day)->startOfDay();
+        }
+
+        if (! $setting->fecha_limite_pago) {
+            return null;
+        }
+
+        $anchor = $setting->fecha_limite_pago->copy()->startOfDay();
+        $diffMonths = (($candidateDate->year - $anchor->year) * 12) + ($candidateDate->month - $anchor->month);
+
+        if ($diffMonths < 0 || $diffMonths % $interval !== 0) {
+            return null;
+        }
+
+        $day = min($anchor->day, $candidateDate->daysInMonth);
+
+        return Carbon::create($candidateDate->year, $candidateDate->month, $day)->startOfDay();
+    }
+
+    private function resolveStatus(Carbon $dueDate, bool $paid, Carbon $today): string
+    {
+        if ($paid) {
+            return 'pagado';
+        }
+
+        if ($dueDate->lt($today)) {
+            return 'vencido';
+        }
+
+        return 'por_vencer';
+    }
+
+    public function prevMonth(): void
+    {
+        $current = Carbon::create($this->selectedYear, $this->selectedMonth, 1)->subMonth();
+        $this->selectedMonth = (int) $current->month;
+        $this->selectedYear = (int) $current->year;
+    }
+
+    public function nextMonth(): void
+    {
+        $current = Carbon::create($this->selectedYear, $this->selectedMonth, 1)->addMonth();
+        $this->selectedMonth = (int) $current->month;
+        $this->selectedYear = (int) $current->year;
+    }
+
     public function reportarPagoAction(): Action
     {
         return Action::make('reportarPago')
@@ -47,7 +169,7 @@ class PaymentManager extends Component implements HasForms, HasActions
             ->modalHeading('Registrar nuevo pago')
             ->modalWidth('md')
             ->form([
-                Forms\Components\ToggleButtons::make('tipo') 
+                Forms\Components\ToggleButtons::make('tipo')
                     ->hiddenLabel()
                     ->options([
                         'gas' => 'GAS',
@@ -102,10 +224,12 @@ class PaymentManager extends Component implements HasForms, HasActions
 
                 Service::create([
                     'rent_id' => $this->rentId,
-                    'nombre' => trim(($data['tipo'] ?? 'Pago') . ' - ' . ($data['mes_correspondiente'] ?? '')),
+                    'payment_setting_id' => null,
+                    'nombre' => trim(($data['tipo'] ?? 'Pago').' - '.($data['mes_correspondiente'] ?? '')),
                     'tipo' => $data['tipo'],
                     'mes_correspondiente' => $data['mes_correspondiente'],
                     'fecha_pago' => $data['fecha_pago'],
+                    'fecha_vencimiento' => $data['fecha_pago'],
                     'monto' => $data['monto'],
                     'forma_pago' => $data['forma_pago'],
                     'observaciones' => $data['observaciones'] ?? null,
@@ -119,7 +243,7 @@ class PaymentManager extends Component implements HasForms, HasActions
 
     public function verPagoAction(): Action
     {
-        return Action::make('verPago') 
+        return Action::make('verPago')
             ->label('Detalles')
             ->modalHeading('Detalles del pago')
             ->modalWidth('md')
@@ -127,7 +251,7 @@ class PaymentManager extends Component implements HasForms, HasActions
             ->record(fn (array $arguments) => Service::find($arguments['record'] ?? null))
             ->fillForm(fn (Service $record) => [
                 'tipo' => strtoupper($record->tipo),
-                'estatus_visual' => $record->estatus, 
+                'estatus_visual' => $record->estatus,
                 'mes_correspondiente' => $record->mes_correspondiente,
                 'fecha_pago' => $record->fecha_pago,
                 'forma_pago' => $record->forma_pago,
@@ -139,10 +263,10 @@ class PaymentManager extends Component implements HasForms, HasActions
                 // Alerta visual de estatus
                 Forms\Components\Placeholder::make('alerta_estatus')
                     ->hiddenLabel()
-                    ->content(fn ($record) => match($record->estatus) {
-                        'vencido' => new \Illuminate\Support\HtmlString('<div class="bg-red-100 text-red-700 p-2 rounded text-center font-bold">¡PAGO VENCIDO!</div>'),
-                        'atrasado' => new \Illuminate\Support\HtmlString('<div class="bg-yellow-100 text-yellow-700 p-2 rounded text-center font-bold">PAGO ATRASADO</div>'),
-                        default => new \Illuminate\Support\HtmlString('<div class="bg-green-100 text-green-700 p-2 rounded text-center font-bold">PAGADO A TIEMPO</div>'),
+                    ->content(fn ($record) => match ($record->estatus) {
+                        'vencido' => new HtmlString('<div class="bg-red-100 text-red-700 p-2 rounded text-center font-bold">¡PAGO VENCIDO!</div>'),
+                        'atrasado' => new HtmlString('<div class="bg-yellow-100 text-yellow-700 p-2 rounded text-center font-bold">PAGO ATRASADO</div>'),
+                        default => new HtmlString('<div class="bg-green-100 text-green-700 p-2 rounded text-center font-bold">PAGADO A TIEMPO</div>'),
                     }),
 
                 Forms\Components\TextInput::make('tipo')->label('Servicio')->disabled(),
