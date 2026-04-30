@@ -9,13 +9,16 @@ use App\Models\Ticket;
 use App\Policies\RolePolicy;
 use App\Policies\ServicePolicy;
 use App\Policies\TicketPolicy;
+use App\Listeners\SaveIncomingWhatsappMessage;
 use Filament\Support\Colors\Color;
 use Filament\Support\Facades\FilamentColor;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
+use WallaceMartinss\FilamentEvolution\Events\MessageReceived;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -68,5 +71,8 @@ class AppServiceProvider extends ServiceProvider
 
         // Conexión de la Política de Roles de Spatie
         Gate::policy(Role::class, RolePolicy::class);
+
+        // Guardar mensajes entrantes de WhatsApp con el esquema real de la tabla
+        Event::listen(MessageReceived::class, SaveIncomingWhatsappMessage::class);
     }
 }
