@@ -14,7 +14,7 @@
                         class="report-row flex items-center justify-between w-full p-4 transition rounded-xl focus:outline-none">
                     
                     <div class="flex items-center gap-3">
-                        <div class="p-2 rounded-full {{ $ticket->estatus == 'en_proceso' ? 'bg-blue-100 text-blue-600' : 'bg-red-100 text-red-600' }}">
+                        <div class="p-2 rounded-full {{ $ticket->estatus == 'en_proceso' ? 'bg-blue-100 text-blue-600' : ($ticket->estatus == 'nueva' ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-600') }}">
                             <x-filament::icon icon="heroicon-m-wrench-screwdriver" class="w-5 h-5" />
                         </div>
                         
@@ -30,7 +30,7 @@
                     
                     <div class="flex items-center gap-2">
                          <span class="text-xs font-bold px-2 py-1 rounded capitalize
-                            {{ $ticket->estatus == 'en_proceso' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700' }}">
+                            {{ $ticket->estatus == 'en_proceso' ? 'bg-blue-100 text-blue-700' : ($ticket->estatus == 'nueva' ? 'bg-gray-100 text-gray-700' : 'bg-amber-100 text-amber-800') }}">
                             {{ str_replace('_', ' ', $ticket->estatus) }}
                         </span>
                         <svg class="w-5 h-5 text-gray-400 transform transition-transform duration-200" :class="open ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>

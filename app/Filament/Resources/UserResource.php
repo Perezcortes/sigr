@@ -5,22 +5,31 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\UserResource\Pages;
 use App\Models\User;
 use Filament\Forms;
+use Filament\Forms\Components\Actions\Action;
+use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Forms\Form;
+use Filament\Forms\Get;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Support\Facades\Hash;
-use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Hash;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 
 class UserResource extends Resource
 {
     protected static ?string $model = User::class;
-    protected static ?string $navigationIcon = 'heroicon-o-users'; 
+
+    protected static ?string $navigationIcon = 'heroicon-o-users';
+
     protected static ?string $navigationLabel = 'Usuarios';
+
     protected static ?string $modelLabel = 'Usuario';
+
     protected static ?string $navigationGroup = 'Administración';
+
     protected static ?int $navigationSort = 2;
 
     public static function canViewAny(): bool
@@ -59,7 +68,7 @@ class UserResource extends Resource
                             ->label('NOMBRE')
                             ->required()
                             ->maxLength(255),
-                            
+
                         Forms\Components\TextInput::make('email')
                             ->label('CORREO ELECTRÓNICO')
                             ->email()
@@ -73,25 +82,34 @@ class UserResource extends Resource
                             ->tel()
                             ->maxLength(20),
 
-                        // CAMPO ROL (Con Spatie)
-                        Forms\Components\Select::make('roles')
+                        Forms\Components\Select::make('primary_role')
                             ->label('ROL')
-                            ->relationship('roles', 'name') // Relación directa con Spatie
-                            ->multiple() // Permite múltiples roles si es necesario
-                            ->preload()
-                            ->searchable()
-                            ->required(),
+                            ->options(fn () => Role::query()->orderBy('name')->pluck('name', 'name')->all())
+                            ->required()
+                            ->live()
+                            ->afterStateUpdated(function ($state, callable $set) {
+                                if ($state !== 'Cliente') {
+                                    $set('asesor_id', null);
+                                    $set('is_owner', false);
+                                    $set('is_tenant', false);
+                                    $set('is_seller', false);
+                                    $set('is_buyer', false);
+                                }
+                                if (! in_array((string) $state, ['Gerente', 'Asesor', 'Cliente'], true)) {
+                                    $set('office_id', null);
+                                }
+                            }),
 
                         // Contraseña
                         Forms\Components\TextInput::make('password')
                             ->label('CONTRASEÑA')
                             ->password()
                             ->revealable()
-                            ->dehydrateStateUsing(fn ($state) => \Illuminate\Support\Facades\Hash::make($state))
+                            ->dehydrateStateUsing(fn ($state) => Hash::make($state))
                             ->dehydrated(fn ($state) => filled($state))
                             ->required(fn (string $context): bool => $context === 'create')
                             ->maxLength(255),
-                            
+
                         Forms\Components\TextInput::make('password_confirmation')
                             ->label('CONFIRMAR CONTRASEÑA')
                             ->password()
@@ -100,7 +118,6 @@ class UserResource extends Resource
                             ->same('password')
                             ->dehydrated(false), // No se guarda en la BD
 
-                        // Activo y Banderas Extra
                         Forms\Components\Grid::make(2)
                             ->schema([
                                 Forms\Components\Toggle::make('is_active')
@@ -108,29 +125,98 @@ class UserResource extends Resource
                                     ->onColor('success')
                                     ->offColor('danger')
                                     ->default(true),
-                                    
-                                // Banderas adicionales ocultas o visibles según se necesite
-                                Forms\Components\Toggle::make('is_owner')->label('Es Propietario'),
-                                Forms\Components\Toggle::make('is_tenant')->label('Es Inquilino'),
                             ]),
 
                         Forms\Components\Select::make('office_id')
-                            ->label('Oficina Asignada')
-                            ->relationship('office', 'nombre') 
+                            ->label('Oficina asignada')
+                            ->relationship('office', 'nombre')
                             ->searchable()
                             ->preload()
-                            // Solo mostramos esto si el usuario actual es Admin
-                            ->visible(fn () => auth()->user()->hasRole('Administrador')),
+                            ->live()
+                            ->visible(fn (Get $get): bool => in_array(
+                                (string) $get('primary_role'),
+                                ['Gerente', 'Asesor', 'Cliente'],
+                                true
+                            ))
+                            ->required(fn (Get $get): bool => in_array(
+                                (string) $get('primary_role'),
+                                ['Gerente', 'Asesor', 'Cliente'],
+                                true
+                            ))
+                            ->afterStateUpdated(fn (callable $set) => $set('asesor_id', null)),
+
+                        Forms\Components\Select::make('evolution_whatsapp_instance_id')
+                            ->label('Instancia WhatsApp (Evolution)')
+                            ->relationship(
+                                'evolutionWhatsappInstance',
+                                'name',
+                                fn ($query) => $query->orderBy('name')
+                            )
+                            ->searchable()
+                            ->preload()
+                            ->helperText('Opcional. Se usa al enviar mensajes desde Interesados con la cuenta de este usuario.')
+                            ->visible(fn (Get $get): bool => in_array(
+                                (string) $get('primary_role'),
+                                ['Gerente', 'Asesor'],
+                                true
+                            )),
+
+                        Forms\Components\Select::make('asesor_id')
+                            ->label('Asesor de la oficina')
+                            ->options(function (Get $get): array {
+                                $officeId = $get('office_id');
+                                if (! $officeId) {
+                                    return [];
+                                }
+
+                                return User::query()
+                                    ->where('office_id', $officeId)
+                                    ->whereHas('roles', fn (Builder $q) => $q->where('name', 'Asesor'))
+                                    ->orderBy('name')
+                                    ->pluck('name', 'id')
+                                    ->all();
+                            })
+                            ->searchable()
+                            ->visible(fn (Get $get): bool => $get('primary_role') === 'Cliente')
+                            ->required(fn (Get $get): bool => $get('primary_role') === 'Cliente')
+                            ->rule(function (Get $get) {
+                                return function (string $attribute, mixed $value, \Closure $fail) use ($get): void {
+                                    if ($get('primary_role') !== 'Cliente' || $value === null || $value === '') {
+                                        return;
+                                    }
+                                    $asesor = User::query()->find((int) $value);
+                                    if (! $asesor || (int) $asesor->office_id !== (int) $get('office_id')) {
+                                        $fail('El asesor debe pertenecer a la oficina seleccionada.');
+                                    }
+                                };
+                            }),
+
+                        Forms\Components\Grid::make(2)
+                            ->visible(fn (Get $get): bool => $get('primary_role') === 'Cliente')
+                            ->schema([
+                                Forms\Components\Toggle::make('is_owner')
+                                    ->label('Es propietario')
+                                    ->default(false),
+                                Forms\Components\Toggle::make('is_tenant')
+                                    ->label('Es inquilino')
+                                    ->default(false),
+                                Forms\Components\Toggle::make('is_seller')
+                                    ->label('Es vendedor')
+                                    ->default(false),
+                                Forms\Components\Toggle::make('is_buyer')
+                                    ->label('Es comprador')
+                                    ->default(false),
+                            ]),
 
                         // Imagen de Perfil
-                        \Filament\Forms\Components\SpatieMediaLibraryFileUpload::make('avatar')
+                        SpatieMediaLibraryFileUpload::make('avatar')
                             ->label('IMAGEN DE PERFIL')
-                            ->collection('profile-images') 
+                            ->collection('profile-images')
                             ->avatar() // Formato circular
                             ->alignCenter()
                             ->columnSpanFull(),
                     ])
-                    ->columns(2), 
+                    ->columns(2),
 
                 // --- SECCIÓN 2: PERMISOS DIRECTOS DINÁMICOS ---
                 Forms\Components\Section::make('Permisos Directos del Usuario')
@@ -148,23 +234,23 @@ class UserResource extends Resource
                                     ->label('Nombre del nuevo permiso')
                                     ->placeholder('Ej: Exportar reportes Excel')
                                     ->required()
-                                    ->unique(table: 'permissions', column: 'name')
+                                    ->unique(table: 'permissions', column: 'name'),
                             ])
                             // 2. Lógica para guardarlo en la base de datos de Spatie
                             ->createOptionUsing(function (array $data) {
-                                $permiso = \Spatie\Permission\Models\Permission::create([
+                                $permiso = Permission::create([
                                     'name' => $data['name'],
                                     'guard_name' => 'web',
                                 ]);
+
                                 return $permiso->id;
                             })
                             // 3. Candado: Solo el Administrador ve el botón "+"
-                            ->createOptionAction(fn (\Filament\Forms\Components\Actions\Action $action) => 
-                                $action->visible(fn () => auth()->user()->hasRole('Administrador'))
+                            ->createOptionAction(fn (Action $action) => $action->visible(fn () => auth()->user()->hasRole('Administrador'))
                             )
                             ->columnSpanFull(),
                     ])
-                    ->collapsible() 
+                    ->collapsible()
                     ->collapsed(false),
             ]);
     }
@@ -204,14 +290,14 @@ class UserResource extends Resource
                 Tables\Columns\TextColumn::make('email')
                     ->label('Correo')
                     ->searchable(),
-                
+
                 // Mostrar Roles (Badge de colores)
                 Tables\Columns\TextColumn::make('roles.name')
                     ->label('Rol')
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
                         'Administrador' => 'danger',
-                        'Gerente' => 'info', 
+                        'Gerente' => 'info',
                         'Asesor' => 'warning',
                         'Usuario', 'Cliente' => 'success',
                         default => 'gray',
@@ -237,11 +323,11 @@ class UserResource extends Resource
                 Tables\Actions\ViewAction::make()
                     ->iconButton()
                     ->tooltip('Ver detalles'),
-                    
+
                 Tables\Actions\EditAction::make()
                     ->iconButton()
                     ->tooltip('Editar'),
-                    
+
                 Tables\Actions\DeleteAction::make()
                     ->iconButton()
                     ->tooltip('Eliminar'),
@@ -253,7 +339,7 @@ class UserResource extends Resource
                 ]),
             ]);
     }
-    
+
     public static function getRelations(): array
     {
         return [];

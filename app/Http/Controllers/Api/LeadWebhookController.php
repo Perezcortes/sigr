@@ -2,8 +2,9 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\LeadCanal;
 use App\Http\Controllers\Controller;
-use App\Models\Lead; 
+use App\Models\Lead;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
@@ -21,6 +22,7 @@ class LeadWebhookController extends Controller
                 'correo'           => $request->input('ContactEmail'),
                 'telefono'         => $request->input('ContactPhone'),
                 'mensaje'          => $request->input('ContactMessage'),
+                'canal'            => LeadCanal::Nocnok,
                 'origen'           => $request->input('ContactOrigin') ?? 'Nocnok',
                 'url_propiedad'    => $request->input('PropertyUrl'),
                 'etapa'            => 'no_contactado', // Por defecto siempre entra así

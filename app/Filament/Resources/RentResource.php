@@ -8,6 +8,7 @@ use App\Models\Tenant;
 use App\Models\Owner;
 use App\Models\Application;
 use App\Models\User;
+use App\Support\Filament\ScopesByOfficeAndAdvisor;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -71,24 +72,8 @@ class RentResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery();
-        $user = auth()->user();
 
-        // El Administrador ve TODO sin filtros
-        if ($user->hasRole('Administrador')) {
-            return $query;
-        }
-
-        // El Gerente ve todas las rentas que pertenezcan a su misma oficina
-        if ($user->hasRole('Gerente')) {
-            return $query->where('office_id', $user->office_id);
-        }
-
-        // El Asesor solo ve las rentas que él mismo está gestionando
-        if ($user->hasRole('Asesor')) {
-            return $query->where('asesor_id', $user->id);
-        }
-
-        return $query;
+        return ScopesByOfficeAndAdvisor::scopeRentListForFilament($query, auth()->user());
     }
 
     public static function form(Form $form): Form
@@ -106,15 +91,7 @@ class RentResource extends Resource
                         // Solo los campos esenciales
                         Select::make('tenant_id')
                             ->label('Seleccionar Inquilino')
-                            ->relationship('tenant', 'nombres', function (Builder $query) {
-                                $user = auth()->user();
-                                // Si es Admin ve todos, si no, solo los suyos o los libres
-                                if ($user->hasRole('Administrador')) {
-                                    return $query;
-                                }
-                                return $query->where('asesor_id', $user->id)
-                                             ->orWhereNull('asesor_id');
-                            })
+                            ->relationship('tenant', 'nombres', fn (Builder $query) => ScopesByOfficeAndAdvisor::scopeTenantOwnerRelationshipForRentForm($query, auth()->user()))
                             ->getOptionLabelFromRecordUsing(fn ($record) => 
                                 "{$record->nombre_completo} | {$record->email} - " . ($record->asesor ? "Asesor: {$record->asesor->name}" : "SIN ASESOR")
                             )
@@ -152,15 +129,7 @@ class RentResource extends Resource
                         
                         Select::make('owner_id')
                             ->label('Seleccionar Propietario')
-                            // FILTRO PARA PROPIETARIOS
-                            ->relationship('owner', 'nombres', function (Builder $query) {
-                                $user = auth()->user();
-                                if ($user->hasRole('Administrador')) {
-                                    return $query;
-                                }
-                                return $query->where('asesor_id', $user->id)
-                                             ->orWhereNull('asesor_id');
-                            })
+                            ->relationship('owner', 'nombres', fn (Builder $query) => ScopesByOfficeAndAdvisor::scopeTenantOwnerRelationshipForRentForm($query, auth()->user()))
                             ->getOptionLabelFromRecordUsing(fn ($record) => 
                                 "{$record->nombre_completo} | {$record->email} - " . ($record->asesor ? "Asesor: {$record->asesor->name}" : "SIN ASESOR")
                             )
