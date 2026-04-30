@@ -28,6 +28,8 @@ class PaymentManager extends Component implements HasActions, HasForms
 
     public string $filterType = 'todos';
 
+    public string $viewMode = 'calendario';
+
     public function mount($rentId)
     {
         $this->rentId = $rentId;
@@ -37,25 +39,24 @@ class PaymentManager extends Component implements HasActions, HasForms
 
     public function render()
     {
-        $calendar = $this->buildMonthlyCalendar();
+        $obligations = $this->buildMonthlyObligations();
+        $calendar = $this->buildMonthlyCalendar($obligations);
 
         return view('livewire.payment-manager', [
             'calendar' => $calendar,
+            'monthlySummary' => $obligations,
             'monthLabel' => Carbon::create($this->selectedYear, $this->selectedMonth, 1)->translatedFormat('F Y'),
         ]);
     }
 
-    private function buildMonthlyCalendar(): array
+    /**
+     * @param  array<int, array<string, mixed>>  $obligations
+     * @return array<int, array<string, mixed>>
+     */
+    private function buildMonthlyCalendar(array $obligations): array
     {
         $start = Carbon::create($this->selectedYear, $this->selectedMonth, 1)->startOfDay();
         $end = $start->copy()->endOfMonth();
-        $today = now()->startOfDay();
-
-        $settings = PaymentSetting::where('rent_id', $this->rentId)
-            ->where('activo', true)
-            ->when($this->filterType !== 'todos', fn ($query) => $query->where('tipo', $this->filterType))
-            ->with('services')
-            ->get();
 
         $reportedServices = Service::where('rent_id', $this->rentId)
             ->whereDate('fecha_pago', '>=', $start)
@@ -68,23 +69,19 @@ class PaymentManager extends Component implements HasActions, HasForms
             $date = Carbon::create($this->selectedYear, $this->selectedMonth, $day)->startOfDay();
             $events = [];
 
-            foreach ($settings as $setting) {
-                $dueDate = $this->resolveDueDateForMonth($setting, $date);
-                if (! $dueDate || ! $dueDate->isSameDay($date)) {
+            foreach ($obligations as $obligation) {
+                /** @var Carbon $dueDate */
+                $dueDate = $obligation['due_date'];
+                if (! $dueDate->isSameDay($date)) {
                     continue;
                 }
 
-                $paid = $setting->services()
-                    ->whereDate('fecha_pago', '>=', $dueDate->copy()->startOfMonth())
-                    ->whereDate('fecha_pago', '<=', $dueDate->copy()->endOfMonth())
-                    ->exists();
-
                 $events[] = [
-                    'id' => 'scheduled-'.$setting->id.'-'.$date->format('Ymd'),
-                    'tipo' => $setting->tipo,
+                    'id' => 'scheduled-'.$obligation['key'],
+                    'tipo' => $obligation['tipo'],
                     'source' => 'programado',
-                    'monto' => $setting->monto,
-                    'status' => $this->resolveStatus($dueDate, $paid, $today),
+                    'monto' => $obligation['monto_esperado'],
+                    'status' => $obligation['status'],
                 ];
             }
 
@@ -105,6 +102,58 @@ class PaymentManager extends Component implements HasActions, HasForms
         }
 
         return $days;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function buildMonthlyObligations(): array
+    {
+        $monthStart = Carbon::create($this->selectedYear, $this->selectedMonth, 1)->startOfDay();
+        $periodKey = $monthStart->format('Y-m');
+        $today = now()->startOfDay();
+
+        $settings = PaymentSetting::where('rent_id', $this->rentId)
+            ->where('activo', true)
+            ->when($this->filterType !== 'todos', fn ($query) => $query->where('tipo', $this->filterType))
+            ->orderByDesc('es_base_renta')
+            ->orderBy('tipo')
+            ->get();
+
+        $serviceMatches = Service::where('rent_id', $this->rentId)
+            ->whereNotNull('payment_setting_id')
+            ->where('periodo_referencia', $periodKey)
+            ->whereIn('payment_setting_id', $settings->pluck('id'))
+            ->orderByDesc('fecha_pago')
+            ->get()
+            ->keyBy('payment_setting_id');
+
+        $obligations = [];
+
+        foreach ($settings as $setting) {
+            $dueDate = $this->resolveDueDateForMonth($setting, $monthStart);
+            if (! $dueDate) {
+                continue;
+            }
+
+            $matchedService = $serviceMatches->get($setting->id);
+            $paid = (bool) $matchedService;
+
+            $obligations[] = [
+                'key' => $setting->id.'|'.$periodKey,
+                'payment_setting_id' => $setting->id,
+                'tipo' => $setting->tipo,
+                'frecuencia' => $setting->frecuencia ?? 'Mensual',
+                'period_key' => $periodKey,
+                'due_date' => $dueDate,
+                'monto_esperado' => (float) ($setting->monto ?? 0),
+                'monto_pagado' => $matchedService ? (float) $matchedService->monto : null,
+                'status' => $this->resolveStatus($dueDate, $paid, $today),
+                'paid_service_id' => $matchedService?->id,
+            ];
+        }
+
+        return $obligations;
     }
 
     private function resolveDueDateForMonth(PaymentSetting $setting, Carbon $candidateDate): ?Carbon
@@ -168,73 +217,110 @@ class PaymentManager extends Component implements HasActions, HasForms
             ->icon('heroicon-m-plus')
             ->modalHeading('Registrar nuevo pago')
             ->modalWidth('md')
+            ->mountUsing(function (Forms\Form $form, array $arguments): void {
+                if (! empty($arguments['obligation'])) {
+                    $form->fill([
+                        'obligation_key' => (string) $arguments['obligation'],
+                    ]);
+                }
+            })
             ->form([
-                Forms\Components\ToggleButtons::make('tipo')
-                    ->hiddenLabel()
-                    ->options([
-                        'gas' => 'GAS',
-                        'agua' => 'AGUA',
-                        'luz' => 'LUZ',
-                        'renta' => 'RENTA',
-                        'mantenimiento' => 'MANTENIMIENTO',
-                    ])
-                    ->colors([
-                        'gas' => 'success',
-                        'agua' => 'info',
-                        'luz' => 'warning',
-                        'renta' => 'primary',
-                        'mantenimiento' => 'gray',
-                    ])
-                    ->icons([
-                        'gas' => 'heroicon-o-fire',
-                        'agua' => 'heroicon-o-beaker',
-                        'luz' => 'heroicon-o-bolt',
-                        'renta' => 'heroicon-o-home',
-                        'mantenimiento' => 'heroicon-o-wrench',
-                    ])
-                    ->inline()->required()->columnSpanFull(),
+                Forms\Components\Select::make('obligation_key')
+                    ->label('Obligación a pagar')
+                    ->helperText('Selecciona el servicio y periodo para vincular correctamente el pago.')
+                    ->options(fn (): array => $this->getUnpaidObligationSelectOptions())
+                    ->searchable()
+                    ->preload()
+                    ->required()
+                    ->live()
+                    ->afterStateUpdated(function (?string $state, Forms\Set $set): void {
+                        $obligation = $this->findObligationByKey($state);
+                        if (! $obligation) {
+                            return;
+                        }
+
+                        $periodDate = Carbon::createFromFormat('Y-m', $obligation['period_key']);
+
+                        $set('tipo', $obligation['tipo']);
+                        $set('payment_setting_id', $obligation['payment_setting_id']);
+                        $set('periodo_referencia', $obligation['period_key']);
+                        $set('mes_correspondiente', ucfirst($periodDate->translatedFormat('F')));
+                        $set('fecha_vencimiento', $obligation['due_date']->format('Y-m-d'));
+                        $set('monto', $obligation['monto_esperado']);
+                    })
+                    ->columnSpanFull(),
 
                 Forms\Components\Group::make()->schema([
-                    Forms\Components\Select::make('mes_correspondiente')
-                        ->options([
-                            'Enero' => 'Enero', 'Febrero' => 'Febrero', 'Marzo' => 'Marzo',
-                            'Abril' => 'Abril', 'Mayo' => 'Mayo', 'Junio' => 'Junio',
-                            'Julio' => 'Julio', 'Agosto' => 'Agosto', 'Septiembre' => 'Septiembre',
-                            'Octubre' => 'Octubre', 'Noviembre' => 'Noviembre', 'Diciembre' => 'Diciembre',
-                        ])
-                        ->default(Carbon::now()->translatedFormat('F'))->required(),
+                    Forms\Components\TextInput::make('tipo')
+                        ->label('Servicio')
+                        ->disabled()
+                        ->dehydrated(),
+
+                    Forms\Components\TextInput::make('mes_correspondiente')
+                        ->label('Mes correspondiente')
+                        ->disabled()
+                        ->dehydrated(),
 
                     Forms\Components\DatePicker::make('fecha_pago')
                         ->default(now())->required(),
+
+                    Forms\Components\DatePicker::make('fecha_vencimiento')
+                        ->label('Fecha de vencimiento')
+                        ->disabled()
+                        ->dehydrated(),
 
                     Forms\Components\Select::make('forma_pago')
                         ->options(['efectivo' => 'Efectivo', 'tarjeta' => 'Tarjeta', 'transferencia' => 'Transferencia'])
                         ->default('efectivo')->required(),
 
                     Forms\Components\TextInput::make('monto')->numeric()->prefix('$')->required(),
+                    Forms\Components\Hidden::make('payment_setting_id'),
+                    Forms\Components\Hidden::make('periodo_referencia'),
                 ])->columns(1),
 
                 Forms\Components\FileUpload::make('evidencia')->image()->directory('comprobantes')->columnSpanFull(),
                 Forms\Components\Textarea::make('observaciones')->rows(2)->columnSpanFull(),
             ])
             ->action(function (array $data) {
-                // Lógica simple para calcular estatus: Si es después del día 5, es "atrasado"
-                $diaPago = Carbon::parse($data['fecha_pago'])->day;
-                $estatus = $diaPago > 5 ? 'atrasado' : 'pagado';
+                $obligation = $this->findObligationByKey((string) ($data['obligation_key'] ?? ''));
+                if (! $obligation) {
+                    Notification::make()->title('La obligación seleccionada ya no está disponible')->danger()->send();
+
+                    return;
+                }
+
+                $alreadyPaid = Service::where('rent_id', $this->rentId)
+                    ->where('payment_setting_id', $obligation['payment_setting_id'])
+                    ->where('periodo_referencia', $obligation['period_key'])
+                    ->exists();
+
+                if ($alreadyPaid) {
+                    Notification::make()->title('Ese periodo ya fue reportado como pagado')->warning()->send();
+
+                    return;
+                }
+
+                $dueDate = $obligation['due_date'] instanceof Carbon
+                    ? $obligation['due_date']->copy()
+                    : Carbon::parse((string) $data['fecha_vencimiento']);
+                $paidDate = Carbon::parse($data['fecha_pago']);
+                $estatus = $paidDate->gt($dueDate) ? 'atrasado' : 'pagado';
 
                 Service::create([
                     'rent_id' => $this->rentId,
-                    'payment_setting_id' => null,
-                    'nombre' => trim(($data['tipo'] ?? 'Pago').' - '.($data['mes_correspondiente'] ?? '')),
-                    'tipo' => $data['tipo'],
-                    'mes_correspondiente' => $data['mes_correspondiente'],
+                    'payment_setting_id' => $obligation['payment_setting_id'],
+                    'nombre' => trim(($obligation['tipo'] ?? 'Pago').' - '.($obligation['period_key'] ?? '')),
+                    'tipo' => $obligation['tipo'],
+                    'frecuencia' => $obligation['frecuencia'] ?? 'Mensual',
+                    'mes_correspondiente' => ucfirst(Carbon::createFromFormat('Y-m', $obligation['period_key'])->translatedFormat('F')),
                     'fecha_pago' => $data['fecha_pago'],
-                    'fecha_vencimiento' => $data['fecha_pago'],
+                    'fecha_vencimiento' => $dueDate->toDateString(),
                     'monto' => $data['monto'],
                     'forma_pago' => $data['forma_pago'],
                     'observaciones' => $data['observaciones'] ?? null,
-                    'estatus' => $estatus, // Guardamos el estatus calculado
+                    'estatus' => $estatus,
                     'evidencia' => $data['evidencia'] ?? null,
+                    'periodo_referencia' => $obligation['period_key'],
                 ]);
 
                 Notification::make()->title('Pago registrado')->success()->send();
@@ -278,5 +364,40 @@ class PaymentManager extends Component implements HasActions, HasForms
             ])
             ->modalSubmitAction(false)
             ->modalCancelActionLabel('Cerrar');
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function getUnpaidObligationSelectOptions(): array
+    {
+        return collect($this->buildMonthlyObligations())
+            ->filter(fn (array $obligation): bool => empty($obligation['paid_service_id']))
+            ->mapWithKeys(function (array $obligation): array {
+                /** @var Carbon $dueDate */
+                $dueDate = $obligation['due_date'];
+                $label = ucfirst($obligation['tipo']).' · '.$obligation['period_key'].' · vence '.$dueDate->format('d/m');
+
+                return [$obligation['key'] => $label];
+            })
+            ->all();
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function findObligationByKey(?string $key): ?array
+    {
+        if (! $key) {
+            return null;
+        }
+
+        foreach ($this->buildMonthlyObligations() as $obligation) {
+            if ($obligation['key'] === $key) {
+                return $obligation;
+            }
+        }
+
+        return null;
     }
 }

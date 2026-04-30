@@ -44,6 +44,7 @@ class SettingsManager extends Component implements HasForms
         $record = Rent::findOrFail($rentId);
         $this->form->fill($record->attributesToArray());
         $this->ensureBaseRentPayment($record);
+        $this->ensureDefaultUtilityPayments();
         $this->isInitializingForm = false;
     }
 
@@ -83,7 +84,7 @@ class SettingsManager extends Component implements HasForms
                                 return new HtmlString("<div class='flex justify-end'><img src='{$avatar}' class='w-16 h-16 rounded-full object-cover shadow-sm'></div>");
                             }),
                     ]),
-                ])->extraAttributes(['class' => 'bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-100 shadow-sm mb-6']),
+                ])->extraAttributes(['class' => 'bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-100 border-t-4 border-t-[#26cad3] shadow-sm mb-6']),
 
                 // 2. SECCIÓN NOTIFICACIONES
                 Forms\Components\Section::make('Notificaciones')
@@ -101,15 +102,15 @@ class SettingsManager extends Component implements HasForms
                                     ->content(new HtmlString('<span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Tipo de notificación</span>')),
                                 Forms\Components\Placeholder::make('notif_header_email')
                                     ->hiddenLabel()
-                                    ->extraAttributes(['class' => 'flex min-h-6 items-center justify-center text-center'])
+                                    ->extraAttributes(['class' => 'flex min-h-6 items-left justify-left text-left'])
                                     ->content(new HtmlString('<span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Email</span>')),
                                 Forms\Components\Placeholder::make('notif_header_push')
                                     ->hiddenLabel()
-                                    ->extraAttributes(['class' => 'flex min-h-6 items-center justify-center text-center'])
+                                    ->extraAttributes(['class' => 'flex min-h-6 items-left justify-left text-left'])
                                     ->content(new HtmlString('<span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Push</span>')),
                                 Forms\Components\Placeholder::make('notif_header_whatsapp')
                                     ->hiddenLabel()
-                                    ->extraAttributes(['class' => 'flex min-h-6 items-center justify-center text-center'])
+                                    ->extraAttributes(['class' => 'flex min-h-6 items-left justify-left text-left'])
                                     ->content(new HtmlString('<span class="text-xs font-semibold uppercase tracking-wide text-gray-500">WhatsApp</span>')),
 
                                 Forms\Components\Placeholder::make('notif_row_recordatorios')
@@ -167,16 +168,19 @@ class SettingsManager extends Component implements HasForms
 
     public function addPaymentSetting(): void
     {
+        $nextType = $this->nextSuggestedPaymentType();
+
         $setting = PaymentSetting::create([
             'rent_id' => $this->rentId,
-            'tipo' => 'agua',
+            'tipo' => $nextType,
             'frecuencia' => 'Mensual',
             'dia_pago' => 5,
             'meses_intervalo' => PaymentSetting::intervalForFrequency('Mensual'),
             'monto' => 0,
             'moneda' => 'MXN',
             'es_variable' => true,
-            'activo' => true,
+            // Solo la renta base inicia activa por defecto.
+            'activo' => false,
             'es_base_renta' => false,
         ]);
 
@@ -341,12 +345,64 @@ class SettingsManager extends Component implements HasForms
         ]);
     }
 
+    private function ensureDefaultUtilityPayments(): void
+    {
+        $types = ['mantenimiento', 'agua', 'luz'];
+
+        foreach ($types as $type) {
+            $exists = PaymentSetting::where('rent_id', $this->rentId)
+                ->where('tipo', $type)
+                ->exists();
+
+            if ($exists) {
+                continue;
+            }
+
+            PaymentSetting::create([
+                'rent_id' => $this->rentId,
+                'tipo' => $type,
+                'frecuencia' => 'Mensual',
+                'dia_pago' => 5,
+                'meses_intervalo' => PaymentSetting::intervalForFrequency('Mensual'),
+                'monto' => 0,
+                'moneda' => 'MXN',
+                'es_variable' => true,
+                'activo' => false,
+                'es_base_renta' => false,
+            ]);
+        }
+    }
+
+    private function nextSuggestedPaymentType(): string
+    {
+        $existingTypes = PaymentSetting::where('rent_id', $this->rentId)
+            ->pluck('tipo')
+            ->map(fn (mixed $type): string => mb_strtolower((string) $type))
+            ->all();
+
+        foreach (['mantenimiento', 'agua', 'luz'] as $candidate) {
+            if (! in_array($candidate, $existingTypes, true)) {
+                return $candidate;
+            }
+        }
+
+        return 'agua';
+    }
+
     public function render()
     {
         $paymentSettings = PaymentSetting::where('rent_id', $this->rentId)
             ->with('reminders')
-            ->orderByDesc('es_base_renta')
-            ->orderBy('tipo')
+            ->orderByRaw("
+                CASE
+                    WHEN es_base_renta = 1 THEN 0
+                    WHEN tipo = 'mantenimiento' THEN 1
+                    WHEN tipo = 'agua' THEN 2
+                    WHEN tipo = 'luz' THEN 3
+                    ELSE 4
+                END
+            ")
+            ->orderBy('id')
             ->get();
 
         return view('livewire.settings-manager', [

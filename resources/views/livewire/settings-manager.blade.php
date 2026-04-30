@@ -2,7 +2,7 @@
     
     {{ $this->form }}
 
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-100 dark:border-gray-700 p-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-100 border-t-4 border-t-[#26cad3] dark:border-gray-700 p-6">
         
         <h3 class="text-lg font-bold text-gray-800 dark:text-white mb-6">Configuración de pagos</h3>
 
@@ -13,8 +13,7 @@
                         <th class="py-2 pr-3 font-semibold text-gray-600 dark:text-gray-300">Tipo</th>
                         <th class="py-2 px-3 font-semibold text-gray-600 dark:text-gray-300">Activo</th>
                         <th class="py-2 px-3 font-semibold text-gray-600 dark:text-gray-300">Frecuencia</th>
-                        <th class="py-2 px-3 font-semibold text-gray-600 dark:text-gray-300">Día pago</th>
-                        <th class="py-2 px-3 font-semibold text-gray-600 dark:text-gray-300">Fecha límite</th>
+                        <th class="py-2 px-3 font-semibold text-gray-600 dark:text-gray-300">Programación de pago</th>
                         <th class="py-2 px-3 font-semibold text-gray-600 dark:text-gray-300">Variable</th>
                         <th class="py-2 px-3 font-semibold text-gray-600 dark:text-gray-300">Monto</th>
                         <th class="py-2 pl-3 font-semibold text-gray-600 dark:text-gray-300">Recordatorios</th>
@@ -50,24 +49,25 @@
                                 </select>
                             </td>
                             <td class="py-3 px-3">
-                                <input
-                                    type="number"
-                                    min="1"
-                                    max="31"
-                                    value="{{ $payment->dia_pago }}"
-                                    class="w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-900"
-                                    wire:change="updatePaymentField({{ $payment->id }}, 'dia_pago', $event.target.value)"
-                                    @disabled($payment->frecuencia !== 'Mensual')
-                                />
-                            </td>
-                            <td class="py-3 px-3">
-                                <input
-                                    type="date"
-                                    value="{{ optional($payment->fecha_limite_pago)->format('Y-m-d') }}"
-                                    class="w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-900"
-                                    wire:change="updatePaymentField({{ $payment->id }}, 'fecha_limite_pago', $event.target.value)"
-                                    @disabled($payment->frecuencia === 'Mensual')
-                                />
+                                @if($payment->frecuencia === 'Mensual')
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        max="31"
+                                        value="{{ $payment->dia_pago }}"
+                                        class="w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-900"
+                                        wire:change="updatePaymentField({{ $payment->id }}, 'dia_pago', $event.target.value)"
+                                    />
+                                    <p class="mt-1 text-[11px] text-gray-500">Captura el día del mes para cobrar.</p>
+                                @else
+                                    <input
+                                        type="date"
+                                        value="{{ optional($payment->fecha_limite_pago)->format('Y-m-d') }}"
+                                        class="w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-900"
+                                        wire:change="updatePaymentField({{ $payment->id }}, 'fecha_limite_pago', $event.target.value)"
+                                    />
+                                    <p class="mt-1 text-[11px] text-gray-500">Fecha límite del último pago para calcular el siguiente.</p>
+                                @endif
                             </td>
                             <td class="py-3 px-3">
                                 <input
