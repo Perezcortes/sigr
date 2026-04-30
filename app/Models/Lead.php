@@ -4,6 +4,8 @@ namespace App\Models;
 
 use App\Enums\LeadCanal;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Models\WhatsappMessage;
 
 class Lead extends Model
 {
@@ -139,5 +141,65 @@ class Lead extends Model
         }
 
         return $d;
+    }
+
+    /**
+     * Variantes del número para comparar mensajes entrantes/salientes.
+     *
+     * @return array<int, string>
+     */
+    public function whatsappPhoneCandidates(): array
+    {
+        $normalized = $this->normalizedWhatsappForEvolution();
+        if (! $normalized) {
+            return [];
+        }
+
+        $digits = preg_replace('/\D/', '', $normalized);
+        if (! $digits) {
+            return [];
+        }
+
+        $candidates = [$digits];
+
+        // México: aceptar tanto 52XXXXXXXXXX como 521XXXXXXXXXX.
+        if (str_starts_with($digits, '521') && strlen($digits) >= 13) {
+            $withoutMobilePrefix = '52'.substr($digits, 3);
+            $candidates[] = $withoutMobilePrefix;
+        }
+
+        if (str_starts_with($digits, '52') && ! str_starts_with($digits, '521') && strlen($digits) >= 12) {
+            $withMobilePrefix = '521'.substr($digits, 2);
+            $candidates[] = $withMobilePrefix;
+        }
+
+        // Permitir formatos con + para registros previos.
+        $plusCandidates = array_map(fn (string $number): string => '+'.$number, $candidates);
+
+        return array_values(array_unique(array_merge($candidates, $plusCandidates)));
+    }
+
+    public function whatsappMessages(): HasMany
+    {
+        return $this->hasMany(WhatsappMessage::class, 'lead_id');
+    }
+
+    /**
+     * Conversación completa: mensajes vinculados por lead_id O por teléfono
+     * (para mensajes entrantes que llegaron antes de vincularse).
+     */
+    public function whatsappConversation()
+    {
+        $leadId = $this->id;
+        $candidates = $this->whatsappPhoneCandidates();
+
+        return WhatsappMessage::query()
+            ->where(function ($q) use ($leadId, $candidates) {
+                $q->where('lead_id', $leadId);
+                if (! empty($candidates)) {
+                    $q->orWhereIn('phone', $candidates);
+                }
+            })
+            ->orderBy('created_at');
     }
 }

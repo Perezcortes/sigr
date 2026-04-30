@@ -19,6 +19,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Maatwebsite\Excel\Facades\Excel;
+use App\Models\WhatsappMessage;
 use WallaceMartinss\FilamentEvolution\Enums\StatusConnectionEnum;
 use WallaceMartinss\FilamentEvolution\Services\WhatsappService;
 
@@ -193,72 +194,6 @@ class LeadResource extends Resource
                                                     }
                                                 })->visible(fn (?Lead $record) => $record !== null),
 
-                                            Forms\Components\Actions\Action::make('whatsapp')
-                                                ->label('WhatsApp')
-                                                ->icon('heroicon-m-chat-bubble-left-ellipsis')
-                                                ->color('success')
-                                                ->action(function (?Lead $record) {
-                                                    if ($record) {
-                                                        $hist = $record->historial_acciones ?? [];
-                                                        $hist[] = ['fecha' => now()->format('d/m/Y H:i'), 'accion' => 'WhatsApp iniciado'];
-                                                        $record->update(['etapa' => 'contactado', 'historial_acciones' => $hist]);
-
-                                                        return redirect()->away('https://wa.me/52'.$record->telefono);
-                                                    }
-                                                })->visible(fn (?Lead $record) => $record !== null),
-
-                                            Forms\Components\Actions\Action::make('whatsapp_evolution')
-                                                ->label('WhatsApp Evolution')
-                                                ->icon('heroicon-m-paper-airplane')
-                                                ->color('info')
-                                                ->visible(fn (?Lead $record) => $record !== null && filled($record->normalizedWhatsappForEvolution()))
-                                                ->form([
-                                                    Forms\Components\Select::make('instance_id')
-                                                        ->label('Instancia conectada')
-                                                        ->options(function (): array {
-                                                            return WhatsappInstance::query()
-                                                                ->where('status', StatusConnectionEnum::OPEN)
-                                                                ->orderBy('name')
-                                                                ->pluck('name', 'id')
-                                                                ->all();
-                                                        })
-                                                        ->default(fn () => auth()->user()?->evolution_whatsapp_instance_id)
-                                                        ->searchable()
-                                                        ->required(),
-                                                    Forms\Components\Textarea::make('message')
-                                                        ->label('Mensaje')
-                                                        ->required()
-                                                        ->rows(4),
-                                                ])
-                                                ->action(function (array $data, ?Lead $record): void {
-                                                    if (! $record) {
-                                                        return;
-                                                    }
-                                                    $number = $record->normalizedWhatsappForEvolution();
-                                                    if (! $number) {
-                                                        Notification::make()->danger()->title('Teléfono no válido')->send();
-
-                                                        return;
-                                                    }
-                                                    try {
-                                                        $service = app(WhatsappService::class);
-                                                        $service->sendText($data['instance_id'], $number, $data['message']);
-                                                        $hist = $record->historial_acciones ?? [];
-                                                        $hist[] = ['fecha' => now()->format('d/m/Y H:i'), 'accion' => 'Mensaje WhatsApp (Evolution) enviado'];
-                                                        $record->update(['etapa' => 'contactado', 'historial_acciones' => $hist]);
-                                                        Notification::make()
-                                                            ->success()
-                                                            ->title('Mensaje enviado')
-                                                            ->send();
-                                                    } catch (\Throwable $e) {
-                                                        Notification::make()
-                                                            ->danger()
-                                                            ->title('Error al enviar')
-                                                            ->body($e->getMessage())
-                                                            ->send();
-                                                    }
-                                                }),
-
                                             Forms\Components\Actions\Action::make('registrar_llamada')
                                                 ->label('Llamada')
                                                 ->icon('heroicon-m-phone')
@@ -314,9 +249,119 @@ class LeadResource extends Resource
                                 Forms\Components\Tabs\Tab::make('WhatsApp')
                                     ->icon('heroicon-m-chat-bubble-bottom-center-text')
                                     ->schema([
-                                        Forms\Components\Placeholder::make('info_whatsapp')
-                                            ->label('Chat de WhatsApp')
-                                            ->content('Conecta tu número en Admin → WhatsApp → Instancias (QR). Desde la pestaña Acciones puedes enviar con “WhatsApp Evolution”.'),
+                                        Forms\Components\Actions::make([
+                                            Forms\Components\Actions\Action::make('send_whatsapp_from_tab')
+                                                ->label('Enviar WhatsApp')
+                                                ->icon('heroicon-m-paper-airplane')
+                                                ->color('success')
+                                                ->visible(fn (?Lead $record) => $record !== null && filled($record->normalizedWhatsappForEvolution()))
+                                                ->form([
+                                                    Forms\Components\Select::make('instance_id')
+                                                        ->label('Instancia conectada')
+                                                        ->options(function (): array {
+                                                            return WhatsappInstance::query()
+                                                                ->where('status', StatusConnectionEnum::OPEN)
+                                                                ->orderBy('name')
+                                                                ->pluck('name', 'id')
+                                                                ->all();
+                                                        })
+                                                        ->default(fn () => auth()->user()?->evolution_whatsapp_instance_id)
+                                                        ->required()
+                                                        ->searchable(),
+                                                    Forms\Components\Select::make('type')
+                                                        ->label('Tipo de mensaje')
+                                                        ->options([
+                                                            'text' => 'Texto',
+                                                            'image' => 'Imagen',
+                                                            'document' => 'Documento',
+                                                        ])
+                                                        ->default('text')
+                                                        ->live()
+                                                        ->required(),
+                                                    Forms\Components\Textarea::make('message')
+                                                        ->label('Mensaje')
+                                                        ->rows(4)
+                                                        ->required(fn (Forms\Get $get): bool => $get('type') === 'text')
+                                                        ->visible(fn (Forms\Get $get): bool => $get('type') === 'text'),
+                                                    Forms\Components\FileUpload::make('media')
+                                                        ->label('Archivo')
+                                                        ->disk('public')
+                                                        ->directory('whatsapp-media')
+                                                        ->acceptedFileTypes([
+                                                            'image/jpeg',
+                                                            'image/png',
+                                                            'image/webp',
+                                                            'application/pdf',
+                                                            'application/msword',
+                                                            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                                                        ])
+                                                        ->maxSize(16384)
+                                                        ->visible(fn (Forms\Get $get): bool => in_array($get('type'), ['image', 'document'], true))
+                                                        ->required(fn (Forms\Get $get): bool => in_array($get('type'), ['image', 'document'], true)),
+                                                    Forms\Components\TextInput::make('caption')
+                                                        ->label('Descripción')
+                                                        ->maxLength(255)
+                                                        ->visible(fn (Forms\Get $get): bool => in_array($get('type'), ['image', 'document'], true)),
+                                                ])
+                                                ->action(function (array $data, ?Lead $record): void {
+                                                    if (! $record) {
+                                                        return;
+                                                    }
+
+                                                    $number = $record->normalizedWhatsappForEvolution();
+                                                    if (! $number) {
+                                                        Notification::make()->danger()->title('Teléfono no válido')->send();
+
+                                                        return;
+                                                    }
+
+                                                    try {
+                                                        $service = app(WhatsappService::class);
+                                                        $instance = static::resolveWhatsappInstance($data['instance_id'] ?? null);
+                                                        if (! $instance) {
+                                                            Notification::make()->danger()->title('Instancia inválida')->body('Selecciona una instancia conectada válida.')->send();
+
+                                                            return;
+                                                        }
+                                                        $type = (string) ($data['type'] ?? 'text');
+                                                        $caption = $data['caption'] ?? null;
+
+                                                        if ($type === 'image') {
+                                                            $service->sendImage($instance->id, $number, (string) $data['media'], $caption, 'public');
+                                                        } elseif ($type === 'document') {
+                                                            $service->sendDocument($instance->id, $number, (string) $data['media'], basename((string) $data['media']), $caption, 'public');
+                                                        } else {
+                                                            $service->sendText($instance->id, $number, (string) $data['message']);
+                                                        }
+
+                                                        $bodyText = $data['message'] ?? $caption ?? basename((string) ($data['media'] ?? ''));
+                                                        WhatsappMessage::create([
+                                                            'wa_message_id' => 'local-'.uniqid(),
+                                                            'phone'         => $number,
+                                                            'direction'     => 'out',
+                                                            'body'          => $bodyText,
+                                                            'lead_id'       => $record->id,
+                                                            'user_id'       => auth()->id(),
+                                                            'sent_at'       => now(),
+                                                        ]);
+
+                                                        Notification::make()
+                                                            ->success()
+                                                            ->title('Mensaje enviado')
+                                                            ->body('El mensaje se agregó al historial del chat.')
+                                                            ->send();
+                                                    } catch (\Throwable $e) {
+                                                        Notification::make()
+                                                            ->danger()
+                                                            ->title('Error al enviar')
+                                                            ->body(static::friendlyWhatsappError($e->getMessage()))
+                                                            ->send();
+                                                    }
+                                                }),
+                                        ]),
+                                        Forms\Components\ViewField::make('whatsapp_chat')
+                                            ->view('filament.forms.components.lead-whatsapp-chat')
+                                            ->label(''),
                                     ]),
                             ])
                             ->columnSpanFull(),
@@ -446,5 +491,40 @@ class LeadResource extends Resource
             'create' => Pages\CreateLead::route('/create'),
             'edit' => Pages\EditLead::route('/{record}/edit'),
         ];
+    }
+
+    protected static function friendlyWhatsappError(string $message): string
+    {
+        $msg = strtolower($message);
+
+        if (str_contains($msg, 'exists') || str_contains($msg, 'not exists') || str_contains($msg, 'bad request')) {
+            return 'El número no existe en WhatsApp o tiene un formato inválido. Verifica lada y país.';
+        }
+
+        if (str_contains($msg, 'instance') && str_contains($msg, 'not found')) {
+            return 'La instancia seleccionada no existe en Evolution. Revisa en Admin > WhatsApp > Instancias.';
+        }
+
+        if (str_contains($msg, 'connection') || str_contains($msg, 'close')) {
+            return 'La instancia no está conectada. Abre el QR y confirma estado en línea.';
+        }
+
+        return $message;
+    }
+
+    protected static function resolveWhatsappInstance(mixed $instanceInput): ?WhatsappInstance
+    {
+        if (blank($instanceInput)) {
+            return null;
+        }
+
+        $instance = WhatsappInstance::query()->find($instanceInput);
+        if ($instance) {
+            return $instance;
+        }
+
+        return WhatsappInstance::query()
+            ->where('name', (string) $instanceInput)
+            ->first();
     }
 }

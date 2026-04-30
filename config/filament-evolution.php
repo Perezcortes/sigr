@@ -91,7 +91,7 @@ return [
     */
     'storage' => [
         'webhooks' => true,
-        'messages' => true,
+        'messages' => false, // Desactivado: el esquema de la tabla no coincide con el modelo del paquete. Usamos App\Listeners\SaveIncomingWhatsappMessage.
     ],
 
     /*
