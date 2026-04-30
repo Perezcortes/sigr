@@ -21,6 +21,7 @@ use App\Filament\Resources\SaleResource;
 use App\Filament\Resources\TenantRequestResource;
 use App\Filament\Resources\TenantResource;
 use App\Filament\Resources\UserResource;
+use App\Filament\Resources\WhatsappInstanceResource;
 use App\Filament\Widgets\EstatusRentasChartWidget;
 use App\Filament\Widgets\EstatusSolicitudesChartWidget;
 use App\Filament\Widgets\RentasMensualesChartWidget;
@@ -60,6 +61,7 @@ class AdminPanelProvider extends PanelProvider
                 'Ventas',
                 'Centro de pagos',
                 'Mis Administraciones',
+                'WhatsApp',
                 'Administración',
             ])
 
@@ -121,6 +123,7 @@ class AdminPanelProvider extends PanelProvider
                 PayableOperationResource::class,
                 GuarantorRequestResource::class,
                 RoleResource::class,
+                WhatsappInstanceResource::class,
             ])
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
             ->pages([

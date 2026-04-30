@@ -2,18 +2,20 @@
 
 namespace App\Providers;
 
-use Filament\Support\Colors\Color;
-use Filament\Support\Facades\FilamentColor;
-use Illuminate\Support\ServiceProvider;
-use Livewire\Livewire;
-use App\Models\Service;
-use App\Policies\ServicePolicy;
-use App\Models\Ticket;
-use App\Policies\TicketPolicy;
-use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Gate;
 use App\Filament\Resources\AdministrationResource\RelationManagers\ServicesRelationManager;
 use App\Filament\Resources\AdministrationResource\RelationManagers\TicketsRelationManager;
+use App\Models\Service;
+use App\Models\Ticket;
+use App\Policies\RolePolicy;
+use App\Policies\ServicePolicy;
+use App\Policies\TicketPolicy;
+use Filament\Support\Colors\Color;
+use Filament\Support\Facades\FilamentColor;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Route;
+use Illuminate\Support\ServiceProvider;
+use Livewire\Livewire;
+use Spatie\Permission\Models\Role;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -39,7 +41,7 @@ class AppServiceProvider extends ServiceProvider
             'danger' => Color::hex('#fe5f3b'),    // Naranja
             'gray' => Color::Slate,               // Gris base para el modo oscuro
         ]);
-        
+
         // El Administrador se salta todas las reglas
         Gate::before(function ($user, $ability) {
             return $user->hasRole('Administrador') ? true : null;
@@ -63,8 +65,8 @@ class AppServiceProvider extends ServiceProvider
         // Registro de Políticas manuales
         Gate::policy(Service::class, ServicePolicy::class);
         Gate::policy(Ticket::class, TicketPolicy::class);
-        
+
         // Conexión de la Política de Roles de Spatie
-        Gate::policy(\Spatie\Permission\Models\Role::class, \App\Policies\RolePolicy::class);
+        Gate::policy(Role::class, RolePolicy::class);
     }
 }
