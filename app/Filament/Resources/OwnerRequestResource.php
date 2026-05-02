@@ -34,99 +34,100 @@ class OwnerRequestResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\Section::make('Información de la Solicitud')
-                    ->schema([
-                        Forms\Components\Select::make('estatus')
-                            ->options([
-                                'nueva' => 'Nueva',
-                                'en_proceso' => 'En Proceso',
-                                'completada' => 'Completada',
-                                'rechazada' => 'Rechazada',
-                            ])
-                            ->required()
-                            ->default('nueva'),
-                    ])
-                    ->columns(1),
+                Forms\Components\Wizard::make([
+                    
+                    // PASO 1: Inicio
+                    Forms\Components\Wizard\Step::make('Información Base')
+                        ->icon('heroicon-o-clipboard-document-check')
+                        ->schema([
+                            Forms\Components\Select::make('estatus')
+                                ->options([
+                                    'nueva' => 'Nueva',
+                                    'en_proceso' => 'En Proceso',
+                                    'completada' => 'Completada',
+                                    'rechazada' => 'Rechazada',
+                                ])
+                                ->required()
+                                ->default('nueva'),
 
-                // SECCIÓN: TIPO DE PERSONA
-                Forms\Components\Section::make('Tipo de Persona')
-                    ->schema([
-                        Forms\Components\Radio::make('tipo_persona')
-                            ->label('Tipo de Persona')
-                            ->options([
-                                'fisica' => 'Persona Física',
-                                'moral' => 'Persona Moral',
-                            ])
-                            ->required()
-                            ->default('fisica')
-                            ->live()
-                            ->columnSpanFull(),
-                    ]),
+                            Forms\Components\Radio::make('tipo_persona')
+                                ->label('Tipo de Persona')
+                                ->options([
+                                    'fisica' => 'Persona Física',
+                                    'moral' => 'Persona Moral',
+                                ])
+                                ->required()
+                                ->default('fisica')
+                                ->live(), // Se quitó el columnSpanFull para que queden lado a lado
+                        ])->columns(2),
 
-                // SECCIÓN: DATOS DEL PROPIETARIO (Persona Física)
-                Forms\Components\Section::make('Datos del Propietario')
-                    ->description('Información personal acerca del propietario')
-                    ->schema(self::getDatosPropietarioFisicaSchema())
-                    ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica')
-                    ->columns(2)
-                    ->collapsible(),
+                    // PASOS EXCLUSIVOS PARA PERSONA FÍSICA
 
-                // SECCIÓN: DATOS DE LA EMPRESA (Persona Moral)
-                Forms\Components\Section::make('Datos de la Empresa')
-                    ->description('Información acerca de la empresa')
-                    ->schema(self::getDatosEmpresaSchema())
-                    ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
-                    ->columns(2)
-                    ->collapsible(),
+                    Forms\Components\Wizard\Step::make('Datos del Propietario')
+                        ->description('Información personal')
+                        ->icon('heroicon-o-user')
+                        ->schema(self::getDatosPropietarioFisicaSchema())
+                        ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica')
+                        ->columns(2),
 
-                Forms\Components\Section::make('Datos del Acta Constitutiva')
-                    ->schema(self::getActaConstitutivaSchema())
-                    ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
-                    ->columns(2)
-                    ->collapsible(),
+                    Forms\Components\Wizard\Step::make('Representación')
+                        ->description('Solo si será representado por un tercero')
+                        ->icon('heroicon-o-users')
+                        ->schema(self::getRepresentacionSchema())
+                        ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica')
+                        ->columns(2),
 
-                Forms\Components\Section::make('Apoderado Legal y/o Representante')
-                    ->schema(self::getApoderadoSchema())
-                    ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
-                    ->columns(2)
-                    ->collapsible(),
+                    // PASOS EXCLUSIVOS PARA PERSONA MORAL
 
-                // SECCIÓN: PROPIEDAD VINCULADA A LA RENTA
-                Forms\Components\Section::make('Propiedad vinculada a la renta')
-                    ->description('Selecciona una propiedad existente del propietario o da de alta una nueva. Esto solo vincula la propiedad a la renta.')
-                    ->schema(self::getLinkedPropertySchema())
-                    ->columns(1)
-                    ->collapsible(),
+                    Forms\Components\Wizard\Step::make('Datos de la Empresa')
+                        ->description('Información acerca de la empresa')
+                        ->icon('heroicon-o-building-office')
+                        ->schema(self::getDatosEmpresaSchema())
+                        ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
+                        ->columns(2),
 
-                Forms\Components\Section::make('Imágenes de la Propiedad Vinculada')
-                    ->description('Carga y administra imágenes de la propiedad seleccionada.')
-                    ->schema(self::getPropertyImagesSchema())
-                    ->columns(1)
-                    ->collapsible()
-                    ->visible(fn (Forms\Get $get) => filled($get('selected_property_id'))),
+                    Forms\Components\Wizard\Step::make('Documentación Legal')
+                        ->description('Acta constitutiva y Apoderado')
+                        ->icon('heroicon-o-scale')
+                        ->schema([
+                            Forms\Components\Section::make('Datos del Acta Constitutiva')
+                                ->schema(self::getActaConstitutivaSchema())->columns(2),
+                                
+                            Forms\Components\Section::make('Apoderado Legal y/o Representante')
+                                ->schema(self::getApoderadoSchema())->columns(2),
+                        ])
+                        ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'moral'),
 
-                // SECCIÓN: DATOS DEL INMUEBLE A ARRENDAR
-                Forms\Components\Section::make('Datos del Inmueble a Arrendar')
-                    ->description('Información acerca del inmueble')
-                    ->schema(self::getDatosInmuebleSchema())
-                    ->visible(fn (Forms\Get $get) => blank($get('selected_property_id')))
-                    ->columns(2)
-                    ->collapsible(),
+                    // PASO COMPARTIDO: INMUEBLE
+                    Forms\Components\Wizard\Step::make('Inmueble')
+                        ->description('Datos de la propiedad a arrendar')
+                        ->icon('heroicon-o-home')
+                        ->schema([
+                            Forms\Components\Section::make('Propiedad vinculada a la renta')
+                                ->description('Selecciona una propiedad existente o da de alta una nueva.')
+                                ->schema(self::getLinkedPropertySchema())
+                                ->columns(1),
 
-                // SECCIÓN: DIRECCIÓN DEL INMUEBLE
-                Forms\Components\Section::make('Dirección del Inmueble a Arrendar')
-                    ->schema(self::getDireccionInmuebleSchema())
-                    ->visible(fn (Forms\Get $get) => blank($get('selected_property_id')))
-                    ->columns(2)
-                    ->collapsible(),
+                            Forms\Components\Section::make('Imágenes de la Propiedad Vinculada')
+                                ->schema(self::getPropertyImagesSchema())
+                                ->visible(fn (Forms\Get $get) => filled($get('selected_property_id')))
+                                ->columns(1),
 
-                // SECCIÓN: REPRESENTACIÓN (solo para Persona Física)
-                Forms\Components\Section::make('Representación del Propietario')
-                    ->description('Llenar solo si el propietario será representado por un tercero')
-                    ->schema(self::getRepresentacionSchema())
-                    ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica')
-                    ->columns(2)
-                    ->collapsible(),
+                            Forms\Components\Section::make('Datos del Inmueble a Arrendar')
+                                ->schema(self::getDatosInmuebleSchema())
+                                ->visible(fn (Forms\Get $get) => blank($get('selected_property_id')))
+                                ->columns(2),
+
+                            Forms\Components\Section::make('Dirección del Inmueble')
+                                ->schema(self::getDireccionInmuebleSchema())
+                                ->visible(fn (Forms\Get $get) => blank($get('selected_property_id')))
+                                ->columns(2),
+                        ]),
+
+                ])
+                ->columnSpanFull()
+                ->skippable()
+                ->submitAction(new \Illuminate\Support\HtmlString('<button type="submit" class="fi-btn fi-btn-color-primary">Guardar Solicitud</button>')),
             ]);
     }
 
