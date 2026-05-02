@@ -27,94 +27,96 @@ class TenantRequestResource extends Resource
         return null;
     }
 
+
     public static function form(Form $form): Form
     {
         return $form
             ->schema([
-                Forms\Components\Section::make('Información de la Solicitud')
-                    ->schema([
-                        Forms\Components\Select::make('estatus')
-                            ->options([
-                                'nueva' => 'Nueva',
-                                'en_proceso' => 'En Proceso',
-                                'completada' => 'Completada',
-                                'rechazada' => 'Rechazada',
-                            ])
-                            ->required()
-                            ->default('nueva'),
-                    ])
-                    ->columns(1),
+                Forms\Components\Wizard::make([
+                    
+                    // PASO 1: Inicio
+                    Forms\Components\Wizard\Step::make('Información Base')
+                        ->icon('heroicon-o-clipboard-document-check')
+                        ->schema([
+                            Forms\Components\Select::make('estatus')
+                                ->options([
+                                    'nueva' => 'Nueva',
+                                    'en_proceso' => 'En Proceso',
+                                    'completada' => 'Completada',
+                                    'rechazada' => 'Rechazada',
+                                ])
+                                ->required()
+                                ->default('nueva'),
 
-                // SECCIÓN: TIPO DE PERSONA
-                Forms\Components\Section::make('Tipo de Persona')
-                    ->schema([
-                        Forms\Components\Radio::make('tipo_persona')
-                            ->label('Tipo de Persona')
-                            ->options([
-                                'fisica' => 'Persona Física',
-                                'moral' => 'Persona Moral',
-                            ])
-                            ->required()
-                            ->default('fisica')
-                            ->live()
-                            ->columnSpanFull(),
-                    ]),
+                            Forms\Components\Radio::make('tipo_persona')
+                                ->label('Tipo de Persona')
+                                ->options([
+                                    'fisica' => 'Persona Física',
+                                    'moral' => 'Persona Moral',
+                                ])
+                                ->required()
+                                ->default('fisica')
+                                ->live(), // Se quitó el columnSpanFull para que queden lado a lado
+                        ])->columns(2),
 
-                // SECCIÓN: DATOS PERSONALES (Persona Física)
-                Forms\Components\Section::make('Datos Personales')
-                    ->description('Información personal acerca del inquilino')
-                    ->schema(self::getDatosPersonalesSchema())
-                    ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica')
-                    ->columns(2)
-                    ->collapsible(),
+                    // PASOS EXCLUSIVOS PARA PERSONA FÍSICA
 
-                // SECCIÓN: DATOS DE EMPLEO E INGRESOS (Persona Física)
-                Forms\Components\Section::make('Datos de Empleo e Ingresos')
-                    ->description('Información sobre el empleo y situación económica')
-                    ->schema(self::getDatosEmpleoSchema())
-                    ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica')
-                    ->columns(2)
-                    ->collapsible(),
+                    Forms\Components\Wizard\Step::make('Datos Personales')
+                        ->description('Información personal acerca del inquilino')
+                        ->icon('heroicon-o-user')
+                        ->schema(self::getDatosPersonalesSchema())
+                        ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica')
+                        ->columns(2),
 
-                // SECCIÓN: USO DE PROPIEDAD (Persona Física)
-                Forms\Components\Section::make('Uso de Propiedad')
-                    ->description('Información sobre el uso que dará al inmueble')
-                    ->schema(self::getUsoPropiedadSchema())
-                    ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica')
-                    ->columns(2)
-                    ->collapsible(),
+                    Forms\Components\Wizard\Step::make('Datos de Empleo e Ingresos')
+                        ->description('Información sobre el empleo y situación económica')
+                        ->icon('heroicon-o-briefcase')
+                        ->schema(self::getDatosEmpleoSchema())
+                        ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica')
+                        ->columns(2),
 
-                // SECCIÓN: REFERENCIAS (Persona Física)
-                Forms\Components\Section::make('Referencias')
-                    ->description('Referencias personales y familiares')
-                    ->schema(self::getReferenciasPersonalesSchema())
-                    ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica')
-                    ->columns(2)
-                    ->collapsible(),
+                    Forms\Components\Wizard\Step::make('Uso de Propiedad')
+                        ->description('Información sobre el uso que dará al inmueble')
+                        ->icon('heroicon-o-home')
+                        ->schema(self::getUsoPropiedadSchema())
+                        ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica')
+                        ->columns(2),
 
-                // SECCIÓN: DATOS DE LA EMPRESA (Persona Moral)
-                Forms\Components\Section::make('Datos de la Empresa')
-                    ->description('Información acerca de la empresa')
-                    ->schema(self::getDatosEmpresaSchema())
-                    ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
-                    ->columns(2)
-                    ->collapsible(),
+                    Forms\Components\Wizard\Step::make('Referencias')
+                        ->description('Referencias personales y familiares')
+                        ->icon('heroicon-o-users')
+                        ->schema(self::getReferenciasPersonalesSchema())
+                        ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica')
+                        ->columns(2),
 
-                // SECCIÓN: DATOS Y USO DE PROPIEDAD (Persona Moral)
-                Forms\Components\Section::make('Datos y Uso de Propiedad')
-                    ->description('Información sobre el uso comercial del inmueble')
-                    ->schema(self::getUsoPropiedadMoralSchema())
-                    ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
-                    ->columns(2)
-                    ->collapsible(),
+                    // PASOS EXCLUSIVOS PARA PERSONA MORAL
 
-                // SECCIÓN: REFERENCIAS COMERCIALES (Persona Moral)
-                Forms\Components\Section::make('Referencias')
-                    ->description('Referencias comerciales')
-                    ->schema(self::getReferenciasComercialesSchema())
-                    ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
-                    ->columns(2)
-                    ->collapsible(),
+                    Forms\Components\Wizard\Step::make('Datos de la Empresa')
+                        ->description('Información acerca de la empresa')
+                        ->icon('heroicon-o-building-office')
+                        ->schema(self::getDatosEmpresaSchema())
+                        ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
+                        ->columns(2),
+
+                    Forms\Components\Wizard\Step::make('Datos y Uso de Propiedad')
+                        ->description('Información sobre el uso comercial del inmueble')
+                        ->icon('heroicon-o-home-modern')
+                        ->schema(self::getUsoPropiedadMoralSchema())
+                        ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
+                        ->columns(2),
+
+                    Forms\Components\Wizard\Step::make('Referencias Comerciales') 
+                        ->label('Referencias') 
+                        ->description('Referencias comerciales')
+                        ->icon('heroicon-o-phone')
+                        ->schema(self::getReferenciasComercialesSchema())
+                        ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
+                        ->columns(2),
+
+                ])
+                ->columnSpanFull()
+                ->skippable() // Permite al usuario navegar entre pasos sin que le exija llenar todo
+                ->submitAction(new \Illuminate\Support\HtmlString('<button type="submit" class="fi-btn fi-btn-color-primary">Guardar Solicitud</button>')),
             ]);
     }
 
