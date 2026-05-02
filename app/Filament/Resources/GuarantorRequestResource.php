@@ -23,42 +23,61 @@ class GuarantorRequestResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\Section::make('Información Base')
-                    ->schema([
-                        Forms\Components\Select::make('estatus')
-                            ->options(['nueva' => 'Nueva', 'en_proceso' => 'En Proceso', 'completada' => 'Completada', 'rechazada' => 'Rechazada'])
-                            ->required()->default('nueva'),
-                        Forms\Components\Radio::make('tipo_persona')
-                            ->label('Tipo de Persona')
-                            ->options(['fisica' => 'Persona Física', 'moral' => 'Persona Moral'])
-                            ->required()->live(),
-                        Forms\Components\Radio::make('tipo_figura')
-                            ->label('Tipo')
-                            ->options(['Obligado solidario' => 'Obligado solidario', 'Fiador' => 'Fiador'])
-                            ->required(),
-                    ])->columns(3),
+                Forms\Components\Wizard::make([
+                    
+                    // PASO 1: Inicio
+                    Forms\Components\Wizard\Step::make('Información Base')
+                        ->icon('heroicon-o-clipboard-document-check')
+                        ->schema([
+                            Forms\Components\Select::make('estatus')
+                                ->options(['nueva' => 'Nueva', 'en_proceso' => 'En Proceso', 'completada' => 'Completada', 'rechazada' => 'Rechazada'])
+                                ->required()
+                                ->default('nueva'),
+                                
+                            Forms\Components\Radio::make('tipo_persona')
+                                ->label('Tipo de Persona')
+                                ->options(['fisica' => 'Persona Física', 'moral' => 'Persona Moral'])
+                                ->required()
+                                ->default('fisica')
+                                ->live(),
+                                
+                            Forms\Components\Radio::make('tipo_figura')
+                                ->label('Tipo de Figura')
+                                ->options(['Obligado solidario' => 'Obligado solidario', 'Fiador' => 'Fiador'])
+                                ->required(),
+                        ])->columns(3),
 
-                // SECCIONES PERSONA FÍSICA
-                Forms\Components\Section::make('1. Datos Personales')
-                    ->schema(self::getDatosPersonalesFisica())
-                    ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica')
-                    ->columns(2)->collapsible(),
+                    // PASOS EXCLUSIVOS PARA PERSONA FÍSICA
+                    Forms\Components\Wizard\Step::make('Datos Personales')
+                        ->icon('heroicon-o-user')
+                        ->schema(self::getDatosPersonalesFisica())
+                        ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica')
+                        ->columns(2),
 
-                Forms\Components\Section::make('2. Datos de Empleo e Ingresos')
-                    ->schema(self::getDatosEmpleoFisica())
-                    ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica')
-                    ->columns(2)->collapsible(),
+                    Forms\Components\Wizard\Step::make('Empleo e Ingresos')
+                        ->icon('heroicon-o-currency-dollar')
+                        ->schema(self::getDatosEmpleoFisica())
+                        ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica')
+                        ->columns(2),
 
-                // SECCIONES PERSONA MORAL
-                Forms\Components\Section::make('1. Datos de la Empresa')
-                    ->schema(self::getDatosEmpresaMoral())
-                    ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
-                    ->columns(2)->collapsible(),
+                    // PASOS EXCLUSIVOS PARA PERSONA MORAL
+                    Forms\Components\Wizard\Step::make('Datos de la Empresa')
+                        ->icon('heroicon-o-building-office')
+                        ->schema(self::getDatosEmpresaMoral())
+                        ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
+                        ->columns(2),
 
-                // SECCIÓN COMPARTIDA: PROPIEDAD EN GARANTÍA
-                Forms\Components\Section::make('Propiedad en garantía (Opcional)')
-                    ->schema(self::getPropiedadGarantia())
-                    ->columns(2)->collapsible(),
+                    // PASO COMPARTIDO: GARANTÍA
+                    Forms\Components\Wizard\Step::make('Garantía')
+                        ->description('Propiedad en garantía (Opcional)')
+                        ->icon('heroicon-o-home-modern')
+                        ->schema(self::getPropiedadGarantia())
+                        ->columns(2),
+
+                ])
+                ->columnSpanFull()
+                ->skippable()
+                ->submitAction(new \Illuminate\Support\HtmlString('<button type="submit" class="fi-btn fi-btn-color-primary">Guardar Solicitud</button>')),
             ]);
     }
 

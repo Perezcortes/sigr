@@ -3,7 +3,6 @@
 namespace App\Models\Traits;
 
 use Hashids\Hashids;
-use Illuminate\Database\Eloquent\Model;
 
 trait HasHashId
 {
@@ -43,8 +42,8 @@ trait HasHashId
     public static function findByHash(string $hash): ?static
     {
         $id = static::decodeId($hash);
-        
-        if (!$id) {
+
+        if ($id === null) {
             return null;
         }
 
@@ -61,36 +60,41 @@ trait HasHashId
     }
 
     /**
-     * Le dice a Laravel cómo buscar el registro cuando recibe un hash.
+     * Filament (y otras rutas) resuelven el registro vía {@see resolveRouteBindingQuery},
+     * no solo {@see resolveRouteBinding}; hay que decodificar el hash a la PK numérica.
      */
+    public function resolveRouteBindingQuery($query, $value, $field = null)
+    {
+        $valueStr = (string) $value;
+
+        if ($field === 'hash_id' || ! is_numeric($valueStr)) {
+            $id = static::decodeId($valueStr);
+
+            if ($id === null) {
+                return $query->whereRaw('0 = 1');
+            }
+
+            return $query->where($this->getQualifiedKeyName(), $id);
+        }
+
+        return parent::resolveRouteBindingQuery($query, $value, $field);
+    }
+
     /**
-     * Esta función INTERCEPTA la búsqueda de Filament.
-     * En lugar de buscar "WHERE hash_id = ...", decodifica y busca por ID.
+     * Resolución por hash para enlaces HTTP que usan el binding clásico de Laravel.
      */
     public function resolveRouteBinding($value, $field = null)
     {
-        // dd('Entró al resolveRouteBinding', $value, $field);
+        if ($field === 'hash_id' || ! is_numeric((string) $value)) {
+            $id = static::decodeId((string) $value);
 
-        // Si Filament nos pide buscar por 'hash_id' O si el valor no es numérico...
-        if ($field === 'hash_id' || !is_numeric($value)) {
-            
-            // Intentamos decodificar
-            $decoded = static::decodeId($value);
-
-            // Si falla la decodificación (es null o array vacío), abortamos
-            if (empty($decoded)) {
+            if ($id === null) {
                 abort(404);
             }
 
-            // Obtenemos el ID real (entero)
-            // decodeId devuelve int o null en tu trait anterior
-            $id = $decoded; 
-            
-            // Buscamos en la BD usando el ID REAL
-            return $this->where('id', $id)->firstOrFail();
+            return $this->where($this->getQualifiedKeyName(), $id)->firstOrFail();
         }
 
-        // Fallback: Si por alguna razón llega un ID normal
         return parent::resolveRouteBinding($value, $field);
     }
 

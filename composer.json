@@ -8,6 +8,7 @@
     "require": {
         "php": "^8.2",
         "cwsps154/users-roles-permissions": "^1.0",
+        "darkaonline/l5-swagger": "^11.0",
         "filament/filament": "^3.2",
         "hashids/hashids": "^5.0",
         "laravel/framework": "^12.0",
@@ -15,7 +16,8 @@
         "laravel/tinker": "^2.10.1",
         "maatwebsite/excel": "^3.1",
         "pxlrbt/filament-excel": "^2.5",
-        "spatie/laravel-permission": "^6.24"
+        "spatie/laravel-permission": "^6.24",
+        "wallacemartinss/filament-whatsapp-conector": "^1.0"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
@@ -90,6 +92,9 @@
         "preferred-install": "dist",
         "sort-packages": true,
         "platform-check": false,
+        "platform": {
+            "php": "8.3.30"
+        },
         "allow-plugins": {
             "pestphp/pest-plugin": true,
             "php-http/discovery": true

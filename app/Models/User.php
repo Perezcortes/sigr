@@ -2,26 +2,30 @@
 
 namespace App\Models;
 
-//use CWSPS154\UsersRolesPermissions\Models\HasRole;
+// use CWSPS154\UsersRolesPermissions\Models\HasRole;
+use App\Models\Traits\HasHashId;
+use Database\Factories\UserFactory;
 use Filament\Models\Contracts\FilamentUser;
+use Filament\Models\Contracts\HasAvatar;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Spatie\Permission\Traits\HasRoles;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
-use Filament\Models\Contracts\HasAvatar;
+use Spatie\Permission\Traits\HasRoles;
 
-
-class User extends Authenticatable implements HasMedia, HasAvatar, FilamentUser
+class User extends Authenticatable implements FilamentUser, HasAvatar, HasMedia
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable, HasApiTokens;
+    /** @use HasFactory<UserFactory> */
+    use HasApiTokens, HasFactory, Notifiable;
+
+    use HasHashId;
     use HasRoles;
     use InteractsWithMedia;
     use SoftDeletes;
@@ -33,17 +37,30 @@ class User extends Authenticatable implements HasMedia, HasAvatar, FilamentUser
      */
     protected $fillable = [
         'name',
+        'slug',
         'email',
         'mobile',
+        'telefono',
+        'whatsapp',
+        'facebook',
+        'instagram',
+        'linkedin',
+        'about_me',
+        'id_nocnok',
+        'zone_estate_id',
+        'zone_city_ids',
         'password',
-        //'role_id',
+        // 'role_id',
         'last_seen',
         'is_active',
         'is_owner',
         'is_tenant',
-        'is_buyer', 
-        'is_seller', 
+        'is_buyer',
+        'is_seller',
         'office_id',
+        'asesor_id',
+        'score',
+        'evolution_whatsapp_instance_id',
     ];
 
     /**
@@ -66,11 +83,13 @@ class User extends Authenticatable implements HasMedia, HasAvatar, FilamentUser
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'zone_city_ids' => 'array',
             'is_active' => 'boolean',
             'is_owner' => 'boolean',
             'is_tenant' => 'boolean',
-            'is_buyer' => 'boolean', 
+            'is_buyer' => 'boolean',
             'is_seller' => 'boolean',
+            'score' => 'integer',
         ];
     }
 
@@ -96,18 +115,18 @@ class User extends Authenticatable implements HasMedia, HasAvatar, FilamentUser
     {
         try {
             $avatarUrl = $this->getFirstMediaUrl('profile-images');
-            
+
             // Si no hay avatar, usar imagen por defecto
             if (empty($avatarUrl)) {
                 return self::DEFAULT_AVATAR_URL;
             }
-            
+
             // Verificar si la URL es válida (no contiene localhost o errores)
             // Si contiene localhost, usar imagen por defecto para evitar problemas
             if (str_contains($avatarUrl, 'localhost') || str_contains($avatarUrl, '127.0.0.1')) {
                 return self::DEFAULT_AVATAR_URL;
             }
-            
+
             return $avatarUrl;
         } catch (\Exception $e) {
             // Si hay cualquier error, usar imagen por defecto
@@ -142,9 +161,32 @@ class User extends Authenticatable implements HasMedia, HasAvatar, FilamentUser
     /**
      * Relación con Office
      */
-    public function office(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function office(): BelongsTo
     {
         return $this->belongsTo(Office::class);
+    }
+
+    public function evolutionWhatsappInstance(): BelongsTo
+    {
+        return $this->belongsTo(WhatsappInstance::class, 'evolution_whatsapp_instance_id');
+    }
+
+    /**
+     * Asesor asignado al usuario (típicamente rol Cliente).
+     */
+    public function assignedAsesor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'asesor_id');
+    }
+
+    /**
+     * Clientes que tienen asignado a este usuario como asesor.
+     *
+     * @return HasMany<User, User>
+     */
+    public function clientesAsignados(): HasMany
+    {
+        return $this->hasMany(User::class, 'asesor_id');
     }
 
     /**
@@ -154,5 +196,17 @@ class User extends Authenticatable implements HasMedia, HasAvatar, FilamentUser
     public function owner(): HasOne
     {
         return $this->hasOne(Owner::class);
+    }
+
+    public function zoneEstate(): BelongsTo
+    {
+        return $this->belongsTo(Estate::class, 'zone_estate_id');
+    }
+
+    public function zoneCities()
+    {
+        $cityIds = array_filter((array) ($this->zone_city_ids ?? []));
+
+        return Municipality::query()->whereIn('id', $cityIds)->get();
     }
 }

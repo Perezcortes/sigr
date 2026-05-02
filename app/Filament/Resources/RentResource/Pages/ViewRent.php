@@ -14,6 +14,7 @@ use App\Models\RentComment;
 use App\Models\Application;
 use App\Models\Owner;
 use App\Models\Property;
+use App\Models\User;
 use App\Filament\Resources\TenantRequestResource;
 use App\Filament\Resources\OwnerRequestResource;
 use App\Filament\Resources\ApplicationsResource;
@@ -21,14 +22,19 @@ use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Validation\ValidationException;
 
 class ViewRent extends EditRecord
 {
     protected static string $resource = RentResource::class;
     protected static ?string $title = 'Ver Renta';
     protected static string $view = 'filament.resources.rent-resource.pages.view-rent';
+
+    protected bool $advancedToDocumentacionThisRequest = false;
 
     public ?array $tenantData = [];
     public ?array $ownerData = [];
@@ -49,11 +55,14 @@ class ViewRent extends EditRecord
     {
         parent::mount($record);
 
-        if (empty($this->data['asesor_id'])) {
-            $this->data['asesor_id'] = auth()->id();
+        $user = auth()->user();
+
+        if (empty($this->data['asesor_id']) && ! $user->hasRole('Administrador')) {
+            $this->data['asesor_id'] = $user->id;
         }
-        if (empty($this->data['office_id'])) {
-            $this->data['office_id'] = auth()->user()->office_id;
+
+        if (empty($this->data['office_id']) && filled($user->office_id)) {
+            $this->data['office_id'] = $user->office_id;
         }
 
         // Extraemos el Inquilino
@@ -95,6 +104,119 @@ class ViewRent extends EditRecord
         if ($this->record->property_id) {
             $this->data['property_id'] = $this->record->property_id;
         }
+
+        $this->applyDefaultResumenProcesoRentas();
+    }
+
+    /**
+     * Valores de plazo (meses) permitidos en «Proceso de Renta».
+     *
+     * @return list<int>
+     */
+    protected static function plazoArrendamientoMesesPermitidos(): array
+    {
+        return [3, 6, 12, 18, 24];
+    }
+
+    /**
+     * Normaliza el plazo guardado (p. ej. "12 meses") a la clave del select ("12").
+     */
+    protected static function normalizarPlazoArrendamientoAMeses(?string $valor): ?string
+    {
+        if (blank($valor)) {
+            return null;
+        }
+        $meses = (int) preg_replace('/\D/', '', (string) $valor);
+
+        return in_array($meses, self::plazoArrendamientoMesesPermitidos(), true)
+            ? (string) $meses
+            : null;
+    }
+
+    protected function syncResumenEndDate(Forms\Get $get, Forms\Set $set): void
+    {
+        $meses = (int) ($get('plazo_arrendamiento') ?? 0);
+        $inicio = $get('start_date');
+        if (! in_array($meses, self::plazoArrendamientoMesesPermitidos(), true) || blank($inicio)) {
+            return;
+        }
+        try {
+            $fin = Carbon::parse($inicio)->addMonths($meses)->subDay()->format('Y-m-d');
+            $set('end_date', $fin);
+        } catch (\Throwable) {
+            // ignorar fechas inválidas momentáneas
+        }
+    }
+
+    protected function applyDefaultResumenProcesoRentas(): void
+    {
+        if (blank($this->data['start_date'] ?? null) && blank($this->record->start_date)) {
+            $this->data['start_date'] = now()->toDateString();
+        }
+
+        if (blank($this->data['fecha_firma'] ?? null) && blank($this->record->fecha_firma)) {
+            $this->data['fecha_firma'] = now()->toDateString();
+        }
+
+        $clavePlazo = self::normalizarPlazoArrendamientoAMeses(
+            (string) ($this->data['plazo_arrendamiento'] ?? $this->record->plazo_arrendamiento ?? '')
+        );
+        if ($clavePlazo !== null) {
+            $this->data['plazo_arrendamiento'] = $clavePlazo;
+        }
+
+        if (blank($this->data['plazo_arrendamiento'] ?? null)) {
+            $this->data['plazo_arrendamiento'] = '12';
+        }
+
+        $meses = (int) $this->data['plazo_arrendamiento'];
+        $inicio = $this->data['start_date'] ?? null;
+        if (in_array($meses, self::plazoArrendamientoMesesPermitidos(), true) && filled($inicio)) {
+            try {
+                $this->data['end_date'] = Carbon::parse($inicio)->addMonths($meses)->subDay()->format('Y-m-d');
+            } catch (\Throwable) {
+                // ignorar
+            }
+        }
+    }
+
+    protected function afterSave(): void
+    {
+        $this->record->refresh();
+
+        if ($this->record->estatus !== 'nueva') {
+            return;
+        }
+
+        $this->record->update(['estatus' => 'documentacion']);
+        $this->record->refresh();
+        $this->data['estatus'] = 'documentacion';
+        $this->advancedToDocumentacionThisRequest = true;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        $data = parent::mutateFormDataBeforeSave($data);
+
+        $principal = (float) ($data['porcentaje_comision_principal'] ?? 0);
+        $items = $data['comisiones_divididas'] ?? [];
+        if (! is_array($items)) {
+            $items = [];
+        }
+        $sumOthers = collect($items)->sum(fn ($row) => (float) ($row['porcentaje'] ?? 0));
+        $total = $principal + $sumOthers;
+
+        if (abs($total - 100) > 0.02) {
+            throw ValidationException::withMessages([
+                'data.porcentaje_comision_principal' => 'Los porcentajes del agente principal y de los colaboradores deben sumar 100% (suma actual: '.number_format($total, 2).'%).',
+            ]);
+        }
+
+        return $data;
     }
 
     protected function getHeaderActions(): array
@@ -154,39 +276,84 @@ class ViewRent extends EditRecord
                                         Forms\Components\TextInput::make('folio')->label('Folio')->disabled(),
                                         Forms\Components\Select::make('office_id')
                                             ->relationship('office', 'nombre')
-                                            ->label('Sucursal (Oficina)')
-                                            ->disabled()
-                                            ->dehydrated(),
+                                            ->label('Equipo')
+                                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->nombre)
+                                            ->disabled(fn () => ! auth()->user()->hasRole('Administrador'))
+                                            ->dehydrated()
+                                            ->searchable()
+                                            ->preload()
+                                            ->live()
+                                            ->required(fn () => auth()->user()->hasRole('Administrador'))
+                                            ->helperText(fn () => auth()->user()->hasRole('Administrador')
+                                                ? 'Elige el equipo para listar solo los agentes de esa oficina.'
+                                                : null)
+                                            ->afterStateUpdated(function (Forms\Set $set) {
+                                                if (! auth()->user()->hasRole('Administrador')) {
+                                                    return;
+                                                }
+                                                $set('asesor_id', null);
+                                            }),
 
                                         Forms\Components\Select::make('asesor_id')
                                             ->relationship('asesor', 'name', function (Builder $query) {
-                                                // Filtramos para que la lista solo muestre usuarios con rol Asesor o Gerente
-                                                return $query->whereHas('roles', function ($q) {
+                                                $query->whereHas('roles', function ($q) {
                                                     $q->whereIn('name', ['Asesor', 'Gerente']);
                                                 });
+
+                                                $user = auth()->user();
+
+                                                if ($user->hasRole('Administrador')) {
+                                                    $officeId = $this->data['office_id'] ?? null;
+
+                                                    if (filled($officeId)) {
+                                                        $query->where('office_id', $officeId);
+                                                    } else {
+                                                        $query->whereRaw('0 = 1');
+                                                    }
+
+                                                    return $query;
+                                                }
+
+                                                if (filled($user->office_id)) {
+                                                    $query->where('office_id', $user->office_id);
+                                                }
+
+                                                return $query;
                                             })
-                                            ->label('Agente Asignado')
-                                            ->default(fn () => auth()->id()) // Se auto-asigna al usuario actual al abrir el formulario
-                                            ->disabled(fn () => !auth()->user()->hasRole('Administrador')) // Bloqueado para Asesores/Gerentes (solo el Admin puede reasignar a otra persona)
+                                            ->label('Agente')
+                                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->name)
+                                            ->disabled(fn () => ! auth()->user()->hasRole('Administrador'))
                                             ->dehydrated()
-                                            ->searchable() // Añadimos buscador por si el Admin tiene una lista muy larga
+                                            ->searchable()
                                             ->preload()
+                                            ->placeholder(fn (Forms\Get $get) => auth()->user()->hasRole('Administrador') && blank($get('office_id'))
+                                                ? 'Primero selecciona un equipo'
+                                                : null)
                                             ->required(),
-                                        Forms\Components\TextInput::make('inmobiliaria')->label('Inmobiliaria*')->disabled(),
 
                                         Forms\Components\Select::make('estatus')
                                             ->label('Estatus')
-                                            ->options([
-                                                'nueva' => 'Nueva',
-                                                'documentacion' => 'Documentación',
-                                                'analisis' => 'Análisis',
-                                                'aprobada' => 'Aprobada',
-                                                'programar_firma' => 'Programar firma',
-                                                'activa' => 'Activa',
-                                                'rechazada' => 'Rechazada',
-                                                'cancelada' => 'Cancelada',
-                                                'vencida' => 'Vencida',
-                                            ])
+                                            ->options(function (): array {
+                                                $options = [
+                                                    'nueva' => 'Nueva',
+                                                    'documentacion' => 'Documentación',
+                                                    'analisis' => 'Análisis',
+                                                    'activa' => 'Activa',
+                                                    'cancelada' => 'Cancelada',
+                                                    'vencida' => 'Vencida',
+                                                ];
+                                                $current = $this->record->estatus ?? null;
+                                                $legacyLabels = [
+                                                    'aprobada' => 'Aprobada',
+                                                    'programar_firma' => 'Programar firma',
+                                                    'rechazada' => 'Rechazada',
+                                                ];
+                                                if ($current && isset($legacyLabels[$current])) {
+                                                    return [$current => $legacyLabels[$current]] + $options;
+                                                }
+
+                                                return $options;
+                                            })
                                             ->default('nueva')
                                             ->required(),
 
@@ -234,59 +401,199 @@ class ViewRent extends EditRecord
                                                             ->numeric()
                                                             ->suffix('%')
                                                             ->default(100)
-                                                            ->readOnly()
-                                                            ->helperText('Se ajusta automáticamente al dividir la comisión.'),
+                                                            ->minValue(0)
+                                                            ->maxValue(100)
+                                                            ->live(onBlur: true)
+                                                            ->helperText('Editable. La suma de este porcentaje más el de cada colaborador debe ser 100%.'),
+
+                                                        Forms\Components\Actions::make([
+                                                            Forms\Components\Actions\Action::make('add_comision_externo')
+                                                                ->label('Colaborador externo')
+                                                                ->icon('heroicon-o-user-plus')
+                                                                ->color('gray')
+                                                                ->modalHeading('Añadir colaborador externo')
+                                                                ->modalSubmitActionLabel('Agregar')
+                                                                ->form([
+                                                                    Forms\Components\TextInput::make('nombre_agente')
+                                                                        ->label('Nombre')
+                                                                        ->required()
+                                                                        ->maxLength(255),
+                                                                    Forms\Components\TextInput::make('email')
+                                                                        ->label('Correo')
+                                                                        ->email()
+                                                                        ->required()
+                                                                        ->maxLength(255),
+                                                                    Forms\Components\TextInput::make('telefono')
+                                                                        ->label('Teléfono')
+                                                                        ->tel()
+                                                                        ->required()
+                                                                        ->maxLength(32),
+                                                                ])
+                                                                ->action(function (array $data, Forms\Get $get, Forms\Set $set): void {
+                                                                    $rows = $get('comisiones_divididas') ?? [];
+                                                                    if (! is_array($rows)) {
+                                                                        $rows = [];
+                                                                    }
+                                                                    $rows[] = [
+                                                                        'tipo' => 'externo',
+                                                                        'nombre_agente' => $data['nombre_agente'],
+                                                                        'email' => $data['email'],
+                                                                        'telefono' => $data['telefono'],
+                                                                        'porcentaje' => 0,
+                                                                    ];
+                                                                    $set('comisiones_divididas', array_values($rows));
+                                                                }),
+
+                                                            Forms\Components\Actions\Action::make('add_comision_interno')
+                                                                ->label('Colaborador del equipo')
+                                                                ->icon('heroicon-o-users')
+                                                                ->color('primary')
+                                                                ->modalHeading('Añadir colaborador del equipo')
+                                                                ->modalSubmitActionLabel('Agregar')
+                                                                ->disabled(fn (Forms\Get $get): bool => blank($get('office_id')))
+                                                                ->tooltip(fn (Forms\Get $get): ?string => blank($get('office_id'))
+                                                                    ? 'Primero elige el equipo en «Datos de la renta» para listar agentes de esa oficina.'
+                                                                    : null)
+                                                                ->form([
+                                                                    Forms\Components\Select::make('user_id')
+                                                                        ->label('Agente del equipo')
+                                                                        ->searchable()
+                                                                        ->required()
+                                                                        ->options(function (Forms\Get $get): array {
+                                                                            $officeId = $get('office_id');
+                                                                            if (! filled($officeId)) {
+                                                                                return [];
+                                                                            }
+
+                                                                            return User::query()
+                                                                                ->where('office_id', $officeId)
+                                                                                ->whereHas('roles', fn ($q) => $q->whereIn('name', ['Asesor', 'Gerente']))
+                                                                                ->orderBy('name')
+                                                                                ->pluck('name', 'id')
+                                                                                ->all();
+                                                                        }),
+                                                                ])
+                                                                ->action(function (array $data, Forms\Get $get, Forms\Set $set): void {
+                                                                    $rows = $get('comisiones_divididas') ?? [];
+                                                                    if (! is_array($rows)) {
+                                                                        $rows = [];
+                                                                    }
+                                                                    $user = User::find($data['user_id']);
+                                                                    $rows[] = [
+                                                                        'tipo' => 'interno',
+                                                                        'user_id' => (int) $data['user_id'],
+                                                                        'nombre_agente' => $user?->name,
+                                                                        'email' => null,
+                                                                        'telefono' => null,
+                                                                        'porcentaje' => 0,
+                                                                    ];
+                                                                    $set('comisiones_divididas', array_values($rows));
+                                                                }),
+
+                                                            Forms\Components\Actions\Action::make('repartir_comisiones_equilibrado')
+                                                                ->label('Repartir por partes iguales')
+                                                                ->icon('heroicon-o-scale')
+                                                                ->color('success')
+                                                                ->requiresConfirmation()
+                                                                ->modalHeading('Repartir por partes iguales')
+                                                                ->modalDescription('Se asignará el mismo porcentaje a cada colaborador y el remanente al agente principal para totalizar 100%.')
+                                                                ->action(function (Forms\Get $get, Forms\Set $set): void {
+                                                                    $items = $get('comisiones_divididas') ?? [];
+                                                                    if (! is_array($items)) {
+                                                                        $items = [];
+                                                                    }
+                                                                    $count = count($items);
+                                                                    if ($count === 0) {
+                                                                        $set('porcentaje_comision_principal', 100);
+
+                                                                        return;
+                                                                    }
+                                                                    $share = round(100 / ($count + 1), 2);
+                                                                    $newState = [];
+                                                                    foreach ($items as $key => $item) {
+                                                                        if (! is_array($item)) {
+                                                                            continue;
+                                                                        }
+                                                                        $item['porcentaje'] = $share;
+                                                                        $newState[$key] = $item;
+                                                                    }
+                                                                    $set('comisiones_divididas', array_values($newState));
+                                                                    $set('porcentaje_comision_principal', round(100 - ($share * $count), 2));
+                                                                }),
+                                                        ])
+                                                            ->columns(3),
 
                                                         Forms\Components\Repeater::make('comisiones_divididas')
-                                                            ->label('Dividir Comisión (Agentes Externos)')
+                                                            ->label('Colaboradores en la comisión')
                                                             ->schema([
-                                                                Forms\Components\TextInput::make('nombre_agente')->label('Nombre')->required()->live(onBlur: true),
-                                                                Forms\Components\TextInput::make('email')->email()->label('Email'),
-                                                                Forms\Components\TextInput::make('telefono')->tel()->label('Teléfono'),
+                                                                Forms\Components\Select::make('tipo')
+                                                                    ->label('Tipo')
+                                                                    ->options([
+                                                                        'externo' => 'Externo',
+                                                                        'interno' => 'Interno',
+                                                                    ])
+                                                                    ->default('externo')
+                                                                    ->disabled()
+                                                                    ->dehydrated(),
+
+                                                                Forms\Components\TextInput::make('nombre_agente')
+                                                                    ->label('Nombre')
+                                                                    ->maxLength(255)
+                                                                    ->visible(fn (Forms\Get $get) => ($get('tipo') ?: 'externo') === 'externo')
+                                                                    ->required(fn (Forms\Get $get) => ($get('tipo') ?: 'externo') === 'externo'),
+
+                                                                Forms\Components\TextInput::make('email')
+                                                                    ->label('Correo')
+                                                                    ->email()
+                                                                    ->maxLength(255)
+                                                                    ->visible(fn (Forms\Get $get) => ($get('tipo') ?: 'externo') === 'externo'),
+
+                                                                Forms\Components\TextInput::make('telefono')
+                                                                    ->label('Teléfono')
+                                                                    ->tel()
+                                                                    ->maxLength(32)
+                                                                    ->visible(fn (Forms\Get $get) => ($get('tipo') ?: 'externo') === 'externo'),
+
+                                                                Forms\Components\Select::make('user_id')
+                                                                    ->label('Agente del equipo')
+                                                                    ->searchable()
+                                                                    ->visible(fn (Forms\Get $get) => ($get('tipo') ?: 'externo') === 'interno')
+                                                                    ->required(fn (Forms\Get $get) => ($get('tipo') ?: 'externo') === 'interno')
+                                                                    ->options(function (Forms\Get $get): array {
+                                                                        $officeId = $get('../../office_id');
+                                                                        if (! filled($officeId)) {
+                                                                            return [];
+                                                                        }
+
+                                                                        return User::query()
+                                                                            ->where('office_id', $officeId)
+                                                                            ->whereHas('roles', fn ($q) => $q->whereIn('name', ['Asesor', 'Gerente']))
+                                                                            ->orderBy('name')
+                                                                            ->pluck('name', 'id')
+                                                                            ->all();
+                                                                    })
+                                                                    ->live(onBlur: true)
+                                                                    ->afterStateUpdated(function (Forms\Set $set, $state): void {
+                                                                        if (filled($state)) {
+                                                                            $set('nombre_agente', User::find($state)?->name ?? '');
+                                                                        }
+                                                                    }),
+
                                                                 Forms\Components\TextInput::make('porcentaje')
                                                                     ->label('% Comisión')
                                                                     ->numeric()
                                                                     ->suffix('%')
+                                                                    ->default(0)
                                                                     ->required()
-                                                                    ->live(onBlur: true)
-                                                                    // Recalcular el porcentaje principal si el usuario modifica este campo a mano
-                                                                    ->afterStateUpdated(function (Forms\Get $get, Forms\Set $set) {
-                                                                        $items = $get('../../comisiones_divididas') ?? [];
-                                                                        $sum = collect($items)->sum('porcentaje');
-                                                                        $set('../../porcentaje_comision_principal', max(0, 100 - $sum));
-                                                                    })
+                                                                    ->minValue(0)
+                                                                    ->maxValue(100)
+                                                                    ->live(onBlur: true),
                                                             ])
-                                                            ->columns(4)
-                                                            ->addActionLabel('Dividir comisión (Añadir agente)')
+                                                            ->columns(2)
+                                                            ->addable(false)
+                                                            ->reorderable(false)
                                                             ->defaultItems(0)
-                                                            ->live()
-                                                            // LA LÓGICA AUTOMÁTICA DE DIVISIÓN (Al añadir/quitar agentes)
-                                                            ->afterStateUpdated(function (Forms\Set $set, $state) {
-                                                                if (!is_array($state)) {
-                                                                    return;
-                                                                }
-
-                                                                $count = count($state);
-                                                                if ($count > 0) {
-                                                                    // Calcula partes iguales
-                                                                    $share = round(100 / ($count + 1), 2);
-                                                                    $newState = [];
-
-                                                                    foreach ($state as $key => $item) {
-                                                                        $item['porcentaje'] = $share;
-                                                                        $newState[$key] = $item;
-                                                                    }
-
-                                                                    // Actualiza el array de agentes
-                                                                    $set('comisiones_divididas', $newState);
-
-                                                                    // Te asigna lo que sobra para que cierre en 100%
-                                                                    $set('porcentaje_comision_principal', round(100 - ($share * $count), 2));
-                                                                } else {
-                                                                    // Si quitas a todos los agentes, vuelve al 100%
-                                                                    $set('porcentaje_comision_principal', 100);
-                                                                }
-                                                            }),
+                                                            ->live(),
                                                     ])->columnSpan(2),
 
                                                 Forms\Components\Section::make('Resumen de comisiones')
@@ -296,8 +603,16 @@ class ViewRent extends EditRecord
                                                             ->hiddenLabel()
                                                             ->content(function (Forms\Get $get) {
                                                                 $montoTotal = (float) $get('monto_comision') ?: 0;
-                                                                $pctPrincipal = (float) $get('porcentaje_comision_principal') ?: 100;
-                                                                $externos = $get('comisiones_divididas') ?? [];
+                                                                $pctPrincipal = (float) $get('porcentaje_comision_principal') ?: 0;
+                                                                $filas = $get('comisiones_divididas') ?? [];
+                                                                if (! is_array($filas)) {
+                                                                    $filas = [];
+                                                                }
+
+                                                                $sumaOtros = collect($filas)->sum(fn ($row) => (float) ($row['porcentaje'] ?? 0));
+                                                                $sumaTotal = $pctPrincipal + $sumaOtros;
+                                                                $sumaOk = abs($sumaTotal - 100) <= 0.02;
+                                                                $sumaClass = $sumaOk ? 'text-gray-600 dark:text-gray-400' : 'text-red-600 dark:text-red-400 font-semibold';
 
                                                                 $nombrePrincipal = auth()->user()->name ?? 'Yo';
                                                                 $montoPrincipal = ($montoTotal * $pctPrincipal) / 100;
@@ -305,8 +620,11 @@ class ViewRent extends EditRecord
                                                                 $colores = ['bg-amber-500', 'bg-rose-500', 'bg-purple-500', 'bg-cyan-500'];
                                                                 $colorIdx = 0;
 
+                                                                $sumaBanner = "<p class='mb-3 text-sm {$sumaClass}'>Suma de porcentajes: " . number_format($sumaTotal, 2) . '% (debe ser 100%)</p>';
+
                                                                 $html = "<div class='w-full h-6 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden flex mb-6 shadow-inner'>";
-                                                                $html .= "<div class='bg-primary-600 h-full transition-all duration-300' style='width: {$pctPrincipal}%' title='Mío: {$pctPrincipal}%'></div>";
+                                                                $barPct = min(max($pctPrincipal, 0), 100);
+                                                                $html .= "<div class='bg-primary-600 h-full transition-all duration-300' style='width: {$barPct}%' title='Mío: {$pctPrincipal}%'></div>";
 
                                                                 $leyendaHtml = "<ul class='space-y-3 text-sm'>";
                                                                 $leyendaHtml .= "<li class='flex items-center justify-between p-2 bg-primary-50 dark:bg-primary-900/20 rounded-lg border border-primary-100 dark:border-primary-800'>
@@ -320,14 +638,21 @@ class ViewRent extends EditRecord
                                                                     </div>
                                                                 </li>";
 
-                                                                foreach ($externos as $ext) {
+                                                                foreach ($filas as $ext) {
+                                                                    $tipo = $ext['tipo'] ?? 'externo';
                                                                     $pct = (float) ($ext['porcentaje'] ?? 0);
                                                                     if ($pct <= 0) {
                                                                         continue;
                                                                     }
 
                                                                     $montoExt = ($montoTotal * $pct) / 100;
-                                                                    $nombreExt = $ext['nombre_agente'] ?: 'Agente Externo';
+                                                                    if ($tipo === 'interno' && ! empty($ext['user_id'])) {
+                                                                        $nombreExt = User::find($ext['user_id'])?->name
+                                                                            ?: ($ext['nombre_agente'] ?: 'Colaborador interno');
+                                                                    } else {
+                                                                        $nombreExt = $ext['nombre_agente'] ?: 'Colaborador externo';
+                                                                    }
+                                                                    $nombreExt = e($nombreExt);
                                                                     $colorClase = $colores[$colorIdx % count($colores)];
 
                                                                     $html .= "<div class='{$colorClase} h-full border-l border-white/20 transition-all duration-300' style='width: {$pct}%' title='{$nombreExt}: {$pct}%'></div>";
@@ -346,15 +671,15 @@ class ViewRent extends EditRecord
                                                                     $colorIdx++;
                                                                 }
 
-                                                                $html .= "</div>";
-                                                                $leyendaHtml .= "</ul>";
+                                                                $html .= '</div>';
+                                                                $leyendaHtml .= '</ul>';
 
                                                                 $totalHtml = "<div class='mt-6 pt-4 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center'>
                                                                     <span class='text-gray-500 font-medium'>Total a repartir</span>
                                                                     <strong class='text-lg'>$" . number_format($montoTotal, 2) . "</strong>
                                                                 </div>";
 
-                                                                return new \Illuminate\Support\HtmlString($html . $leyendaHtml . $totalHtml);
+                                                                return new \Illuminate\Support\HtmlString($sumaBanner . $html . $leyendaHtml . $totalHtml);
                                                             })
                                                     ])->columnSpan(1),
                                             ]),
@@ -365,11 +690,19 @@ class ViewRent extends EditRecord
                                                 ->color('primary')
                                                 ->icon('heroicon-o-check')
                                                 ->action(function () {
-                                                    $this->save();
-                                                    \Filament\Notifications\Notification::make()
+                                                    $this->advancedToDocumentacionThisRequest = false;
+                                                    $this->save(shouldRedirect: false, shouldSendSavedNotification: false);
+
+                                                    $notification = \Filament\Notifications\Notification::make()
                                                         ->success()
-                                                        ->title('Datos guardados')
-                                                        ->send();
+                                                        ->title('Datos guardados');
+
+                                                    if ($this->advancedToDocumentacionThisRequest) {
+                                                        $notification->body('El estatus pasó a Documentación. Ya puedes usar las pestañas Solicitudes, Documentos y Póliza de Renta.');
+                                                    }
+
+                                                    $notification->send();
+                                                    $this->advancedToDocumentacionThisRequest = false;
                                                 }),
                                             Forms\Components\Actions\Action::make('cancelar')
                                                 ->label('Cancelar')
@@ -383,6 +716,7 @@ class ViewRent extends EditRecord
                         // ========== TAB: SOLICITUDES ==========
                         Forms\Components\Tabs\Tab::make('Solicitudes')
                             ->icon('heroicon-o-clipboard-document-list')
+                            ->visible(fn (): bool => $this->record->estatus !== 'nueva')
                             ->schema([
                                 Forms\Components\Tabs::make('SolicitudesTabs')
                                     ->columnSpanFull()
@@ -482,7 +816,7 @@ class ViewRent extends EditRecord
                                                             ->label('Tipo de Persona')
                                                             ->options(['fisica' => 'Persona física', 'moral' => 'Persona moral'])
                                                             ->live()
-                                                            ->required()
+                                                            ->required(fn (): bool => (bool) $this->record->tenant_id)
                                                             ->columnSpanFull(),
 
                                                         Forms\Components\TextInput::make('tenant_nombres')
@@ -936,7 +1270,7 @@ class ViewRent extends EditRecord
                                                             ->label('Tipo de Persona')
                                                             ->options(['fisica' => 'Persona física', 'moral' => 'Persona moral'])
                                                             ->live()
-                                                            ->required()
+                                                            ->required(fn (Forms\Get $get): bool => filled($get('owner_id')))
                                                             ->columnSpanFull(),
 
                                                         Forms\Components\TextInput::make('owner_nombres')
@@ -1106,8 +1440,17 @@ class ViewRent extends EditRecord
                                                         Forms\Components\Select::make('property_id')
                                                             ->label('Seleccionar Propiedad Disponible')
                                                             ->options(function () {
-                                                                // Mostrar solo Properties con estatus "disponible"
-                                                                $properties = Property::where('estatus', 'disponible')
+                                                                $ownerUserId = $this->record->owner?->user_id;
+                                                                $selectedPropertyId = $this->record->property_id;
+
+                                                                $properties = Property::query()
+                                                                    ->when($ownerUserId, fn ($q) => $q->where('user_id', $ownerUserId))
+                                                                    ->where(function ($q) use ($selectedPropertyId) {
+                                                                        $q->where('estatus', 'disponible');
+                                                                        if ($selectedPropertyId) {
+                                                                            $q->orWhere('id', $selectedPropertyId);
+                                                                        }
+                                                                    })
                                                                     ->orderBy('created_at', 'desc')
                                                                     ->get();
 
@@ -1141,7 +1484,18 @@ class ViewRent extends EditRecord
                                                                     $property = Property::find($state);
                                                                     if ($property) {
                                                                         // Actualizar property_id en la rent
-                                                                        $this->record->update(['property_id' => $state]);
+                                                                        $this->record->update([
+                                                                            'property_id' => $state,
+                                                                            'tipo_propiedad' => $property->tipo_inmueble ?? null,
+                                                                            'calle' => $property->calle ?? null,
+                                                                            'numero_exterior' => $property->numero_exterior ?? null,
+                                                                            'numero_interior' => $property->numero_interior ?? null,
+                                                                            'codigo_postal' => $property->codigo_postal ?? null,
+                                                                            'colonia' => $property->colonia ?? null,
+                                                                            'municipio' => $property->delegacion_municipio ?? null,
+                                                                            'estado' => $property->estado ?? null,
+                                                                            'referencias_ubicacion' => $property->referencias_ubicacion ?? null,
+                                                                        ]);
 
                                                                         // Copiar todos los datos de la propiedad a los campos de la rent
                                                                         $set('tipo_propiedad', $property->tipo_inmueble ?? '');
@@ -1229,7 +1583,7 @@ class ViewRent extends EditRecord
                                                             ])
                                                             ->disabled()
                                                             ->dehydrated()
-                                                            ->required(),
+                                                            ->nullable(),
                                                         Forms\Components\TextInput::make('codigo_postal')
                                                             ->label('CP')
                                                             ->numeric()
@@ -1259,6 +1613,7 @@ class ViewRent extends EditRecord
                         // ========== TAB: DOCUMENTOS ==========
                         Forms\Components\Tabs\Tab::make('Documentos')
                             ->icon('heroicon-o-document-text')
+                            ->visible(fn (): bool => $this->record->estatus !== 'nueva')
                             ->schema([
                                 Forms\Components\Tabs::make('DocumentosTabs')
                                     ->columnSpanFull()
@@ -1648,8 +2003,9 @@ class ViewRent extends EditRecord
                             ]),
 
                         // ========== TAB: PÓLIZA DE RENTA (Antes Investigación) ==========
-                        Forms\Components\Tabs\Tab::make('Póliza de Renta')
+                        Forms\Components\Tabs\Tab::make('Proceso de Renta')
                             ->icon('heroicon-o-shield-check')
+                            ->visible(fn (): bool => $this->record->estatus !== 'nueva')
                             ->schema([
                                 Forms\Components\Section::make('Resumen de la Operación')
                                     ->description('Verifique los datos antes de enviar el expediente al abogado de Póliza de Rentas.')
@@ -1688,29 +2044,43 @@ class ViewRent extends EditRecord
                                                 "<b>Solicitud Inquilino:</b> " . ($record->application ? $record->application->folio : 'No vinculada')
                                             )),
 
-                                        // Fechas y Plazos (Editables)
-                                        Forms\Components\TextInput::make('plazo_arrendamiento')
-                                            ->label('Plazo del Arrendamiento')
-                                            ->placeholder('Ej. 12 meses')
-                                            ->required(),
+                                        // Fechas y Plazos (Proceso de Renta)
+                                        Forms\Components\Select::make('plazo_arrendamiento')
+                                            ->label('Plazo del arrendamiento')
+                                            ->options([
+                                                '3' => '3 meses',
+                                                '6' => '6 meses',
+                                                '12' => '12 meses',
+                                                '18' => '18 meses',
+                                                '24' => '24 meses',
+                                            ])
+                                            ->live()
+                                            ->afterStateUpdated(function (Forms\Get $get, Forms\Set $set): void {
+                                                $this->syncResumenEndDate($get, $set);
+                                            })
+                                            ->helperText('La fecha de fin se calcula sola a partir del plazo y la fecha de inicio. Obligatorio al enviar a Póliza de Rentas.'),
 
                                         Forms\Components\DatePicker::make('start_date')
-                                            ->label('Fecha de Inicio')
+                                            ->label('Fecha de inicio')
                                             ->displayFormat('d/m/Y')
                                             ->native(false)
-                                            ->required(),
+                                            ->live()
+                                            ->afterStateUpdated(function (Forms\Get $get, Forms\Set $set): void {
+                                                $this->syncResumenEndDate($get, $set);
+                                            }),
 
                                         Forms\Components\DatePicker::make('end_date')
-                                            ->label('Fecha de Fin')
+                                            ->label('Fecha de fin')
                                             ->displayFormat('d/m/Y')
                                             ->native(false)
-                                            ->required(),
+                                            ->disabled()
+                                            ->dehydrated()
+                                            ->helperText('Calculada automáticamente: un día antes de cumplirse el plazo (inicio + meses − 1 día).'),
 
                                         Forms\Components\DatePicker::make('fecha_firma')
                                             ->label('Fecha prevista de firma')
                                             ->displayFormat('d/m/Y')
-                                            ->native(false)
-                                            ->required(),
+                                            ->native(false),
                                     ])->columns(2),
 
                                 // Botón de Envío
@@ -1723,13 +2093,38 @@ class ViewRent extends EditRecord
                                         ->modalHeading('¿Enviar Expediente a Póliza de Rentas?')
                                         ->modalDescription('El estatus de la renta cambiará automáticamente a "Análisis" y el abogado asignado recibirá una notificación por correo electrónico con los datos de esta operación.')
                                         ->action(function (Forms\Get $get, Forms\Set $set, $record) {
-
-                                            // 1. Guardar primero las fechas que acaban de escribir
-                                            $record->update([
+                                            $payload = [
                                                 'plazo_arrendamiento' => $get('plazo_arrendamiento'),
                                                 'start_date' => $get('start_date'),
                                                 'end_date' => $get('end_date'),
                                                 'fecha_firma' => $get('fecha_firma'),
+                                            ];
+
+                                            try {
+                                                Validator::make($payload, [
+                                                    'plazo_arrendamiento' => ['required', 'in:3,6,12,18,24'],
+                                                    'start_date' => ['required', 'date'],
+                                                    'end_date' => ['required', 'date'],
+                                                    'fecha_firma' => ['required', 'date'],
+                                                ], [], [
+                                                    'plazo_arrendamiento' => 'plazo del arrendamiento',
+                                                    'start_date' => 'fecha de inicio',
+                                                    'end_date' => 'fecha de fin',
+                                                    'fecha_firma' => 'fecha prevista de firma',
+                                                ])->validate();
+                                            } catch (ValidationException $e) {
+                                                \Filament\Notifications\Notification::make()
+                                                    ->danger()
+                                                    ->title('Completa el resumen de la operación')
+                                                    ->body(collect($e->errors())->flatten()->implode(' '))
+                                                    ->send();
+
+                                                return;
+                                            }
+
+                                            // 1. Guardar primero las fechas que acaban de escribir
+                                            $record->update([
+                                                ...$payload,
                                                 'estatus' => 'analisis', // 2. CAMBIO AUTOMÁTICO DE ESTATUS
                                             ]);
 
@@ -1761,6 +2156,7 @@ class ViewRent extends EditRecord
                         // ========== TAB: ADMINISTRACIÓN ==========
                         Forms\Components\Tabs\Tab::make('Administración')
                             ->icon('heroicon-o-briefcase')
+                            ->visible(fn (): bool => $this->record->estatus === 'activa')
                             ->schema([
                                 Forms\Components\Section::make('Gestión de la Propiedad')
                                     ->description('Configure quién administra la propiedad y las alertas de cobro.')

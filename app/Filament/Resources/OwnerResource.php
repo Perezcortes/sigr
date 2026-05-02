@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\TenantCredentialsMail; // Reutilizamos el correo
+use App\Support\Filament\ScopesByOfficeAndAdvisor;
 use Filament\Forms\Components\Actions\Action;
 use Filament\Forms\Components\Actions;
 use Filament\Notifications\Notification;
@@ -794,24 +795,12 @@ class OwnerResource extends Resource
         $query = parent::getEloquentQuery();
         $user = auth()->user();
 
-        // Administrador ve todo
-        if ($user->hasRole('Administrador')) {
-            return $query;
-        }
+        $query->where(function (Builder $q): void {
+            $q->whereNull($q->qualifyColumn('user_id'))
+                ->orWhereHas('user', fn (Builder $u) => $u->where('is_owner', true));
+        });
 
-        // Gerente ve a los propietarios que atienden los asesores de SU oficina
-        if ($user->hasRole('Gerente')) {
-            return $query->whereHas('asesor', function ($q) use ($user) {
-                $q->where('office_id', $user->office_id);
-            });
-        }
-
-        // Asesor solo ve a sus propios propietarios
-        if ($user->hasRole('Asesor')) {
-            return $query->where('asesor_id', $user->id);
-        }
-
-        return $query;
+        return ScopesByOfficeAndAdvisor::scopeTenantOwnerIndexForFilament($query, $user);
     }
 
     public static function table(Table $table): Table
