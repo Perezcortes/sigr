@@ -837,9 +837,9 @@ class OwnerResource extends Resource
                     }),
 
                 Tables\Columns\TextColumn::make('asesor.name') 
-                    ->label('Asesor Asignado')
+                    ->label('Agente')
                     ->icon('heroicon-o-user-circle')
-                    ->placeholder('Sin Asesor')      
+                    ->placeholder('Sin agente')      
                     ->description(fn ($record) => $record->asesor?->email) 
                     ->searchable() 
                     ->sortable()
