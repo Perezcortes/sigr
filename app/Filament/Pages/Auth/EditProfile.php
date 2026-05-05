@@ -6,8 +6,12 @@ use App\Models\Estate;
 use App\Models\Municipality;
 use Filament\Forms\Components\Component;
 use Filament\Forms\Components\RichEditor;
+use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\ViewField;
+use Filament\Forms\Form;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
 use Filament\Support\Enums\MaxWidth;
@@ -66,7 +70,7 @@ class EditProfile extends \Filament\Pages\Auth\EditProfile
 
     protected function getAvatarFormComponent(): Component
     {
-        return \Filament\Forms\Components\SpatieMediaLibraryFileUpload::make('avatar')
+        return SpatieMediaLibraryFileUpload::make('avatar')
             ->label('Foto de perfil')
             ->collection('profile-images')
             ->avatar()
@@ -150,7 +154,7 @@ class EditProfile extends \Filament\Pages\Auth\EditProfile
             ->searchable()
             ->preload()
             ->live()
-            ->afterStateUpdated(function (\Filament\Forms\Set $set): void {
+            ->afterStateUpdated(function (Set $set): void {
                 $set('zone_city_ids', []);
             })
             ->visible(fn (): bool => $this->isAsesor());
@@ -179,7 +183,7 @@ class EditProfile extends \Filament\Pages\Auth\EditProfile
             ->visible(fn (): bool => $this->isAsesor());
     }
 
-    public function form(\Filament\Forms\Form $form): \Filament\Forms\Form
+    public function form(Form $form): Form
     {
         return $form
             ->schema([
@@ -196,6 +200,16 @@ class EditProfile extends \Filament\Pages\Auth\EditProfile
                 $this->getIdNocnokFormComponent(),
                 $this->getZoneEstateFormComponent(),
                 $this->getZoneCitiesFormComponent(),
+                Section::make('WhatsApp Evolution')
+                    ->description('Crea tu instancia y escanea el código QR para vincular tu línea con el panel (leads, envíos, etc.).')
+                    ->visible(fn (): bool => $this->isAsesor())
+                    ->schema([
+                        ViewField::make('advisor_whatsapp_evolution')
+                            ->view('filament.forms.components.advisor-whatsapp-evolution-panel')
+                            ->label('')
+                            ->dehydrated(false),
+                    ])
+                    ->columnSpanFull(),
                 $this->getPasswordFormComponent(),
                 $this->getPasswordConfirmationFormComponent(),
             ]);
