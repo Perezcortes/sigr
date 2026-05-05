@@ -2,52 +2,63 @@
 
 namespace App\Filament\Resources\RentResource\Pages;
 
-use App\Filament\Resources\RentResource;
-use App\Models\Rent;
-use App\Models\TenantRequest;
-use App\Models\OwnerRequest;
-use App\Models\TenantDocument;
-use App\Models\GuarantorDocument;
-use App\Models\OwnerDocument;
-use App\Models\PropertyDocument;
-use App\Models\RentComment;
-use App\Models\Application;
-use App\Models\Owner;
-use App\Models\Property;
-use App\Models\User;
-use App\Filament\Resources\TenantRequestResource;
-use App\Filament\Resources\OwnerRequestResource;
 use App\Filament\Resources\ApplicationsResource;
+use App\Filament\Resources\GuarantorRequestResource;
+use App\Filament\Resources\OwnerRequestResource;
+use App\Filament\Resources\RentResource;
+use App\Filament\Resources\TenantRequestResource;
+use App\Models\Application;
+use App\Models\GuarantorDocument;
+use App\Models\GuarantorRequest;
+use App\Models\Owner;
+use App\Models\OwnerDocument;
+use App\Models\OwnerRequest;
+use App\Models\Property;
+use App\Models\PropertyDocument;
+use App\Models\Rent;
+use App\Models\RentComment;
+use App\Models\TenantDocument;
+use App\Models\TenantRequest;
+use App\Models\User;
+use App\Support\Filament\AdministrationTabs;
 use Filament\Actions;
-use Filament\Resources\Pages\EditRecord;
 use Filament\Forms;
+use Filament\Forms\Components\Actions\Action;
 use Filament\Forms\Form;
+use Filament\Notifications\Notification;
+use Filament\Resources\Pages\EditRecord;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\HtmlString;
 use Illuminate\Validation\ValidationException;
 
 class ViewRent extends EditRecord
 {
     protected static string $resource = RentResource::class;
+
     protected static ?string $title = 'Ver Renta';
+
     protected static string $view = 'filament.resources.rent-resource.pages.view-rent';
 
     protected bool $advancedToDocumentacionThisRequest = false;
 
     public ?array $tenantData = [];
+
     public ?array $ownerData = [];
 
-    public function resolveRecord(string|int $key): \Illuminate\Database\Eloquent\Model
+    public function resolveRecord(string|int $key): Model
     {
         $record = Rent::findByHash($key);
-        if (!$record && is_numeric($key)) {
+        if (! $record && is_numeric($key)) {
             $record = Rent::find($key);
         }
-        if (!$record) {
+        if (! $record) {
             abort(404);
         }
+
         return $record;
     }
 
@@ -67,7 +78,7 @@ class ViewRent extends EditRecord
 
         // Extraemos el Inquilino
         $tenant = $this->record->tenant?->fresh();
-        
+
         if ($tenant) {
             $this->data['tenant_tipo_persona'] = $tenant->tipo_persona;
             $this->data['tenant_nombres'] = $tenant->nombres;
@@ -238,25 +249,25 @@ class ViewRent extends EditRecord
     public function deleteTenantDocument(int $id): void
     {
         TenantDocument::find($id)?->delete();
-        \Filament\Notifications\Notification::make()->success()->title('Documento eliminado')->send();
+        Notification::make()->success()->title('Documento eliminado')->send();
     }
 
     public function deleteGuarantorDocument(int $id): void
     {
         GuarantorDocument::find($id)?->delete();
-        \Filament\Notifications\Notification::make()->success()->title('Documento eliminado')->send();
+        Notification::make()->success()->title('Documento eliminado')->send();
     }
 
     public function deleteOwnerDocument(int $id): void
     {
         OwnerDocument::find($id)?->delete();
-        \Filament\Notifications\Notification::make()->success()->title('Documento eliminado')->send();
+        Notification::make()->success()->title('Documento eliminado')->send();
     }
 
     public function deletePropertyDocument(int $id): void
     {
         PropertyDocument::find($id)?->delete();
-        \Filament\Notifications\Notification::make()->success()->title('Documento eliminado')->send();
+        Notification::make()->success()->title('Documento eliminado')->send();
     }
 
     public function form(Form $form): Form
@@ -407,7 +418,7 @@ class ViewRent extends EditRecord
                                                             ->helperText('Editable. La suma de este porcentaje más el de cada colaborador debe ser 100%.'),
 
                                                         Forms\Components\Actions::make([
-                                                            Forms\Components\Actions\Action::make('add_comision_externo')
+                                                            Action::make('add_comision_externo')
                                                                 ->label('Colaborador externo')
                                                                 ->icon('heroicon-o-user-plus')
                                                                 ->color('gray')
@@ -444,7 +455,7 @@ class ViewRent extends EditRecord
                                                                     $set('comisiones_divididas', array_values($rows));
                                                                 }),
 
-                                                            Forms\Components\Actions\Action::make('add_comision_interno')
+                                                            Action::make('add_comision_interno')
                                                                 ->label('Colaborador del equipo')
                                                                 ->icon('heroicon-o-users')
                                                                 ->color('primary')
@@ -490,7 +501,7 @@ class ViewRent extends EditRecord
                                                                     $set('comisiones_divididas', array_values($rows));
                                                                 }),
 
-                                                            Forms\Components\Actions\Action::make('repartir_comisiones_equilibrado')
+                                                            Action::make('repartir_comisiones_equilibrado')
                                                                 ->label('Repartir por partes iguales')
                                                                 ->icon('heroicon-o-scale')
                                                                 ->color('success')
@@ -620,7 +631,7 @@ class ViewRent extends EditRecord
                                                                 $colores = ['bg-amber-500', 'bg-rose-500', 'bg-purple-500', 'bg-cyan-500'];
                                                                 $colorIdx = 0;
 
-                                                                $sumaBanner = "<p class='mb-3 text-sm {$sumaClass}'>Suma de porcentajes: " . number_format($sumaTotal, 2) . '% (debe ser 100%)</p>';
+                                                                $sumaBanner = "<p class='mb-3 text-sm {$sumaClass}'>Suma de porcentajes: ".number_format($sumaTotal, 2).'% (debe ser 100%)</p>';
 
                                                                 $html = "<div class='w-full h-6 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden flex mb-6 shadow-inner'>";
                                                                 $barPct = min(max($pctPrincipal, 0), 100);
@@ -633,10 +644,10 @@ class ViewRent extends EditRecord
                                                                         <strong class='text-primary-700 dark:text-primary-400'>{$nombrePrincipal} (Yo)</strong>
                                                                     </span>
                                                                     <div class='text-right'>
-                                                                        <span class='text-xs text-gray-500 block'>" . number_format($pctPrincipal, 1) . "%</span>
-                                                                        <strong class='text-base text-primary-700 dark:text-primary-400'>$" . number_format($montoPrincipal, 2) . "</strong>
+                                                                        <span class='text-xs text-gray-500 block'>".number_format($pctPrincipal, 1)."%</span>
+                                                                        <strong class='text-base text-primary-700 dark:text-primary-400'>$".number_format($montoPrincipal, 2).'</strong>
                                                                     </div>
-                                                                </li>";
+                                                                </li>';
 
                                                                 foreach ($filas as $ext) {
                                                                     $tipo = $ext['tipo'] ?? 'externo';
@@ -663,10 +674,10 @@ class ViewRent extends EditRecord
                                                                             <span class='text-gray-700 dark:text-gray-300 font-medium'>{$nombreExt}</span>
                                                                         </span>
                                                                         <div class='text-right'>
-                                                                            <span class='text-xs text-gray-500 block'>" . number_format($pct, 1) . "%</span>
-                                                                            <strong class='text-gray-900 dark:text-gray-100'>$" . number_format($montoExt, 2) . "</strong>
+                                                                            <span class='text-xs text-gray-500 block'>".number_format($pct, 1)."%</span>
+                                                                            <strong class='text-gray-900 dark:text-gray-100'>$".number_format($montoExt, 2).'</strong>
                                                                         </div>
-                                                                    </li>";
+                                                                    </li>';
 
                                                                     $colorIdx++;
                                                                 }
@@ -676,16 +687,16 @@ class ViewRent extends EditRecord
 
                                                                 $totalHtml = "<div class='mt-6 pt-4 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center'>
                                                                     <span class='text-gray-500 font-medium'>Total a repartir</span>
-                                                                    <strong class='text-lg'>$" . number_format($montoTotal, 2) . "</strong>
-                                                                </div>";
+                                                                    <strong class='text-lg'>$".number_format($montoTotal, 2).'</strong>
+                                                                </div>';
 
-                                                                return new \Illuminate\Support\HtmlString($sumaBanner . $html . $leyendaHtml . $totalHtml);
-                                                            })
+                                                                return new HtmlString($sumaBanner.$html.$leyendaHtml.$totalHtml);
+                                                            }),
                                                     ])->columnSpan(1),
                                             ]),
 
                                         Forms\Components\Actions::make([
-                                            Forms\Components\Actions\Action::make('guardar_general')
+                                            Action::make('guardar_general')
                                                 ->label('Guardar Información')
                                                 ->color('primary')
                                                 ->icon('heroicon-o-check')
@@ -693,7 +704,7 @@ class ViewRent extends EditRecord
                                                     $this->advancedToDocumentacionThisRequest = false;
                                                     $this->save(shouldRedirect: false, shouldSendSavedNotification: false);
 
-                                                    $notification = \Filament\Notifications\Notification::make()
+                                                    $notification = Notification::make()
                                                         ->success()
                                                         ->title('Datos guardados');
 
@@ -704,14 +715,14 @@ class ViewRent extends EditRecord
                                                     $notification->send();
                                                     $this->advancedToDocumentacionThisRequest = false;
                                                 }),
-                                            Forms\Components\Actions\Action::make('cancelar')
+                                            Action::make('cancelar')
                                                 ->label('Cancelar')
                                                 ->color('gray')
                                                 ->icon('heroicon-o-x-mark')
                                                 ->url(fn () => RentResource::getUrl('index')),
                                         ]),
                                     ]),
-                                ]),
+                            ]),
 
                         // ========== TAB: SOLICITUDES ==========
                         Forms\Components\Tabs\Tab::make('Solicitudes')
@@ -743,13 +754,13 @@ class ViewRent extends EditRecord
                                                                     $tenant = $application->user->tenant ?? null;
                                                                     if ($tenant) {
                                                                         if ($tenant->tipo_persona === 'fisica') {
-                                                                            $nombre = trim(($tenant->nombres ?? '') . ' ' . ($tenant->primer_apellido ?? '') . ' ' . ($tenant->segundo_apellido ?? ''));
+                                                                            $nombre = trim(($tenant->nombres ?? '').' '.($tenant->primer_apellido ?? '').' '.($tenant->segundo_apellido ?? ''));
                                                                         } else {
                                                                             $nombre = $tenant->razon_social ?? '';
                                                                         }
-                                                                        $label = ($nombre ?: 'Sin nombre') . ' - ' . ($application->folio ?? 'N/A');
+                                                                        $label = ($nombre ?: 'Sin nombre').' - '.($application->folio ?? 'N/A');
                                                                     } else {
-                                                                        $label = ($application->user->name ?? 'Usuario') . ' - ' . ($application->folio ?? 'N/A');
+                                                                        $label = ($application->user->name ?? 'Usuario').' - '.($application->folio ?? 'N/A');
                                                                     }
                                                                     $options[$application->id] = $label;
                                                                 }
@@ -788,7 +799,7 @@ class ViewRent extends EditRecord
                                                                         }
                                                                         $set('tenant_email', $tenant->email ?? $application->user->email);
 
-                                                                        \Filament\Notifications\Notification::make()
+                                                                        Notification::make()
                                                                             ->success()
                                                                             ->title('Solicitud vinculada')
                                                                             ->body('Los datos del tenant se han actualizado.')
@@ -802,12 +813,13 @@ class ViewRent extends EditRecord
                                                             ->label('Información actual del inquilino')
                                                             ->content(function () {
                                                                 $tenant = $this->record->tenant?->fresh();
-                                                                if (!$tenant) {
+                                                                if (! $tenant) {
                                                                     return 'No hay inquilino asignado';
                                                                 }
                                                                 if ($tenant->tipo_persona === 'fisica') {
                                                                     return "Tipo: Persona Física\nNombre: {$tenant->nombres} {$tenant->primer_apellido} {$tenant->segundo_apellido}\nEmail: {$tenant->email}";
                                                                 }
+
                                                                 return "Tipo: Persona Moral\nRazón Social: {$tenant->razon_social}\nEmail: {$tenant->email}\nRFC: {$tenant->rfc}";
                                                             })
                                                             ->columnSpanFull(),
@@ -847,7 +859,7 @@ class ViewRent extends EditRecord
                                                     ->columns(4),
 
                                                 Forms\Components\Actions::make([
-                                                    Forms\Components\Actions\Action::make('actualizar_inquilino')
+                                                    Action::make('actualizar_inquilino')
                                                         ->label('Guardar')
                                                         ->color('primary')
                                                         ->icon('heroicon-o-check')
@@ -876,7 +888,7 @@ class ViewRent extends EditRecord
                                                                 $this->record->tenant->update($updateData);
 
                                                                 // Sincronizamos la solicitud (TenantRequest) si ya existe
-                                                                $tenantRequest = \App\Models\TenantRequest::where('tenant_id', $this->record->tenant_id)
+                                                                $tenantRequest = TenantRequest::where('tenant_id', $this->record->tenant_id)
                                                                     ->where('rent_id', $this->record->id)
                                                                     ->first();
 
@@ -897,24 +909,25 @@ class ViewRent extends EditRecord
                                                                     }
                                                                 }
 
-                                                                \Filament\Notifications\Notification::make()->success()->title('Inquilino actualizado')->send();
+                                                                Notification::make()->success()->title('Inquilino actualizado')->send();
                                                                 $this->redirect(RentResource::getUrl('view', ['record' => $this->record]));
                                                             }
                                                         }),
-                                                    Forms\Components\Actions\Action::make('edit_tenant')
+                                                    Action::make('edit_tenant')
                                                         ->label('Editar solicitud del inquilino')
                                                         ->color('primary')
                                                         ->action(function () {
                                                             // Si hay una Application vinculada, usar esa
                                                             if ($this->record->application_id) {
                                                                 $this->redirect(ApplicationsResource::getUrl('edit', ['record' => $this->record->application_id]));
+
                                                                 return;
                                                             }
 
                                                             // Si no hay Application, usar el flujo anterior con TenantRequest
                                                             $tenantRequest = TenantRequest::where('tenant_id', $this->record->tenant_id)
                                                                 ->where('rent_id', $this->record->id)->first();
-                                                            if (!$tenantRequest) {
+                                                            if (! $tenantRequest) {
                                                                 $tenantRequest = TenantRequest::create([
                                                                     'tenant_id' => $this->record->tenant_id,
                                                                     'rent_id' => $this->record->id,
@@ -929,19 +942,19 @@ class ViewRent extends EditRecord
                                                             $this->redirect(TenantRequestResource::getUrl('edit', ['record' => $tenantRequest]));
                                                         })
                                                         ->visible(fn () => $this->record->tenant),
-                                                    Forms\Components\Actions\Action::make('send_tenant')->label('Enviar solicitud al inquilino')->color('success'),
-                                                    Forms\Components\Actions\Action::make('copy_link_tenant')
+                                                    Action::make('send_tenant')->label('Enviar solicitud al inquilino')->color('success'),
+                                                    Action::make('copy_link_tenant')
                                                         ->label('Copiar link')
                                                         ->color('gray')
                                                         ->icon('heroicon-o-link')
                                                         ->visible(fn () => $this->record->tenant)
-                                                        ->action(function (\Filament\Forms\Components\Actions\Action $action) {
-                                                            
+                                                        ->action(function (Action $action) {
+
                                                             // Nos aseguramos de que el expediente exista en la BD. Si no, lo creamos igual que en el botón Editar.
-                                                            $tenantRequest = \App\Models\TenantRequest::firstOrCreate(
+                                                            $tenantRequest = TenantRequest::firstOrCreate(
                                                                 [
                                                                     'tenant_id' => $this->record->tenant_id,
-                                                                    'rent_id' => $this->record->id
+                                                                    'rent_id' => $this->record->id,
                                                                 ],
                                                                 [
                                                                     'estatus' => 'nueva',
@@ -952,10 +965,10 @@ class ViewRent extends EditRecord
                                                                     'rfc' => $this->record->tenant->rfc,
                                                                 ]
                                                             );
-                                                    
+
                                                             // Armamos la URL pública real
                                                             $urlPublica = route('solicitud.inquilino.publica', $tenantRequest->id);
-                                                    
+
                                                             // Inyectamos JS nativo con un "Fallback" que fuerza el copiado incluso sin HTTPS
                                                             $action->getLivewire()->js("
                                                                 const texto = '{$urlPublica}';
@@ -980,15 +993,15 @@ class ViewRent extends EditRecord
                                                                     document.body.removeChild(textArea);
                                                                 }
                                                             ");
-                                                    
+
                                                             // Mostramos la notificación verde
-                                                            \Filament\Notifications\Notification::make()
+                                                            Notification::make()
                                                                 ->success()
                                                                 ->title('¡Link copiado!')
                                                                 ->body('El enlace ya está en tu portapapeles, listo para enviarse por WhatsApp o Correo.')
                                                                 ->send();
                                                         }),
-                                                    Forms\Components\Actions\Action::make('export_pdf_tenant')->label('Exportar PDF')->color('warning'),
+                                                    Action::make('export_pdf_tenant')->label('Exportar PDF')->color('warning'),
                                                 ]),
                                             ]),
 
@@ -1052,13 +1065,13 @@ class ViewRent extends EditRecord
                                                                 ->email()
                                                                 ->required(),
                                                         ])
-                                                        ->columns(2)
-                                                        ->visible(fn (Forms\Get $get) => $get('tiene_fiador') === 'si')
-                                                        ->columnSpanFull(),
+                                                            ->columns(2)
+                                                            ->visible(fn (Forms\Get $get) => $get('tiene_fiador') === 'si')
+                                                            ->columnSpanFull(),
                                                     ]),
 
                                                 Forms\Components\Actions::make([
-                                                    Forms\Components\Actions\Action::make('actualizar_fiador')
+                                                    Action::make('actualizar_fiador')
                                                         ->label('Guardar')
                                                         ->color('primary')
                                                         ->icon('heroicon-o-check')
@@ -1067,7 +1080,7 @@ class ViewRent extends EditRecord
                                                             $this->save();
 
                                                             // Buscamos si el Fiador ya tiene una solicitud pública creada
-                                                            $guarantorRequest = \App\Models\GuarantorRequest::where('rent_id', $this->record->id)->first();
+                                                            $guarantorRequest = GuarantorRequest::where('rent_id', $this->record->id)->first();
 
                                                             // Si existe, la actualizamos con los datos frescos que acabamos de guardar
                                                             if ($guarantorRequest) {
@@ -1087,20 +1100,20 @@ class ViewRent extends EditRecord
                                                                 ]);
                                                             }
 
-                                                            \Filament\Notifications\Notification::make()->success()->title('Configuración de fiador guardada y sincronizada')->send();
+                                                            Notification::make()->success()->title('Configuración de fiador guardada y sincronizada')->send();
 
                                                             // Recargamos la vista para asegurar que no haya "fantasmas" visuales
-                                                            $this->redirect(\App\Filament\Resources\RentResource::getUrl('view', ['record' => $this->record]));
+                                                            $this->redirect(RentResource::getUrl('view', ['record' => $this->record]));
                                                         }),
 
                                                     // BOTONES QUE SOLO SALEN SI "tiene_fiador" ES SÍ
-                                                    Forms\Components\Actions\Action::make('edit_guarantor')
-                                                        ->label(fn (Forms\Get $get) => 'Editar solicitud del ' . strtolower($get('fiador_tipo') ?? 'fiador'))
+                                                    Action::make('edit_guarantor')
+                                                        ->label(fn (Forms\Get $get) => 'Editar solicitud del '.strtolower($get('fiador_tipo') ?? 'fiador'))
                                                         ->color('primary')
                                                         ->visible(fn (Forms\Get $get) => $get('tiene_fiador') === 'si')
                                                         ->action(function () {
                                                             // Creamos el expediente en blanco atado a esta renta para ir a llenarlo
-                                                            $guarantorRequest = \App\Models\GuarantorRequest::firstOrCreate(
+                                                            $guarantorRequest = GuarantorRequest::firstOrCreate(
                                                                 ['rent_id' => $this->record->id],
                                                                 [
                                                                     'tipo_persona' => $this->record->fiador_tipo_persona ?? 'fisica',
@@ -1114,21 +1127,21 @@ class ViewRent extends EditRecord
                                                                     'estatus' => 'nueva',
                                                                 ]
                                                             );
-                                                            $this->redirect(\App\Filament\Resources\GuarantorRequestResource::getUrl('edit', ['record' => $guarantorRequest]));
+                                                            $this->redirect(GuarantorRequestResource::getUrl('edit', ['record' => $guarantorRequest]));
                                                         }),
-                                                    Forms\Components\Actions\Action::make('send_guarantor')
-                                                        ->label(fn (Forms\Get $get) => 'Enviar solicitud al ' . strtolower($get('fiador_tipo') ?? 'fiador'))
+                                                    Action::make('send_guarantor')
+                                                        ->label(fn (Forms\Get $get) => 'Enviar solicitud al '.strtolower($get('fiador_tipo') ?? 'fiador'))
                                                         ->color('success')
                                                         ->visible(fn (Forms\Get $get) => $get('tiene_fiador') === 'si'),
-                                                    Forms\Components\Actions\Action::make('copy_link_guarantor')
+                                                    Action::make('copy_link_guarantor')
                                                         ->label('Copiar link')
                                                         ->color('gray')
                                                         ->icon('heroicon-o-link')
                                                         ->visible(fn (Forms\Get $get) => $get('tiene_fiador') === 'si')
-                                                        ->action(function (\Filament\Forms\Components\Actions\Action $action) {
+                                                        ->action(function (Action $action) {
 
                                                             // 1. Creamos o buscamos el expediente
-                                                            $guarantorRequest = \App\Models\GuarantorRequest::firstOrCreate(
+                                                            $guarantorRequest = GuarantorRequest::firstOrCreate(
                                                                 ['rent_id' => $this->record->id],
                                                                 [
                                                                     'estatus' => 'nueva',
@@ -1163,7 +1176,7 @@ class ViewRent extends EditRecord
                                                                 }
                                                             ");
 
-                                                            \Filament\Notifications\Notification::make()->success()->title('¡Link copiado!')->body('El enlace del fiador está listo para enviarse.')->send();
+                                                            Notification::make()->success()->title('¡Link copiado!')->body('El enlace del fiador está listo para enviarse.')->send();
                                                         }),
                                                 ]),
                                             ]),
@@ -1189,31 +1202,32 @@ class ViewRent extends EditRecord
                                                                 $options = [];
                                                                 foreach ($owners as $owner) {
                                                                     if ($owner->tipo_persona === 'fisica') {
-                                                                        $nombre = trim(($owner->nombres ?? '') . ' ' . ($owner->primer_apellido ?? '') . ' ' . ($owner->segundo_apellido ?? ''));
+                                                                        $nombre = trim(($owner->nombres ?? '').' '.($owner->primer_apellido ?? '').' '.($owner->segundo_apellido ?? ''));
                                                                     } else {
                                                                         $nombre = $owner->razon_social ?? '';
                                                                     }
-                                                                    $label = ($nombre ?: 'Sin nombre') . ' - ' . ($owner->email ?? '');
+                                                                    $label = ($nombre ?: 'Sin nombre').' - '.($owner->email ?? '');
                                                                     $options[$owner->id] = $label;
                                                                 }
 
                                                                 return $options;
                                                             })
                                                             ->getOptionLabelUsing(function ($value) {
-                                                                if (!$value) {
+                                                                if (! $value) {
                                                                     return null;
                                                                 }
                                                                 $owner = Owner::find($value);
-                                                                if (!$owner) {
+                                                                if (! $owner) {
                                                                     return $value;
                                                                 }
 
                                                                 if ($owner->tipo_persona === 'fisica') {
-                                                                    $nombre = trim(($owner->nombres ?? '') . ' ' . ($owner->primer_apellido ?? '') . ' ' . ($owner->segundo_apellido ?? ''));
+                                                                    $nombre = trim(($owner->nombres ?? '').' '.($owner->primer_apellido ?? '').' '.($owner->segundo_apellido ?? ''));
                                                                 } else {
                                                                     $nombre = $owner->razon_social ?? '';
                                                                 }
-                                                                return ($nombre ?: 'Sin nombre') . ' - ' . ($owner->email ?? '');
+
+                                                                return ($nombre ?: 'Sin nombre').' - '.($owner->email ?? '');
                                                             })
                                                             ->searchable()
                                                             ->preload()
@@ -1242,7 +1256,7 @@ class ViewRent extends EditRecord
                                                                         }
                                                                         $set('owner_email', $owner->email);
 
-                                                                        \Filament\Notifications\Notification::make()
+                                                                        Notification::make()
                                                                             ->success()
                                                                             ->title('Propietario vinculado')
                                                                             ->body('Los datos del propietario se han actualizado.')
@@ -1256,12 +1270,13 @@ class ViewRent extends EditRecord
                                                             ->label('Información actual del propietario')
                                                             ->content(function () {
                                                                 $owner = $this->record->owner;
-                                                                if (!$owner) {
+                                                                if (! $owner) {
                                                                     return 'No hay propietario asignado';
                                                                 }
                                                                 if ($owner->tipo_persona === 'fisica') {
                                                                     return "Tipo: Persona Física\nNombre: {$owner->nombres} {$owner->primer_apellido} {$owner->segundo_apellido}\nEmail: {$owner->email}";
                                                                 }
+
                                                                 return "Tipo: Persona Moral\nRazón Social: {$owner->razon_social}\nEmail: {$owner->email}\nRFC: {$owner->rfc}";
                                                             })
                                                             ->columnSpanFull(),
@@ -1301,7 +1316,7 @@ class ViewRent extends EditRecord
                                                     ->columns(4),
 
                                                 Forms\Components\Actions::make([
-                                                    Forms\Components\Actions\Action::make('actualizar_propietario')
+                                                    Action::make('actualizar_propietario')
                                                         ->label('Guardar')
                                                         ->color('primary')
                                                         ->icon('heroicon-o-check')
@@ -1326,14 +1341,14 @@ class ViewRent extends EditRecord
                                                                     $updateData['segundo_apellido'] = null;
                                                                     $updateData['sexo'] = null;
                                                                 }
-                                                                
+
                                                                 $this->record->owner->update($updateData);
 
                                                                 // Sincronizamos la solicitud (OwnerRequest) si ya existe
-                                                                $ownerRequest = \App\Models\OwnerRequest::where('owner_id', $this->record->owner_id)
+                                                                $ownerRequest = OwnerRequest::where('owner_id', $this->record->owner_id)
                                                                     ->where('rent_id', $this->record->id)
                                                                     ->first();
-                                                                    
+
                                                                 if ($ownerRequest) {
                                                                     $ownerRequest->update($updateData);
                                                                 }
@@ -1343,17 +1358,17 @@ class ViewRent extends EditRecord
                                                                     $this->record->update(['owner_id' => $this->data['owner_id']]);
                                                                 }
 
-                                                                \Filament\Notifications\Notification::make()->success()->title('Propietario actualizado')->send();
+                                                                Notification::make()->success()->title('Propietario actualizado')->send();
                                                                 $this->redirect(RentResource::getUrl('view', ['record' => $this->record]));
                                                             }
                                                         }),
-                                                    Forms\Components\Actions\Action::make('edit_owner')
+                                                    Action::make('edit_owner')
                                                         ->label('Ver solicitud del propietario')
                                                         ->color('primary')
                                                         ->action(function () {
                                                             $ownerRequest = OwnerRequest::where('owner_id', $this->record->owner_id)
                                                                 ->where('rent_id', $this->record->id)->first();
-                                                            if (!$ownerRequest) {
+                                                            if (! $ownerRequest) {
                                                                 $ownerRequest = OwnerRequest::create([
                                                                     'owner_id' => $this->record->owner_id,
                                                                     'rent_id' => $this->record->id,
@@ -1368,19 +1383,19 @@ class ViewRent extends EditRecord
                                                             $this->redirect(OwnerRequestResource::getUrl('edit', ['record' => $ownerRequest]));
                                                         })
                                                         ->visible(fn () => $this->record->owner),
-                                                    Forms\Components\Actions\Action::make('send_owner')->label('Enviar solicitud al propietario')->color('success'),
-                                                    Forms\Components\Actions\Action::make('copy_link_owner')
+                                                    Action::make('send_owner')->label('Enviar solicitud al propietario')->color('success'),
+                                                    Action::make('copy_link_owner')
                                                         ->label('Copiar link')
                                                         ->color('gray')
                                                         ->icon('heroicon-o-link')
                                                         ->visible(fn () => $this->record->owner)
-                                                        ->action(function (\Filament\Forms\Components\Actions\Action $action) {
-                                                            
+                                                        ->action(function (Action $action) {
+
                                                             // Nos aseguramos de que el expediente exista en la BD
-                                                            $ownerRequest = \App\Models\OwnerRequest::firstOrCreate(
+                                                            $ownerRequest = OwnerRequest::firstOrCreate(
                                                                 [
                                                                     'owner_id' => $this->record->owner_id,
-                                                                    'rent_id' => $this->record->id
+                                                                    'rent_id' => $this->record->id,
                                                                 ],
                                                                 [
                                                                     'estatus' => 'nueva',
@@ -1391,10 +1406,10 @@ class ViewRent extends EditRecord
                                                                     'rfc' => $this->record->owner->rfc,
                                                                 ]
                                                             );
-                                                            
+
                                                             // Armamos la URL pública real del propietario
                                                             $urlPublica = route('solicitud.propietario.publica', $ownerRequest->id);
-                                                            
+
                                                             $action->getLivewire()->js("
                                                                 const texto = '{$urlPublica}';
                                                                 
@@ -1418,15 +1433,15 @@ class ViewRent extends EditRecord
                                                                     document.body.removeChild(textArea);
                                                                 }
                                                             ");
-                                                            
+
                                                             // Mostramos notificación de éxito
-                                                            \Filament\Notifications\Notification::make()
+                                                            Notification::make()
                                                                 ->success()
                                                                 ->title('¡Link copiado!')
                                                                 ->body('El enlace de la solicitud del propietario ya está en tu portapapeles.')
                                                                 ->send();
                                                         }),
-                                                    Forms\Components\Actions\Action::make('export_pdf_owner')->label('Exportar PDF')->color('warning'),
+                                                    Action::make('export_pdf_owner')->label('Exportar PDF')->color('warning'),
                                                 ]),
                                             ]),
 
@@ -1456,24 +1471,25 @@ class ViewRent extends EditRecord
 
                                                                 $options = [];
                                                                 foreach ($properties as $property) {
-                                                                    $direccion = trim(($property->calle ?? '') . ' ' . ($property->numero_exterior ?? ''));
-                                                                    $label = ($property->folio ?? 'N/A') . ' - ' . ($direccion ?: 'Sin dirección');
+                                                                    $direccion = trim(($property->calle ?? '').' '.($property->numero_exterior ?? ''));
+                                                                    $label = ($property->folio ?? 'N/A').' - '.($direccion ?: 'Sin dirección');
                                                                     $options[$property->id] = $label;
                                                                 }
 
                                                                 return $options;
                                                             })
                                                             ->getOptionLabelUsing(function ($value) {
-                                                                if (!$value) {
+                                                                if (! $value) {
                                                                     return null;
                                                                 }
                                                                 $property = Property::find($value);
-                                                                if (!$property) {
+                                                                if (! $property) {
                                                                     return $value;
                                                                 }
 
-                                                                $direccion = trim(($property->calle ?? '') . ' ' . ($property->numero_exterior ?? ''));
-                                                                return ($property->folio ?? 'N/A') . ' - ' . ($direccion ?: 'Sin dirección');
+                                                                $direccion = trim(($property->calle ?? '').' '.($property->numero_exterior ?? ''));
+
+                                                                return ($property->folio ?? 'N/A').' - '.($direccion ?: 'Sin dirección');
                                                             })
                                                             ->searchable()
                                                             ->preload()
@@ -1508,7 +1524,7 @@ class ViewRent extends EditRecord
                                                                         $set('estado', $property->estado ?? '');
                                                                         $set('referencias_ubicacion', $property->referencias_ubicacion ?? '');
 
-                                                                        \Filament\Notifications\Notification::make()
+                                                                        Notification::make()
                                                                             ->success()
                                                                             ->title('Propiedad seleccionada')
                                                                             ->body('Los datos de la propiedad se han cargado. Haga clic en Guardar para persistir los cambios.')
@@ -1592,7 +1608,7 @@ class ViewRent extends EditRecord
                                                     ->columns(2),
 
                                                 Forms\Components\Actions::make([
-                                                    Forms\Components\Actions\Action::make('guardar_propiedad')
+                                                    Action::make('guardar_propiedad')
                                                         ->label('Guardar')
                                                         ->color('primary')
                                                         ->icon('heroicon-o-check')
@@ -1603,7 +1619,7 @@ class ViewRent extends EditRecord
                                                             }
 
                                                             $this->save();
-                                                            \Filament\Notifications\Notification::make()->success()->title('Datos de propiedad guardados')->send();
+                                                            Notification::make()->success()->title('Datos de propiedad guardados')->send();
                                                         }),
                                                 ]),
                                             ]),
@@ -1628,7 +1644,7 @@ class ViewRent extends EditRecord
                                                         ? 'Documentación fiscal y legal (Persona Moral)'
                                                         : 'Documentación de identidad (Persona Física)')
                                                     ->headerActions([
-                                                        Forms\Components\Actions\Action::make('subir_doc_inquilino')
+                                                        Action::make('subir_doc_inquilino')
                                                             ->label('Nuevo Documento')
                                                             ->color('primary')
                                                             ->icon('heroicon-o-arrow-up-tray')
@@ -1655,7 +1671,7 @@ class ViewRent extends EditRecord
                                                                     'path_file' => $data['file'],
                                                                     'mime' => Storage::disk('public')->mimeType($data['file']) ?? 'application/octet-stream',
                                                                 ]);
-                                                                \Filament\Notifications\Notification::make()->success()->title('Documento cargado')->send();
+                                                                Notification::make()->success()->title('Documento cargado')->send();
                                                             }),
                                                     ])
                                                     ->schema([
@@ -1664,7 +1680,7 @@ class ViewRent extends EditRecord
                                                             ->content(function () {
                                                                 $docs = $this->record->tenantDocuments;
                                                                 if ($docs->isEmpty()) {
-                                                                    return new \Illuminate\Support\HtmlString('
+                                                                    return new HtmlString('
                                                                         <div class="flex flex-col items-center justify-center p-6 border-2 border-dashed border-gray-300 rounded-xl dark:border-gray-700">
                                                                             <div class="p-3 bg-gray-100 rounded-full dark:bg-gray-800">
                                                                                 <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
@@ -1715,7 +1731,8 @@ class ViewRent extends EditRecord
                                                                     </div>";
                                                                 }
                                                                 $html .= '</div>';
-                                                                return new \Illuminate\Support\HtmlString($html);
+
+                                                                return new HtmlString($html);
                                                             }),
                                                     ]),
                                             ]),
@@ -1727,7 +1744,7 @@ class ViewRent extends EditRecord
                                                 Forms\Components\Section::make('Expediente del Fiador')
                                                     ->description('Documentos de garantía y respaldo')
                                                     ->headerActions([
-                                                        Forms\Components\Actions\Action::make('subir_doc_fiador')
+                                                        Action::make('subir_doc_fiador')
                                                             ->label('Nuevo Documento')
                                                             ->color('primary')
                                                             ->icon('heroicon-o-arrow-up-tray')
@@ -1752,7 +1769,7 @@ class ViewRent extends EditRecord
                                                                     'path_file' => $data['file'],
                                                                     'mime' => Storage::disk('public')->mimeType($data['file']) ?? 'application/octet-stream',
                                                                 ]);
-                                                                \Filament\Notifications\Notification::make()->success()->title('Documento cargado')->send();
+                                                                Notification::make()->success()->title('Documento cargado')->send();
                                                             }),
                                                     ])
                                                     ->schema([
@@ -1761,7 +1778,7 @@ class ViewRent extends EditRecord
                                                             ->content(function () {
                                                                 $docs = $this->record->guarantorDocuments;
                                                                 if ($docs->isEmpty()) {
-                                                                    return new \Illuminate\Support\HtmlString('
+                                                                    return new HtmlString('
                                                                         <div class="flex flex-col items-center justify-center p-6 border-2 border-dashed border-gray-300 rounded-xl dark:border-gray-700">
                                                                             <div class="p-3 bg-gray-100 rounded-full dark:bg-gray-800">
                                                                                 <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
@@ -1807,7 +1824,8 @@ class ViewRent extends EditRecord
                                                                     </div>";
                                                                 }
                                                                 $html .= '</div>';
-                                                                return new \Illuminate\Support\HtmlString($html);
+
+                                                                return new HtmlString($html);
                                                             }),
                                                     ]),
                                             ]),
@@ -1819,7 +1837,7 @@ class ViewRent extends EditRecord
                                                 Forms\Components\Section::make('Expediente del Propietario')
                                                     ->description('Documentación legal de la propiedad y dueño')
                                                     ->headerActions([
-                                                        Forms\Components\Actions\Action::make('subir_doc_propietario')
+                                                        Action::make('subir_doc_propietario')
                                                             ->label('Nuevo Documento')
                                                             ->color('primary')
                                                             ->icon('heroicon-o-arrow-up-tray')
@@ -1846,7 +1864,7 @@ class ViewRent extends EditRecord
                                                                     'path_file' => $data['file'],
                                                                     'mime' => Storage::disk('public')->mimeType($data['file']) ?? 'application/octet-stream',
                                                                 ]);
-                                                                \Filament\Notifications\Notification::make()->success()->title('Documento cargado')->send();
+                                                                Notification::make()->success()->title('Documento cargado')->send();
                                                             }),
                                                     ])
                                                     ->schema([
@@ -1855,7 +1873,7 @@ class ViewRent extends EditRecord
                                                             ->content(function () {
                                                                 $docs = $this->record->ownerDocuments;
                                                                 if ($docs->isEmpty()) {
-                                                                    return new \Illuminate\Support\HtmlString('
+                                                                    return new HtmlString('
                                                                         <div class="flex flex-col items-center justify-center p-6 border-2 border-dashed border-gray-300 rounded-xl dark:border-gray-700">
                                                                             <div class="p-3 bg-gray-100 rounded-full dark:bg-gray-800">
                                                                                 <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
@@ -1903,7 +1921,8 @@ class ViewRent extends EditRecord
                                                                     </div>";
                                                                 }
                                                                 $html .= '</div>';
-                                                                return new \Illuminate\Support\HtmlString($html);
+
+                                                                return new HtmlString($html);
                                                             }),
                                                     ]),
                                             ]),
@@ -1915,7 +1934,7 @@ class ViewRent extends EditRecord
                                                 Forms\Components\Section::make('Expediente del Inmueble')
                                                     ->description('Documentos técnicos y legales de la propiedad')
                                                     ->headerActions([
-                                                        Forms\Components\Actions\Action::make('subir_doc_propiedad')
+                                                        Action::make('subir_doc_propiedad')
                                                             ->label('Nuevo Documento')
                                                             ->color('primary')
                                                             ->icon('heroicon-o-arrow-up-tray')
@@ -1940,7 +1959,7 @@ class ViewRent extends EditRecord
                                                                     'path_file' => $data['file'],
                                                                     'mime' => Storage::disk('public')->mimeType($data['file']) ?? 'application/octet-stream',
                                                                 ]);
-                                                                \Filament\Notifications\Notification::make()->success()->title('Documento cargado')->send();
+                                                                Notification::make()->success()->title('Documento cargado')->send();
                                                             }),
                                                     ])
                                                     ->schema([
@@ -1949,7 +1968,7 @@ class ViewRent extends EditRecord
                                                             ->content(function () {
                                                                 $docs = $this->record->propertyDocuments;
                                                                 if ($docs->isEmpty()) {
-                                                                    return new \Illuminate\Support\HtmlString('
+                                                                    return new HtmlString('
                                                                         <div class="flex flex-col items-center justify-center p-6 border-2 border-dashed border-gray-300 rounded-xl dark:border-gray-700">
                                                                             <div class="p-3 bg-gray-100 rounded-full dark:bg-gray-800">
                                                                                 <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
@@ -1995,7 +2014,8 @@ class ViewRent extends EditRecord
                                                                     </div>";
                                                                 }
                                                                 $html .= '</div>';
-                                                                return new \Illuminate\Support\HtmlString($html);
+
+                                                                return new HtmlString($html);
                                                             }),
                                                     ]),
                                             ]),
@@ -2014,16 +2034,16 @@ class ViewRent extends EditRecord
                                         // Resumen del Inquilino
                                         Forms\Components\Placeholder::make('resumen_inquilino')
                                             ->label('Datos del Inquilino')
-                                            ->content(fn ($record) => new \Illuminate\Support\HtmlString(
+                                            ->content(fn ($record) => new HtmlString(
                                                 $record->tenant
-                                                ? "<b>Nombre:</b> {$record->tenant->nombre_completo}<br><b>Email:</b> {$record->tenant->email}<br><b>Teléfono:</b> " . ($record->tenant->telefono_celular ?? $record->tenant->telefono)
+                                                ? "<b>Nombre:</b> {$record->tenant->nombre_completo}<br><b>Email:</b> {$record->tenant->email}<br><b>Teléfono:</b> ".($record->tenant->telefono_celular ?? $record->tenant->telefono)
                                                 : '<span class="text-red-500">Sin asignar</span>'
                                             )),
 
                                         // Resumen del Propietario
                                         Forms\Components\Placeholder::make('resumen_propietario')
                                             ->label('Datos del Propietario')
-                                            ->content(fn ($record) => new \Illuminate\Support\HtmlString(
+                                            ->content(fn ($record) => new HtmlString(
                                                 $record->owner
                                                 ? "<b>Nombre:</b> {$record->owner->nombre_completo}<br><b>Email:</b> {$record->owner->email}<br><b>Teléfono:</b> {$record->owner->telefono}"
                                                 : '<span class="text-red-500">Sin asignar</span>'
@@ -2032,16 +2052,16 @@ class ViewRent extends EditRecord
                                         // Propiedad y Renta
                                         Forms\Components\Placeholder::make('resumen_inmueble')
                                             ->label('Inmueble y Propiedad')
-                                            ->content(fn ($record) => new \Illuminate\Support\HtmlString(
-                                                "<b>Tipo:</b> " . ucfirst($record->tipo_inmueble ?? 'N/A') . "<br>" .
-                                                "<b>Dirección:</b> " . trim(($record->calle ?? '') . ' ' . ($record->numero_exterior ?? ''))
+                                            ->content(fn ($record) => new HtmlString(
+                                                '<b>Tipo:</b> '.ucfirst($record->tipo_inmueble ?? 'N/A').'<br>'.
+                                                '<b>Dirección:</b> '.trim(($record->calle ?? '').' '.($record->numero_exterior ?? ''))
                                             )),
 
                                         Forms\Components\Placeholder::make('resumen_renta')
                                             ->label('Monto y Solicitud')
-                                            ->content(fn ($record) => new \Illuminate\Support\HtmlString(
-                                                "<b>Renta Mensual:</b> $" . number_format($record->renta ?? 0, 2) . "<br>" .
-                                                "<b>Solicitud Inquilino:</b> " . ($record->application ? $record->application->folio : 'No vinculada')
+                                            ->content(fn ($record) => new HtmlString(
+                                                '<b>Renta Mensual:</b> $'.number_format($record->renta ?? 0, 2).'<br>'.
+                                                '<b>Solicitud Inquilino:</b> '.($record->application ? $record->application->folio : 'No vinculada')
                                             )),
 
                                         // Fechas y Plazos (Proceso de Renta)
@@ -2081,12 +2101,19 @@ class ViewRent extends EditRecord
                                             ->label('Fecha prevista de firma')
                                             ->displayFormat('d/m/Y')
                                             ->native(false),
+
+                                        Forms\Components\Toggle::make('con_poliza')
+                                            ->label('¿Con póliza?')
+                                            ->helperText('Si está activado, se habilita el envío a Póliza de Rentas. Si no, podrás activar la renta directamente.')
+                                            ->onColor('success')
+                                            ->offColor('gray')
+                                            ->live(),
                                     ])->columns(2),
 
                                 // Botón de Envío
                                 Forms\Components\Actions::make([
-                                    Forms\Components\Actions\Action::make('enviar_pdr')
-                                        ->label('Enviar expediente a Póliza de Rentas')
+                                    Action::make('enviar_pdr')
+                                        ->label('Enviar a Póliza de Rentas')
                                         ->icon('heroicon-m-paper-airplane')
                                         ->color('success')
                                         ->requiresConfirmation()
@@ -2113,7 +2140,7 @@ class ViewRent extends EditRecord
                                                     'fecha_firma' => 'fecha prevista de firma',
                                                 ])->validate();
                                             } catch (ValidationException $e) {
-                                                \Filament\Notifications\Notification::make()
+                                                Notification::make()
                                                     ->danger()
                                                     ->title('Completa el resumen de la operación')
                                                     ->body(collect($e->errors())->flatten()->implode(' '))
@@ -2142,14 +2169,67 @@ class ViewRent extends EditRecord
                                             */
 
                                             // 5. MENSAJE DE ÉXITO EXACTO COMO LO PIDIERON
-                                            \Filament\Notifications\Notification::make()
+                                            Notification::make()
                                                 ->success()
                                                 ->title('Expediente enviado exitosamente')
                                                 ->body('El estatus ha cambiado a Análisis y PDR ha sido notificado.')
                                                 ->send();
                                         })
-                                        // El botón desaparece si la renta ya pasó de la fase de documentación
-                                        ->visible(fn ($record) => in_array($record->estatus, ['nueva', 'documentacion'])),
+                                        // Solo aparece si "¿Con póliza?" está activado y la renta sigue en fase previa.
+                                        ->visible(fn (Forms\Get $get, $record) => (bool) $get('con_poliza') && in_array($record->estatus, ['nueva', 'documentacion'])),
+
+                                    Action::make('activar_renta')
+                                        ->label('Activar Renta')
+                                        ->icon('heroicon-o-check-circle')
+                                        ->color('primary')
+                                        ->size('lg')
+                                        ->requiresConfirmation()
+                                        ->modalHeading('¿Activar Renta?')
+                                        ->modalDescription('La renta cambiará a estatus "Activa" y se habilitará la pestaña siguiente.')
+                                        ->action(function (Forms\Get $get, Forms\Set $set, $record) {
+                                            $payload = [
+                                                'plazo_arrendamiento' => $get('plazo_arrendamiento'),
+                                                'start_date' => $get('start_date'),
+                                                'end_date' => $get('end_date'),
+                                                'fecha_firma' => $get('fecha_firma'),
+                                            ];
+
+                                            try {
+                                                Validator::make($payload, [
+                                                    'plazo_arrendamiento' => ['required', 'in:3,6,12,18,24'],
+                                                    'start_date' => ['required', 'date'],
+                                                    'end_date' => ['required', 'date'],
+                                                    'fecha_firma' => ['required', 'date'],
+                                                ], [], [
+                                                    'plazo_arrendamiento' => 'plazo del arrendamiento',
+                                                    'start_date' => 'fecha de inicio',
+                                                    'end_date' => 'fecha de fin',
+                                                    'fecha_firma' => 'fecha prevista de firma',
+                                                ])->validate();
+                                            } catch (ValidationException $e) {
+                                                Notification::make()
+                                                    ->danger()
+                                                    ->title('Completa el resumen de la operación')
+                                                    ->body(collect($e->errors())->flatten()->implode(' '))
+                                                    ->send();
+
+                                                return;
+                                            }
+
+                                            $record->update([
+                                                ...$payload,
+                                                'estatus' => 'activa',
+                                            ]);
+
+                                            $set('estatus', 'activa');
+
+                                            Notification::make()
+                                                ->success()
+                                                ->title('Renta activada')
+                                                ->body('La renta cambió a estatus Activa.')
+                                                ->send();
+                                        })
+                                        ->visible(fn (Forms\Get $get, $record) => ! (bool) $get('con_poliza') && in_array($record->estatus, ['nueva', 'documentacion'])),
                                 ])->fullWidth(),
                             ]),
 
@@ -2159,15 +2239,21 @@ class ViewRent extends EditRecord
                             ->visible(fn (): bool => $this->record->estatus === 'activa')
                             ->schema([
                                 Forms\Components\Section::make('Gestión de la Propiedad')
-                                    ->description('Configure quién administra la propiedad y las alertas de cobro.')
+                                    ->description('Si el agente administra, la renta se gestiona desde “Mis Administraciones”. Si no, se gestiona desde aquí.')
                                     ->schema([
                                         // EL CHECK PRINCIPAL: ¿Lo administra el agente o el propietario?
                                         Forms\Components\Toggle::make('is_administrada_por_agente')
                                             ->label('¿El agente administrará esta propiedad?')
-                                            ->helperText('Si se activa, el agente recibirá las alertas de pago en lugar del propietario y la renta aparecerá en "Mis Administraciones".')
+                                            ->helperText('Encendido: se gestiona desde “Mis Administraciones”. Apagado: se gestiona en esta pestaña.')
                                             ->onColor('success')
                                             ->offColor('gray')
                                             ->live(),
+
+                                        Forms\Components\Placeholder::make('admin_hint')
+                                            ->hiddenLabel()
+                                            ->content(fn (Forms\Get $get) => (bool) $get('is_administrada_por_agente')
+                                                ? 'Esta renta se administra desde “Mis Administraciones”.'
+                                                : 'Esta renta se administra desde esta pestaña.'),
 
                                         Forms\Components\Grid::make(2)->schema([
                                             Forms\Components\TextInput::make('dia_cobro_renta')
@@ -2200,15 +2286,21 @@ class ViewRent extends EditRecord
 
                                         // Botón de Envío
                                         Forms\Components\Actions::make([
-                                            Forms\Components\Actions\Action::make('guardar_administracion')
+                                            Action::make('guardar_administracion')
                                                 ->label('Guardar Configuración')
                                                 ->color('primary')
                                                 ->icon('heroicon-o-check')
                                                 ->action(function () {
                                                     $this->save();
-                                                    \Filament\Notifications\Notification::make()->success()->title('Configuración guardada')->send();
+                                                    Notification::make()->success()->title('Configuración guardada')->send();
                                                 }),
                                         ]),
+                                    ]),
+
+                                Forms\Components\Group::make()
+                                    ->visible(fn (Forms\Get $get): bool => ! (bool) $get('is_administrada_por_agente'))
+                                    ->schema([
+                                        AdministrationTabs::make($this->record),
                                     ]),
                             ]),
                     ]),
@@ -2222,11 +2314,11 @@ class ViewRent extends EditRecord
                     ->schema([
                         Forms\Components\Tabs::make('TabsComentarios')
                             ->tabs([
-                                
+
                                 // === PESTAÑA 1: COMENTARIOS (Por defecto) ===
                                 Forms\Components\Tabs\Tab::make('Comentarios')
                                     ->icon('heroicon-m-chat-bubble-bottom-center-text')
-                                    ->badge(fn () => $this->record->comments()->where('comment', 'not like', 'El sistema registró%')->count()) 
+                                    ->badge(fn () => $this->record->comments()->where('comment', 'not like', 'El sistema registró%')->count())
                                     ->schema([
                                         Forms\Components\Group::make()->schema([
                                             Forms\Components\Textarea::make('new_comment_content')
@@ -2234,29 +2326,31 @@ class ViewRent extends EditRecord
                                                 ->placeholder('Escribe una nueva nota o comentario...')
                                                 ->rows(2)
                                                 ->extraInputAttributes(['class' => 'border-gray-300 focus:border-[#26cad3] focus:ring-[#26cad3]']),
-                
+
                                             Forms\Components\Actions::make([
-                                                Forms\Components\Actions\Action::make('guardar_comentario')
+                                                Action::make('guardar_comentario')
                                                     ->label('Publicar Comentario')
                                                     ->color('primary')
                                                     ->icon('heroicon-m-paper-airplane')
                                                     ->action(function (Forms\Get $get, Forms\Set $set) {
                                                         $content = $get('new_comment_content');
-                                                        if (!$content) return;
-                
-                                                        \App\Models\RentComment::create([
+                                                        if (! $content) {
+                                                            return;
+                                                        }
+
+                                                        RentComment::create([
                                                             'rent_id' => $this->record->id,
                                                             'user_id' => auth()->id(),
                                                             'comment' => $content,
                                                             'status' => 'activa',
                                                         ]);
-                
+
                                                         $set('new_comment_content', '');
-                                                        \Filament\Notifications\Notification::make()->success()->title('Comentario registrado')->send();
+                                                        Notification::make()->success()->title('Comentario registrado')->send();
                                                     }),
                                             ])->alignRight(),
                                         ]),
-                
+
                                         Forms\Components\Placeholder::make('comments_list_manual')
                                             ->hiddenLabel()
                                             ->content(function () {
@@ -2266,22 +2360,22 @@ class ViewRent extends EditRecord
                                                     ->with('user')
                                                     ->orderBy('created_at', 'desc')
                                                     ->get();
-                
+
                                                 if ($comments->isEmpty()) {
-                                                    return new \Illuminate\Support\HtmlString('
+                                                    return new HtmlString('
                                                         <div class="flex flex-col items-center justify-center p-8 text-center bg-white border border-gray-200 border-dashed rounded-xl dark:bg-gray-800 dark:border-gray-700 mt-4">
                                                             <p class="text-sm text-gray-500">Sin comentarios aún</p>
                                                         </div>
                                                     ');
                                                 }
-                
+
                                                 $html = '<div class="space-y-3 max-h-[400px] overflow-y-auto pr-2 mt-4">';
                                                 foreach ($comments as $comment) {
                                                     $userName = $comment->user->name ?? 'Usuario Desconocido';
                                                     $date = $comment->created_at->format('d M Y, h:i A');
-                
+
                                                     $initials = collect(explode(' ', $userName))->map(fn ($w) => strtoupper(substr($w, 0, 1)))->take(2)->implode('');
-                
+
                                                     $html .= "
                                                         <div class='flex items-start gap-3'>
                                                             <div class='flex-shrink-0'>
@@ -2301,10 +2395,11 @@ class ViewRent extends EditRecord
                                                         </div>";
                                                 }
                                                 $html .= '</div>';
-                                                return new \Illuminate\Support\HtmlString($html);
+
+                                                return new HtmlString($html);
                                             }),
                                     ]),
-                
+
                                 // === PESTAÑA 2: BITÁCORA DEL SISTEMA ===
                                 Forms\Components\Tabs\Tab::make('Bitácora')
                                     ->icon('heroicon-m-clipboard-document-list')
@@ -2320,22 +2415,22 @@ class ViewRent extends EditRecord
                                                     ->with('user')
                                                     ->orderBy('created_at', 'desc')
                                                     ->get();
-                
+
                                                 if ($comments->isEmpty()) {
-                                                    return new \Illuminate\Support\HtmlString('
+                                                    return new HtmlString('
                                                         <div class="flex flex-col items-center justify-center p-8 text-center bg-white border border-gray-200 border-dashed rounded-xl dark:bg-gray-800 dark:border-gray-700 mt-4">
                                                             <p class="text-sm text-gray-500">Sin registros en la bitácora aún</p>
                                                         </div>
                                                     ');
                                                 }
-                
+
                                                 $html = '<div class="space-y-3 max-h-[400px] overflow-y-auto pr-2 mt-4">';
                                                 foreach ($comments as $comment) {
                                                     $userName = $comment->user->name ?? 'Sistema';
                                                     $date = $comment->created_at->format('d M Y, h:i A');
-                
+
                                                     $initials = collect(explode(' ', $userName))->map(fn ($w) => strtoupper(substr($w, 0, 1)))->take(2)->implode('');
-                
+
                                                     $html .= "
                                                         <div class='flex items-start gap-3 opacity-90 hover:opacity-100 transition-opacity'>
                                                             <div class='flex-shrink-0'>
@@ -2349,13 +2444,14 @@ class ViewRent extends EditRecord
                                                                         <span class='text-sm font-bold text-[#161848] dark:text-white'>{$userName} <span class='font-normal text-gray-500'>actualizó el registro:</span></span>
                                                                         <span class='text-xs text-gray-400'>{$date}</span>
                                                                     </div>
-                                                                    <p class='text-sm text-gray-700 dark:text-gray-200 whitespace-pre-wrap leading-relaxed'>" . str_replace(['El sistema registró las siguientes actualizaciones en el expediente:', 'El sistema registró los siguientes cambios:'], '', $comment->comment) . "</p>
+                                                                    <p class='text-sm text-gray-700 dark:text-gray-200 whitespace-pre-wrap leading-relaxed'>".str_replace(['El sistema registró las siguientes actualizaciones en el expediente:', 'El sistema registró los siguientes cambios:'], '', $comment->comment).'</p>
                                                                 </div>
                                                             </div>
-                                                        </div>";
+                                                        </div>';
                                                 }
                                                 $html .= '</div>';
-                                                return new \Illuminate\Support\HtmlString($html);
+
+                                                return new HtmlString($html);
                                             }),
                                     ]),
                             ]),
