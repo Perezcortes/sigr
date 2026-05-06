@@ -373,6 +373,7 @@ class LeadResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->actionsColumnLabel('Acciones')
             ->defaultSort(fn ($query) => $query->orderByRaw("CASE WHEN etapa = 'no_contactado' THEN 1 ELSE 2 END")->orderBy('created_at', 'desc'))
             ->modifyQueryUsing(fn (Builder $query) => $query->whereNotIn('etapa', ['ganado', 'perdido', 'no_califica']))
             ->headerActions([
@@ -396,6 +397,7 @@ class LeadResource extends Resource
                     ->searchable(),
 
                 Tables\Columns\TextColumn::make('etapa')
+                    ->label('Etapa')
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
                         'no_contactado' => 'danger',
@@ -403,7 +405,20 @@ class LeadResource extends Resource
                         'perdido', 'no_califica' => 'gray',
                         default => 'warning',
                     })
-                    ->formatStateUsing(fn (string $state): string => ucfirst(str_replace('_', ' ', $state))),
+                    ->formatStateUsing(fn (?string $state): string => match ($state) {
+                        'no_contactado' => 'No contactado',
+                        'contactado' => 'Contactado',
+                        'cita' => 'Cita',
+                        'seguimiento' => 'Seguimiento',
+                        'propuesta' => 'Propuesta',
+                        'en_cierre' => 'En cierre',
+                        'en_proceso' => 'En proceso',
+                        'nuevo' => 'Nuevo',
+                        'ganado' => 'Ganado',
+                        'perdido' => 'Perdido',
+                        'no_califica' => 'No califica',
+                        default => $state ? ucfirst(str_replace('_', ' ', $state)) : '—',
+                    }),
 
                 // Agregado a la tabla para mayor visibilidad
                 Tables\Columns\TextColumn::make('calificacion_lead')
@@ -462,12 +477,6 @@ class LeadResource extends Resource
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
-                Action::make('contactar')
-                    ->label('Ya contacté')
-                    ->icon('heroicon-o-check')
-                    ->color('success')
-                    ->action(fn (Lead $record) => $record->update(['etapa' => 'contactado']))
-                    ->visible(fn (Lead $record) => $record->etapa === 'no_contactado'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
