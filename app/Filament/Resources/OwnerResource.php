@@ -45,13 +45,13 @@ class OwnerResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->user()->hasAnyRole(['Administrador', 'Gerente', 'Asesor']);
+        return auth()->user()->hasAnyRole(['Administrador', 'Gerente', 'Agente']);
     }
 
     public static function canCreate(): bool
     {
         // Administradores y Asesores pueden crear propietarios
-        return auth()->user()->hasAnyRole(['Administrador', 'Asesor']);
+        return auth()->user()->hasAnyRole(['Administrador', 'Agente']);
     }
 
     public static function canEdit(Model $record): bool
@@ -62,7 +62,7 @@ class OwnerResource extends Resource
             return true;
         }
 
-        if ($user->hasRole('Asesor')) {
+        if ($user->hasRole('Agente')) {
             // El asesor solo edita si él es el titular asignado a este propietario
             return $record->asesor_id === $user->id;
         }

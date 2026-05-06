@@ -28,7 +28,7 @@ final class ScopesByOfficeAndAdvisor
             });
         }
 
-        if ($user->hasRole('Asesor')) {
+        if ($user->hasRole('Agente')) {
             return $query->where('user_id', $user->id);
         }
 
@@ -51,7 +51,7 @@ final class ScopesByOfficeAndAdvisor
             return $query->where($query->qualifyColumn('office_id'), $user->office_id);
         }
 
-        if ($user->hasRole('Asesor')) {
+        if ($user->hasRole('Agente')) {
             return $query->where($query->qualifyColumn('asesor_id'), $user->id)
                 ->where(function (Builder $q) use ($user): void {
                     $q->where($q->qualifyColumn('office_id'), $user->office_id)
@@ -80,7 +80,7 @@ final class ScopesByOfficeAndAdvisor
             });
         }
 
-        if ($user->hasRole('Asesor')) {
+        if ($user->hasRole('Agente')) {
             return $query->where($query->qualifyColumn('asesor_id'), $user->id);
         }
 
@@ -105,7 +105,7 @@ final class ScopesByOfficeAndAdvisor
             });
         }
 
-        if ($user->hasRole('Asesor')) {
+        if ($user->hasRole('Agente')) {
             return $query->where('asesor_id', $user->id);
         }
 
@@ -129,7 +129,7 @@ final class ScopesByOfficeAndAdvisor
             return;
         }
 
-        if ($user->hasRole('Asesor')) {
+        if ($user->hasRole('Agente')) {
             $query->where(function (Builder $q) use ($user): void {
                 $q->where($q->qualifyColumn('user_id'), $user->id)
                     ->orWhereNull($q->qualifyColumn('user_id'));
@@ -154,7 +154,7 @@ final class ScopesByOfficeAndAdvisor
             return;
         }
 
-        if ($user->hasRole('Asesor')) {
+        if ($user->hasRole('Agente')) {
             $query->where('asesor_id', $user->id);
         }
     }

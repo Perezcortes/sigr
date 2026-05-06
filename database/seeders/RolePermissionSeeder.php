@@ -79,7 +79,7 @@ class RolePermissionSeeder extends Seeder
         // Crear Roles
         $roleAdmin = Role::firstOrCreate(['name' => 'Administrador']);
         $roleGerente = Role::firstOrCreate(['name' => 'Gerente']);
-        $roleAsesor = Role::firstOrCreate(['name' => 'Asesor']);
+        $roleAgente = Role::firstOrCreate(['name' => 'Agente']);
         $roleCliente = Role::firstOrCreate(['name' => 'Cliente']);
 
         // Asignar permisos a los roles
@@ -99,8 +99,8 @@ class RolePermissionSeeder extends Seeder
             // Aquí los demás permisos que requiera el Gerente
         ]);
 
-        // ASESOR:
-        $roleAsesor->givePermissionTo([
+        // AGENTE (antes «Asesor»):
+        $roleAgente->givePermissionTo([
             'Ver Dashboard',
             'Ver Oficinas', // Necesario para entrar al módulo
             'Ver Inquilinos',

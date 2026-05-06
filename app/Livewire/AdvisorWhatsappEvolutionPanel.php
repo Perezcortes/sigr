@@ -37,7 +37,7 @@ class AdvisorWhatsappEvolutionPanel extends Component
             return false;
         }
 
-        return $user->hasRole('Asesor') || $user->roles()->where('id', 3)->exists();
+        return $user->hasRole('Agente');
     }
 
     public function loadAdvisorState(): void

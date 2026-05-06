@@ -40,8 +40,9 @@ class UserResource extends Resource
 
     public static function canCreate(): bool
     {
-        // Solo el Administrador puede crear usuarios nuevos
-        return auth()->user()->hasRole('Administrador');
+        // Administradores y usuarios con el permiso explícito pueden crear usuarios nuevos
+        return auth()->user()->hasAnyRole(['Administrador', 'Gerente'])
+            || auth()->user()->can('Gestionar Usuarios');
     }
 
     public static function canEdit(Model $record): bool

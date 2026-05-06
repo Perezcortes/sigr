@@ -46,13 +46,13 @@ class TenantResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->user()->hasAnyRole(['Administrador', 'Gerente', 'Asesor']);
+        return auth()->user()->hasAnyRole(['Administrador', 'Gerente', 'Agente']);
     }
 
     public static function canCreate(): bool
     {
         // Administradores y Asesores pueden crear inquilinos
-        return auth()->user()->hasAnyRole(['Administrador', 'Asesor']);
+        return auth()->user()->hasAnyRole(['Administrador', 'Agente']);
     }
 
     public static function canEdit(Model $record): bool
@@ -63,7 +63,7 @@ class TenantResource extends Resource
             return true;
         }
 
-        if ($user->hasRole('Asesor')) {
+        if ($user->hasRole('Agente')) {
             // El asesor solo edita si él es el titular asignado a este inquilino
             return $record->asesor_id === $user->id;
         }
@@ -133,7 +133,7 @@ class TenantResource extends Resource
                             ->schema(self::getCredencialesSchema())
                             ->columns(2)
                             ->visible(fn ($record) => $record !== null)
-                            ->hidden(fn () => ! auth()->user()->hasAnyRole(['Administrador', 'Gerente', 'Asesor'])),
+                            ->hidden(fn () => ! auth()->user()->hasAnyRole(['Administrador', 'Gerente', 'Agente'])),
                     ]),
 
                     // --- COLUMNA DERECHA ---

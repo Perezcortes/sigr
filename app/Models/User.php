@@ -99,7 +99,7 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, HasMedia
     public function canAccessPanel(Panel $panel): bool
     {
         // Solo los usuarios con estos roles pueden ver la pantalla de login o entrar al panel
-        return $this->hasAnyRole(['Administrador', 'Gerente', 'Asesor']);
+        return $this->hasAnyRole(['Administrador', 'Gerente', 'Agente']);
     }
 
     /**

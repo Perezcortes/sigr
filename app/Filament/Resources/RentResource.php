@@ -36,13 +36,13 @@ class RentResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->user()->hasAnyRole(['Administrador', 'Gerente', 'Asesor']);
+        return auth()->user()->hasAnyRole(['Administrador', 'Gerente', 'Agente']);
     }
 
     public static function canCreate(): bool
     {
         // Administradores y Asesores pueden crear rentas. Los Gerentes NO (solo leen).
-        return auth()->user()->hasAnyRole(['Administrador', 'Asesor']);
+        return auth()->user()->hasAnyRole(['Administrador', 'Agente']);
     }
 
     public static function canEdit(Model $record): bool
@@ -55,7 +55,7 @@ class RentResource extends Resource
             return true; 
         }
 
-        if ($user->hasRole('Asesor')) {
+        if ($user->hasRole('Agente')) {
             // El asesor solo puede editar la renta si él es el titular (asesor)
             return $record->asesor_id === $user->id;
         }

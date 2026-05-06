@@ -356,7 +356,7 @@ class AdvisorSearchController extends Controller
             ])
             ->where('is_active', true)
             ->whereHas('roles', function (Builder $q) {
-                $q->where('name', 'Asesor')->orWhere('id', 3);
+                $q->where('name', 'Agente');
             });
     }
 

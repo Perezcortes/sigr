@@ -36,7 +36,7 @@ class PropertyResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->user()->hasAnyRole(['Administrador', 'Gerente', 'Asesor']);
+        return auth()->user()->hasAnyRole(['Administrador', 'Gerente', 'Agente']);
     }
 
     public static function canCreate(): bool
