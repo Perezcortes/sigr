@@ -91,6 +91,8 @@ class UserResource extends Resource
                             ->required()
                             ->live()
                             ->afterStateUpdated(function ($state, callable $set) {
+                                $creator = auth()->user();
+
                                 if ($state !== 'Cliente') {
                                     $set('asesor_id', null);
                                     $set('is_owner', false);
@@ -100,6 +102,15 @@ class UserResource extends Resource
                                 }
                                 if (! in_array((string) $state, ['Gerente', 'Agente', 'Asesor', 'Cliente'], true)) {
                                     $set('office_id', null);
+                                }
+
+                                // Si un Gerente crea un Agente/Asesor, forzar su misma oficina
+                                if (
+                                    $creator?->hasRole('Gerente')
+                                    && in_array((string) $state, ['Agente', 'Asesor'], true)
+                                    && ! empty($creator->office_id)
+                                ) {
+                                    $set('office_id', $creator->office_id);
                                 }
                             }),
 
@@ -136,20 +147,13 @@ class UserResource extends Resource
                             ->searchable()
                             ->preload()
                             ->live()
-                            ->default(function (Get $get) {
-                                $user = auth()->user();
-                                $role = (string) $get('primary_role');
-                                if ($user?->hasRole('Gerente') && in_array($role, ['Agente', 'Asesor'], true)) {
-                                    return $user->office_id;
-                                }
-
-                                return null;
-                            })
                             ->disabled(function (Get $get) {
                                 $user = auth()->user();
                                 $role = (string) $get('primary_role');
 
-                                return $user?->hasRole('Gerente') && in_array($role, ['Agente', 'Asesor'], true);
+                                return $user?->hasRole('Gerente')
+                                    && in_array($role, ['Agente', 'Asesor'], true)
+                                    && ! empty($user->office_id);
                             })
                             ->visible(fn (Get $get): bool => in_array(
                                 (string) $get('primary_role'),
