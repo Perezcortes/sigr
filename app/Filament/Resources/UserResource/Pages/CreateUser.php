@@ -24,6 +24,15 @@ class CreateUser extends CreateRecord
             $data['is_buyer'] = false;
         }
 
+        $creator = auth()->user();
+        if (
+            $creator?->hasRole('Gerente')
+            && in_array((string) $this->pendingPrimaryRole, ['Agente', 'Asesor'], true)
+            && ! empty($creator->office_id)
+        ) {
+            $data['office_id'] = $creator->office_id;
+        }
+
         return $data;
     }
 

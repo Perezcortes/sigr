@@ -35,7 +35,7 @@ class UserResource extends Resource
     public static function canViewAny(): bool
     {
         // Admin, Gerente y Asesor pueden ver el menú de Usuarios
-        return auth()->user()->hasAnyRole(['Administrador', 'Gerente', 'Asesor']);
+        return auth()->user()->hasAnyRole(['Administrador', 'Gerente', 'Agente', 'Asesor']);
     }
 
     public static function canCreate(): bool
@@ -96,7 +96,7 @@ class UserResource extends Resource
                                     $set('is_seller', false);
                                     $set('is_buyer', false);
                                 }
-                                if (! in_array((string) $state, ['Gerente', 'Asesor', 'Cliente'], true)) {
+                                if (! in_array((string) $state, ['Gerente', 'Agente', 'Asesor', 'Cliente'], true)) {
                                     $set('office_id', null);
                                 }
                             }),
@@ -134,14 +134,29 @@ class UserResource extends Resource
                             ->searchable()
                             ->preload()
                             ->live()
+                            ->default(function (Get $get) {
+                                $user = auth()->user();
+                                $role = (string) $get('primary_role');
+                                if ($user?->hasRole('Gerente') && in_array($role, ['Agente', 'Asesor'], true)) {
+                                    return $user->office_id;
+                                }
+
+                                return null;
+                            })
+                            ->disabled(function (Get $get) {
+                                $user = auth()->user();
+                                $role = (string) $get('primary_role');
+
+                                return $user?->hasRole('Gerente') && in_array($role, ['Agente', 'Asesor'], true);
+                            })
                             ->visible(fn (Get $get): bool => in_array(
                                 (string) $get('primary_role'),
-                                ['Gerente', 'Asesor', 'Cliente'],
+                                ['Gerente', 'Agente', 'Asesor', 'Cliente'],
                                 true
                             ))
                             ->required(fn (Get $get): bool => in_array(
                                 (string) $get('primary_role'),
-                                ['Gerente', 'Asesor', 'Cliente'],
+                                ['Gerente', 'Agente', 'Asesor', 'Cliente'],
                                 true
                             ))
                             ->afterStateUpdated(fn (callable $set) => $set('asesor_id', null)),
@@ -158,7 +173,7 @@ class UserResource extends Resource
                             ->helperText('Opcional. Se usa al enviar mensajes desde Interesados con la cuenta de este usuario.')
                             ->visible(fn (Get $get): bool => in_array(
                                 (string) $get('primary_role'),
-                                ['Gerente', 'Asesor'],
+                                ['Gerente', 'Agente', 'Asesor'],
                                 true
                             )),
 
@@ -172,7 +187,7 @@ class UserResource extends Resource
 
                                 return User::query()
                                     ->where('office_id', $officeId)
-                                    ->whereHas('roles', fn (Builder $q) => $q->where('name', 'Asesor'))
+                                    ->whereHas('roles', fn (Builder $q) => $q->whereIn('name', ['Agente', 'Asesor']))
                                     ->orderBy('name')
                                     ->pluck('name', 'id')
                                     ->all();
@@ -267,7 +282,7 @@ class UserResource extends Resource
         }
 
         // Gerentes y Asesores solo ven los usuarios que pertenecen a su misma oficina
-        if ($user->hasAnyRole(['Gerente', 'Asesor'])) {
+        if ($user->hasAnyRole(['Gerente', 'Agente', 'Asesor'])) {
             return $query->where('office_id', $user->office_id);
         }
 
