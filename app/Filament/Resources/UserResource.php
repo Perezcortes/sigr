@@ -47,14 +47,16 @@ class UserResource extends Resource
 
     public static function canEdit(Model $record): bool
     {
-        // Solo el Administrador puede editar a los usuarios
-        return auth()->user()->hasRole('Administrador');
+        // Permitir a quien tenga permiso explícito (y al Administrador)
+        return auth()->user()->hasRole('Administrador')
+            || auth()->user()->can('Gestionar Usuarios');
     }
 
     public static function canDelete(Model $record): bool
     {
-        // Solo el Administrador puede eliminar
-        return auth()->user()->hasRole('Administrador');
+        // Permitir a quien tenga permiso explícito (y al Administrador)
+        return auth()->user()->hasRole('Administrador')
+            || auth()->user()->can('Gestionar Usuarios');
     }
 
     public static function form(Form $form): Form

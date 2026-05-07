@@ -58,3 +58,28 @@ If you discover a security vulnerability within Laravel, please send an e-mail t
 
 The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
 # admrentas
+
+## Deploy en Dokploy (persistencia de imágenes / uploads)
+
+En deploys con contenedores (Dokploy / Nixpacks / Docker), **no debes guardar imágenes subidas por usuarios dentro de `public/`**, porque esa carpeta viene del build y se recrea en cada deploy.
+
+### Ruta correcta para uploads
+
+- **Guardar**: `storage/app/public`
+- **Servir**: `public/storage` (symlink creado con `php artisan storage:link`)
+
+En este repo ya se ejecuta `storage:link`:
+- En `nixpacks.toml` (fase build)
+- En `Dockerfile` (best-effort)
+
+### Qué configurar en Dokploy
+
+Crea un **volumen persistente** y móntalo a la carpeta de uploads:
+
+- **Si Dokploy está usando Nixpacks (recomendado aquí)**:
+  - Montar volumen a: `/app/storage/app/public`
+
+- **Si Dokploy está usando el `Dockerfile`**:
+  - Montar volumen a: `/var/www/html/storage/app/public`
+
+Con eso, todo lo que termine en el disk `public` (incluyendo Spatie Media Library por defecto) quedará persistente entre deploys.
