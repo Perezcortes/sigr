@@ -58,12 +58,18 @@ return [
             'prefix_indexes' => true,
             'strict' => true,
             'engine' => null,
-            'options' => extension_loaded('pdo_mysql') ? array_filter([
-                Pdo\Mysql::ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
-                PDO::ATTR_PERSISTENT => false,
-                PDO::ATTR_TIMEOUT => 30,
-                PDO::ATTR_EMULATE_PREPARES => false, // Mejor rendimiento en MySQL
-            ]) : [],
+            'options' => extension_loaded('pdo_mysql')
+                ? array_filter(array_merge(
+                    defined('PDO::MYSQL_ATTR_SSL_CA')
+                        ? [PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA')]
+                        : [],
+                    [
+                        PDO::ATTR_PERSISTENT => false,
+                        PDO::ATTR_TIMEOUT => 30,
+                        PDO::ATTR_EMULATE_PREPARES => false, // Mejor rendimiento en MySQL
+                    ],
+                ))
+                : [],
         ],
 
         'mariadb' => [
@@ -81,9 +87,13 @@ return [
             'prefix_indexes' => true,
             'strict' => true,
             'engine' => null,
-            'options' => extension_loaded('pdo_mysql') ? array_filter([
-                Pdo\Mysql::ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
-            ]) : [],
+            'options' => extension_loaded('pdo_mysql')
+                ? array_filter(
+                    defined('PDO::MYSQL_ATTR_SSL_CA')
+                        ? [PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA')]
+                        : [],
+                )
+                : [],
         ],
 
         'pgsql' => [
