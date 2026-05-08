@@ -205,8 +205,11 @@ class OfficeResource extends Resource
                     ->label('Ciudad'),
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
+                Tables\Actions\EditAction::make()
+                    ->iconButton() 
+                    ->tooltip('Editar'), 
             ])
+            ->actionsColumnLabel('ACCIONES') 
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
@@ -248,7 +251,7 @@ class OfficeResource extends Resource
         }
 
         // Si es Asesor, SOLO mostramos la oficina que coincida con su 'office_id'
-        if ($user->hasRole('Asesor')) {
+        if ($user->hasRole('Agente')) {
             return $query->where('id', $user->office_id);
         }
 

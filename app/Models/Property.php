@@ -42,6 +42,9 @@ class Property extends Model
         'estado',
         'referencias_ubicacion',
         'inventario',
+        'metros_cuadrados',
+        'recamaras',
+        'banos',
         // Columnas antiguas (para compatibilidad)
         'tipo',
         'direccion',

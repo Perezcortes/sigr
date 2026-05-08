@@ -2,20 +2,26 @@
 
 namespace App\Filament\Resources;
 
+use App\Enums\LeadCanal;
+use App\Exports\LeadsExport;
 use App\Filament\Resources\LeadResource\Pages;
 use App\Models\Lead;
-use App\Exports\LeadsExport;
-use Maatwebsite\Excel\Facades\Excel;
-use Illuminate\Database\Eloquent\Collection;
+use App\Models\WhatsappInstance;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
-use Filament\Tables;
-use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
 use Filament\Support\Enums\FontWeight;
+use Filament\Tables;
 use Filament\Tables\Actions\Action;
 use Filament\Tables\Actions\BulkAction;
+use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Models\WhatsappMessage;
+use WallaceMartinss\FilamentEvolution\Enums\StatusConnectionEnum;
+use WallaceMartinss\FilamentEvolution\Services\WhatsappService;
 
 class LeadResource extends Resource
 {
@@ -23,15 +29,18 @@ class LeadResource extends Resource
 
     // Configuración del Menú
     protected static ?string $navigationLabel = 'Interesados';
-    protected static ?string $navigationGroup = 'Interesados'; 
+
+    protected static ?string $navigationGroup = 'Interesados';
+
     protected static ?string $navigationIcon = 'heroicon-o-user-group';
+
     protected static ?string $modelLabel = 'Interesado';
-    
+
     public static function getNavigationBadge(): ?string
     {
         return static::getModel()::where('etapa', 'no_contactado')->count();
     }
-    
+
     public static function getNavigationBadgeColor(): ?string
     {
         return static::getModel()::where('etapa', 'no_contactado')->count() > 0 ? 'danger' : 'success';
@@ -42,10 +51,10 @@ class LeadResource extends Resource
         return $form
             ->schema([
                 Forms\Components\Grid::make(2)->schema([
-                    
+
                     // COLUMNA IZQUIERDA (Perfil del Contacto)
                     Forms\Components\Group::make()->columnSpan(1)->schema([
-                        
+
                         Forms\Components\Section::make()
                             ->schema([
                                 Forms\Components\TextInput::make('nombre')
@@ -88,7 +97,7 @@ class LeadResource extends Resource
                                     ->columnSpanFull(),
 
                                 Forms\Components\Select::make('tipo_cliente')
-                                    ->label('Tipo de operación')
+                                    ->label('Tipo de cliente')
                                     ->options([
                                         'inquilino' => 'Inquilino',
                                         'arrendador' => 'Arrendador',
@@ -98,8 +107,17 @@ class LeadResource extends Resource
                                     ])->required()
                                     ->columnSpanFull(),
 
+                                Forms\Components\Select::make('canal')
+                                    ->label('Canal')
+                                    ->options(collect(LeadCanal::cases())->mapWithKeys(
+                                        fn (LeadCanal $c): array => [$c->value => $c->getLabel()]
+                                    )->all())
+                                    ->required()
+                                    ->native(false)
+                                    ->columnSpanFull(),
+
                                 Forms\Components\Select::make('origen')
-                                    ->label('Canal / Origen')
+                                    ->label('Origen')
                                     ->options([
                                         'Nocnok' => 'Nocnok - Sitio',
                                         'Rentas.com' => 'Rentas.com',
@@ -109,7 +127,9 @@ class LeadResource extends Resource
                                         'Recomendado' => 'Recomendado',
                                         'Evento' => 'Evento',
                                         'Otro' => 'Otro',
-                                    ])->columnSpanFull(),
+                                    ])
+                                    ->native(false)
+                                    ->columnSpanFull(),
 
                                 Forms\Components\Select::make('calificacion_lead')
                                     ->label('Calificación')
@@ -127,18 +147,18 @@ class LeadResource extends Resource
 
                     // COLUMNA DERECHA (Pestañas estilo Nocnok)
                     Forms\Components\Group::make()->columnSpan(1)->schema([
-                        
+
                         Forms\Components\Tabs::make('CRM Tabs')
                             ->tabs([
-                                
+
                                 // --- NOTAS Y ACCIONES ---
                                 Forms\Components\Tabs\Tab::make('Notas y Seguimiento')
                                     ->icon('heroicon-m-document-text')
                                     ->schema([
-                                        
+
                                         // Botonera de acciones
                                         Forms\Components\Actions::make([
-                                            
+
                                             Forms\Components\Actions\Action::make('agregar_nota')
                                                 ->label('Agregar Nota')
                                                 ->icon('heroicon-m-pencil-square')
@@ -150,9 +170,9 @@ class LeadResource extends Resource
                                                         ->rows(3),
                                                 ])
                                                 ->action(function (array $data, ?Lead $record) {
-                                                    if($record) {
+                                                    if ($record) {
                                                         $hist = $record->historial_acciones ?? [];
-                                                        $hist[] = ['fecha' => now()->format('d/m/Y H:i'), 'accion' => 'Nota: ' . $data['nota']];
+                                                        $hist[] = ['fecha' => now()->format('d/m/Y H:i'), 'accion' => 'Nota: '.$data['nota']];
                                                         $record->update(['historial_acciones' => $hist]);
                                                     }
                                                 })->visible(fn (?Lead $record) => $record !== null),
@@ -167,23 +187,10 @@ class LeadResource extends Resource
                                                     Forms\Components\Textarea::make('observaciones'),
                                                 ])
                                                 ->action(function (array $data, ?Lead $record) {
-                                                    if($record) {
+                                                    if ($record) {
                                                         $hist = $record->historial_acciones ?? [];
-                                                        $hist[] = ['fecha' => now()->format('d/m/Y H:i'), 'accion' => "Cita: {$data['fecha']} a las {$data['hora']} - " . ($data['observaciones'] ?? '')];
+                                                        $hist[] = ['fecha' => now()->format('d/m/Y H:i'), 'accion' => "Cita: {$data['fecha']} a las {$data['hora']} - ".($data['observaciones'] ?? '')];
                                                         $record->update(['etapa' => 'cita', 'historial_acciones' => $hist]);
-                                                    }
-                                                })->visible(fn (?Lead $record) => $record !== null),
-
-                                            Forms\Components\Actions\Action::make('whatsapp')
-                                                ->label('WhatsApp')
-                                                ->icon('heroicon-m-chat-bubble-left-ellipsis')
-                                                ->color('success')
-                                                ->action(function (?Lead $record) {
-                                                    if($record) {
-                                                        $hist = $record->historial_acciones ?? [];
-                                                        $hist[] = ['fecha' => now()->format('d/m/Y H:i'), 'accion' => 'WhatsApp iniciado'];
-                                                        $record->update(['etapa' => 'contactado', 'historial_acciones' => $hist]);
-                                                        return redirect()->away("https://wa.me/52" . $record->telefono);
                                                     }
                                                 })->visible(fn (?Lead $record) => $record !== null),
 
@@ -193,7 +200,7 @@ class LeadResource extends Resource
                                                 ->color('gray')
                                                 ->requiresConfirmation()
                                                 ->action(function (?Lead $record) {
-                                                    if($record) {
+                                                    if ($record) {
                                                         $hist = $record->historial_acciones ?? [];
                                                         $hist[] = ['fecha' => now()->format('d/m/Y H:i'), 'accion' => 'Llamada telefónica realizada'];
                                                         $record->update(['etapa' => 'contactado', 'historial_acciones' => $hist]);
@@ -205,7 +212,7 @@ class LeadResource extends Resource
                                         Forms\Components\ViewField::make('historial_acciones')
                                             ->view('filament.forms.components.lead-history')
                                             ->label('')
-                                            ->visible(fn (?Lead $record) => $record !== null && !empty($record->historial_acciones)),
+                                            ->visible(fn (?Lead $record) => $record !== null && ! empty($record->historial_acciones)),
                                     ]),
 
                                 // --- PROPIEDADES DE INTERÉS ---
@@ -219,7 +226,7 @@ class LeadResource extends Resource
                                                     ->icon('heroicon-m-arrow-top-right-on-square')
                                                     ->url(fn ($state) => $state, shouldOpenInNewTab: true)
                                             ),
-                                        
+
                                         Forms\Components\Grid::make(2)->schema([
                                             Forms\Components\TextInput::make('metros_cuadrados')
                                                 ->label('Metros Cuadrados')
@@ -242,9 +249,119 @@ class LeadResource extends Resource
                                 Forms\Components\Tabs\Tab::make('WhatsApp')
                                     ->icon('heroicon-m-chat-bubble-bottom-center-text')
                                     ->schema([
-                                        Forms\Components\Placeholder::make('info_whatsapp')
-                                            ->label('Chat de WhatsApp')
-                                            ->content('En la siguiente fase, conectaremos este panel con la Evolution API para ver los mensajes en vivo aquí mismo.'),
+                                        Forms\Components\Actions::make([
+                                            Forms\Components\Actions\Action::make('send_whatsapp_from_tab')
+                                                ->label('Enviar WhatsApp')
+                                                ->icon('heroicon-m-paper-airplane')
+                                                ->color('success')
+                                                ->visible(fn (?Lead $record) => $record !== null && filled($record->normalizedWhatsappForEvolution()))
+                                                ->form([
+                                                    Forms\Components\Select::make('instance_id')
+                                                        ->label('Instancia conectada')
+                                                        ->options(function (): array {
+                                                            return WhatsappInstance::query()
+                                                                ->where('status', StatusConnectionEnum::OPEN)
+                                                                ->orderBy('name')
+                                                                ->pluck('name', 'id')
+                                                                ->all();
+                                                        })
+                                                        ->default(fn () => auth()->user()?->evolution_whatsapp_instance_id)
+                                                        ->required()
+                                                        ->searchable(),
+                                                    Forms\Components\Select::make('type')
+                                                        ->label('Tipo de mensaje')
+                                                        ->options([
+                                                            'text' => 'Texto',
+                                                            'image' => 'Imagen',
+                                                            'document' => 'Documento',
+                                                        ])
+                                                        ->default('text')
+                                                        ->live()
+                                                        ->required(),
+                                                    Forms\Components\Textarea::make('message')
+                                                        ->label('Mensaje')
+                                                        ->rows(4)
+                                                        ->required(fn (Forms\Get $get): bool => $get('type') === 'text')
+                                                        ->visible(fn (Forms\Get $get): bool => $get('type') === 'text'),
+                                                    Forms\Components\FileUpload::make('media')
+                                                        ->label('Archivo')
+                                                        ->disk('public')
+                                                        ->directory('whatsapp-media')
+                                                        ->acceptedFileTypes([
+                                                            'image/jpeg',
+                                                            'image/png',
+                                                            'image/webp',
+                                                            'application/pdf',
+                                                            'application/msword',
+                                                            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                                                        ])
+                                                        ->maxSize(16384)
+                                                        ->visible(fn (Forms\Get $get): bool => in_array($get('type'), ['image', 'document'], true))
+                                                        ->required(fn (Forms\Get $get): bool => in_array($get('type'), ['image', 'document'], true)),
+                                                    Forms\Components\TextInput::make('caption')
+                                                        ->label('Descripción')
+                                                        ->maxLength(255)
+                                                        ->visible(fn (Forms\Get $get): bool => in_array($get('type'), ['image', 'document'], true)),
+                                                ])
+                                                ->action(function (array $data, ?Lead $record): void {
+                                                    if (! $record) {
+                                                        return;
+                                                    }
+
+                                                    $number = $record->normalizedWhatsappForEvolution();
+                                                    if (! $number) {
+                                                        Notification::make()->danger()->title('Teléfono no válido')->send();
+
+                                                        return;
+                                                    }
+
+                                                    try {
+                                                        $service = app(WhatsappService::class);
+                                                        $instance = static::resolveWhatsappInstance($data['instance_id'] ?? null);
+                                                        if (! $instance) {
+                                                            Notification::make()->danger()->title('Instancia inválida')->body('Selecciona una instancia conectada válida.')->send();
+
+                                                            return;
+                                                        }
+                                                        $type = (string) ($data['type'] ?? 'text');
+                                                        $caption = $data['caption'] ?? null;
+
+                                                        if ($type === 'image') {
+                                                            $service->sendImage($instance->id, $number, (string) $data['media'], $caption, 'public');
+                                                        } elseif ($type === 'document') {
+                                                            $service->sendDocument($instance->id, $number, (string) $data['media'], basename((string) $data['media']), $caption, 'public');
+                                                        } else {
+                                                            $service->sendText($instance->id, $number, (string) $data['message']);
+                                                        }
+
+                                                        $bodyText = $data['message'] ?? $caption ?? basename((string) ($data['media'] ?? ''));
+                                                        WhatsappMessage::create([
+                                                            'wa_message_id' => 'local-'.uniqid(),
+                                                            'phone'         => $number,
+                                                            'direction'     => 'out',
+                                                            'body'          => $bodyText,
+                                                            'lead_id'       => $record->id,
+                                                            'user_id'       => auth()->id(),
+                                                            'sent_at'       => now(),
+                                                        ]);
+
+                                                        Notification::make()
+                                                            ->success()
+                                                            ->title('Mensaje enviado')
+                                                            ->body('El mensaje se agregó al historial del chat.')
+                                                            ->send();
+                                                    } catch (\Throwable $e) {
+                                                        Notification::make()
+                                                            ->danger()
+                                                            ->title('Error al enviar')
+                                                            ->body(static::friendlyWhatsappError($e->getMessage()))
+                                                            ->send();
+                                                    }
+                                                }),
+                                        ]),
+                                        Forms\Components\ViewField::make('whatsapp_chat')
+                                            ->view('filament.forms.components.lead-whatsapp-chat')
+                                            ->label(''),
                                     ]),
                             ])
                             ->columnSpanFull(),
@@ -256,6 +373,7 @@ class LeadResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->actionsColumnLabel('Acciones')
             ->defaultSort(fn ($query) => $query->orderByRaw("CASE WHEN etapa = 'no_contactado' THEN 1 ELSE 2 END")->orderBy('created_at', 'desc'))
             ->modifyQueryUsing(fn (Builder $query) => $query->whereNotIn('etapa', ['ganado', 'perdido', 'no_califica']))
             ->headerActions([
@@ -264,7 +382,7 @@ class LeadResource extends Resource
                     ->icon('heroicon-o-document-arrow-down')
                     ->color('primary')
                     ->action(function () {
-                        return Excel::download(new LeadsExport(Lead::all()), 'Reporte_Interesados_' . date('Y-m-d') . '.xlsx');
+                        return Excel::download(new LeadsExport(Lead::all()), 'Reporte_Interesados_'.date('Y-m-d').'.xlsx');
                     }),
             ])
             ->columns([
@@ -279,6 +397,7 @@ class LeadResource extends Resource
                     ->searchable(),
 
                 Tables\Columns\TextColumn::make('etapa')
+                    ->label('Etapa')
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
                         'no_contactado' => 'danger',
@@ -286,8 +405,21 @@ class LeadResource extends Resource
                         'perdido', 'no_califica' => 'gray',
                         default => 'warning',
                     })
-                    ->formatStateUsing(fn (string $state): string => ucfirst(str_replace('_', ' ', $state))),
-                
+                    ->formatStateUsing(fn (?string $state): string => match ($state) {
+                        'no_contactado' => 'No contactado',
+                        'contactado' => 'Contactado',
+                        'cita' => 'Cita',
+                        'seguimiento' => 'Seguimiento',
+                        'propuesta' => 'Propuesta',
+                        'en_cierre' => 'En cierre',
+                        'en_proceso' => 'En proceso',
+                        'nuevo' => 'Nuevo',
+                        'ganado' => 'Ganado',
+                        'perdido' => 'Perdido',
+                        'no_califica' => 'No califica',
+                        default => $state ? ucfirst(str_replace('_', ' ', $state)) : '—',
+                    }),
+
                 // Agregado a la tabla para mayor visibilidad
                 Tables\Columns\TextColumn::make('calificacion_lead')
                     ->label('Calificación')
@@ -295,7 +427,23 @@ class LeadResource extends Resource
                     ->color('info')
                     ->formatStateUsing(fn (string $state): string => ucfirst(str_replace('_', ' ', $state))),
 
+                Tables\Columns\TextColumn::make('canal')
+                    ->label('Canal')
+                    ->badge()
+                    ->color('gray')
+                    ->placeholder('—')
+                    ->formatStateUsing(function ($state): ?string {
+                        if ($state instanceof LeadCanal) {
+                            return $state->getLabel();
+                        }
+
+                        return is_string($state) && $state !== ''
+                            ? LeadCanal::tryFrom($state)?->getLabel()
+                            : null;
+                    }),
+
                 Tables\Columns\TextColumn::make('origen')
+                    ->label('Origen')
                     ->badge()
                     ->color('primary'),
 
@@ -322,31 +470,25 @@ class LeadResource extends Resource
                         'perdido' => 'Perdido',
                         'no_califica' => 'No califica',
                     ]),
-                    
+
                 Tables\Filters\Filter::make('mostrar_todo_historial')
                     ->label('Mostrar Historial Completo')
                     ->query(fn (Builder $query) => $query->orWhereIn('etapa', ['ganado', 'perdido', 'no_califica'])),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
-                Tables\Actions\Action::make('contactar')
-                    ->label('Ya contacté')
-                    ->icon('heroicon-o-check')
-                    ->color('success')
-                    ->action(fn (Lead $record) => $record->update(['etapa' => 'contactado']))
-                    ->visible(fn (Lead $record) => $record->etapa === 'no_contactado'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
-                    
+
                     BulkAction::make('exportar_seleccion_bonito')
                         ->label('Exportar Selección con Logo')
                         ->icon('heroicon-o-arrow-down-tray')
                         ->action(function (Collection $records) {
-                            return Excel::download(new LeadsExport($records), 'Seleccion_Interesados_' . date('Y-m-d') . '.xlsx');
+                            return Excel::download(new LeadsExport($records), 'Seleccion_Interesados_'.date('Y-m-d').'.xlsx');
                         })
-                        ->deselectRecordsAfterCompletion()
+                        ->deselectRecordsAfterCompletion(),
                 ]),
             ]);
     }
@@ -354,9 +496,44 @@ class LeadResource extends Resource
     public static function getPages(): array
     {
         return [
-        'index' => Pages\ListLeads::route('/'),
-        'create' => Pages\CreateLead::route('/create'),
-        'edit' => Pages\EditLead::route('/{record}/edit'),
+            'index' => Pages\ListLeads::route('/'),
+            'create' => Pages\CreateLead::route('/create'),
+            'edit' => Pages\EditLead::route('/{record}/edit'),
         ];
+    }
+
+    protected static function friendlyWhatsappError(string $message): string
+    {
+        $msg = strtolower($message);
+
+        if (str_contains($msg, 'exists') || str_contains($msg, 'not exists') || str_contains($msg, 'bad request')) {
+            return 'El número no existe en WhatsApp o tiene un formato inválido. Verifica lada y país.';
+        }
+
+        if (str_contains($msg, 'instance') && str_contains($msg, 'not found')) {
+            return 'La instancia seleccionada no existe en Evolution. Revisa en Admin > WhatsApp > Instancias.';
+        }
+
+        if (str_contains($msg, 'connection') || str_contains($msg, 'close')) {
+            return 'La instancia no está conectada. Abre el QR y confirma estado en línea.';
+        }
+
+        return $message;
+    }
+
+    protected static function resolveWhatsappInstance(mixed $instanceInput): ?WhatsappInstance
+    {
+        if (blank($instanceInput)) {
+            return null;
+        }
+
+        $instance = WhatsappInstance::query()->find($instanceInput);
+        if ($instance) {
+            return $instance;
+        }
+
+        return WhatsappInstance::query()
+            ->where('name', (string) $instanceInput)
+            ->first();
     }
 }

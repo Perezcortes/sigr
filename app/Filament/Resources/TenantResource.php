@@ -12,13 +12,16 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Filament\Forms\Components\Actions\Action;
 use Filament\Forms\Components\Actions;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 use App\Mail\TenantCredentialsMail;
+use App\Mail\TenantPasswordResetMail;
+use App\Support\Filament\ScopesByOfficeAndAdvisor;
 
 class TenantResource extends Resource
 {
@@ -39,6 +42,39 @@ class TenantResource extends Resource
     public static function getCluster(): ?string
     {
         return null;
+    }
+
+    public static function canViewAny(): bool
+    {
+        return auth()->user()->hasAnyRole(['Administrador', 'Gerente', 'Agente']);
+    }
+
+    public static function canCreate(): bool
+    {
+        // Administradores y Asesores pueden crear inquilinos
+        return auth()->user()->hasAnyRole(['Administrador', 'Agente']);
+    }
+
+    public static function canEdit(Model $record): bool
+    {
+        $user = auth()->user();
+
+        if ($user->hasRole('Administrador')) {
+            return true;
+        }
+
+        if ($user->hasRole('Agente')) {
+            // El asesor solo edita si él es el titular asignado a este inquilino
+            return $record->asesor_id === $user->id;
+        }
+
+        // El Gerente solo lee, no edita
+        return false;
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        return auth()->user()->hasRole('Administrador');
     }
 
     public static function form(Form $form): Form
@@ -92,12 +128,12 @@ class TenantResource extends Resource
                             ->columns(2),
                         
                         Forms\Components\Section::make('Credenciales de Acceso y Envío')
-                            ->description('Zona exclusiva para Administradores y Gerentes.')
+                            ->description('Administradores, gerentes y asesores asignados: generación de usuario, banderas del portal y envío de accesos.')
                             ->icon('heroicon-o-lock-closed')
                             ->schema(self::getCredencialesSchema())
                             ->columns(2)
-                            ->visible(fn ($record) => $record !== null) 
-                            ->hidden(fn () => !auth()->user()->hasRole(['Administrador', 'Gerente', 'Asesor'])), 
+                            ->visible(fn ($record) => $record !== null)
+                            ->hidden(fn () => ! auth()->user()->hasAnyRole(['Administrador', 'Gerente', 'Agente'])),
                     ]),
 
                     // --- COLUMNA DERECHA ---
@@ -232,7 +268,9 @@ class TenantResource extends Resource
                 ->email()
                 ->required(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica')
                 ->same('email')
-                ->maxLength(255),
+                ->maxLength(255)
+                ->dehydrated(false)
+                ->formatStateUsing(fn ($record) => $record?->email), // Auto-rellénalo al abrir,
 
             Forms\Components\Radio::make('nacionalidad')
                 ->label('Nacionalidad')
@@ -558,18 +596,12 @@ class TenantResource extends Resource
         $query = parent::getEloquentQuery();
         $user = auth()->user();
 
-        // Si es Admin, ve todo.
-        if ($user->hasRole('Administrador')) {
-            return $query;
-        }
+        $query->where(function (Builder $q): void {
+            $q->whereNull($q->qualifyColumn('user_id'))
+                ->orWhereHas('user', fn (Builder $u) => $u->where('is_tenant', true));
+        });
 
-        // Si es Asesor, solo ve los registros donde él es el 'asesor_id'
-        if ($user->hasRole('Asesor')) {
-            return $query->where('asesor_id', $user->id);
-        }
-
-        // Por defecto, restringir o mostrar todo según el caso
-        return $query;
+        return ScopesByOfficeAndAdvisor::scopeTenantOwnerIndexForFilament($query, $user);
     }
 
     public static function table(Table $table): Table
@@ -613,9 +645,9 @@ class TenantResource extends Resource
                     }),
 
                 Tables\Columns\TextColumn::make('asesor.name') 
-                    ->label('Asesor Asignado')
+                    ->label('Agente')
                     ->icon('heroicon-o-user')
-                    ->placeholder('Sin Asesor')
+                    ->placeholder('Sin agente')
                     ->description(fn ($record) => $record->asesor?->email)
                     ->searchable()
                     ->sortable()
@@ -652,11 +684,16 @@ class TenantResource extends Resource
                     ]),
             ])
             ->actions([
+                Tables\Actions\ViewAction::make()
+                    ->iconButton()
+                    ->tooltip('Ver detalles'),
+
                 Tables\Actions\EditAction::make()
-                    ->iconButton() // Convierte el botón a solo icono
+                    ->iconButton() 
                     ->tooltip('Editar'),
+
                 Tables\Actions\DeleteAction::make()
-                    ->iconButton() // Convierte el botón a solo icono
+                    ->iconButton() 
                     ->tooltip('Eliminar'),
             ])
             ->actionsColumnLabel('ACCIONES') 
@@ -694,9 +731,32 @@ class TenantResource extends Resource
             Forms\Components\TextInput::make('login_email')
                 ->label('Correo de Acceso')
                 ->email()
-                ->default(fn ($record) => $record?->email)
-                ->disabled(fn ($record) => $record && $record->user_id) // Si ya existe, no se edita aquí
-                ->dehydrated(false),
+                ->helperText('Si aún no hay usuario portal, se usará este correo al generar la cuenta (por defecto el correo del inquilino).')
+                ->default(fn (?Tenant $record) => $record?->user?->email ?? $record?->email)
+                ->readOnly(fn (?Tenant $record) => (bool) ($record?->user_id))
+                ->dehydrated(false)
+                ->columnSpanFull(),
+
+            Forms\Components\Grid::make(2)
+                ->schema([
+                    Forms\Components\Toggle::make('portal_is_tenant')
+                        ->label('Es inquilino')
+                        ->default(true)
+                        ->inline(false),
+                    Forms\Components\Toggle::make('portal_is_owner')
+                        ->label('Es arrendador')
+                        ->default(false)
+                        ->inline(false),
+                    Forms\Components\Toggle::make('portal_is_seller')
+                        ->label('Es vendedor')
+                        ->default(false)
+                        ->inline(false),
+                    Forms\Components\Toggle::make('portal_is_buyer')
+                        ->label('Es comprador')
+                        ->default(false)
+                        ->inline(false),
+                ])
+                ->columnSpanFull(),
 
             Forms\Components\Actions::make([
                 // Botón Generar (Solo visible si NO tiene usuario)
@@ -705,22 +765,44 @@ class TenantResource extends Resource
                     ->icon('heroicon-m-envelope')
                     ->color('primary')
                     ->visible(fn ($record) => $record && !$record->user_id)
-                    ->action(function (Forms\Get $get, $record) {
+                    ->action(function (Forms\Get $get, Tenant $record) {
                         $email = $get('login_email');
-                        if (!$email) return;
+                        if (! $email) {
+                            Notification::make()->warning()->title('Indica un correo de acceso')->send();
 
-                        // Generamos contraseña oculta (el usuario la cambiará después)
-                        $password = \Illuminate\Support\Str::random(10);
+                            return;
+                        }
+
+                        $password = Str::random(10);
+
+                        $portalFlags = [
+                            'is_tenant' => (bool) ($get('portal_is_tenant') ?? true),
+                            'is_owner' => (bool) ($get('portal_is_owner') ?? false),
+                            'is_seller' => (bool) ($get('portal_is_seller') ?? false),
+                            'is_buyer' => (bool) ($get('portal_is_buyer') ?? false),
+                        ];
 
                         $user = User::firstOrCreate(
                             ['email' => $email],
                             [
-                                'name'      => $record->nombre_completo ?? 'Inquilino',
-                                'password'  => Hash::make($password),
-                                'is_tenant' => true,
+                                'name' => $record->nombre_completo ?? 'Inquilino',
+                                'password' => Hash::make($password),
                                 'is_active' => true,
+                                ...$portalFlags,
                             ]
                         );
+
+                        if (! $user->wasRecentlyCreated) {
+                            $user->update($portalFlags);
+                            $record->update(['user_id' => $user->id]);
+                            Notification::make()
+                                ->info()
+                                ->title('Cuenta ya existía')
+                                ->body('Se asoció al inquilino y se actualizaron las banderas del portal. No se envió correo (la contraseña no se regeneró).')
+                                ->send();
+
+                            return;
+                        }
 
                         $record->update(['user_id' => $user->id]);
 
@@ -729,6 +811,26 @@ class TenantResource extends Resource
                             Notification::make()->success()->title('Credenciales enviadas')->send();
                         } catch (\Exception $e) {
                             Notification::make()->warning()->title('Usuario creado, falló el envío')->send();
+                        }
+                    }),
+
+                Action::make('restablecer_contrasena')
+                    ->label('Restablecer contraseña')
+                    ->icon('heroicon-m-key')
+                    ->color('warning')
+                    ->requiresConfirmation()
+                    ->modalHeading('Restablecer contraseña')
+                    ->modalDescription('Se generará una nueva contraseña y se enviará por correo. La contraseña actual dejará de funcionar.')
+                    ->visible(fn (?Tenant $record) => (bool) ($record?->user_id))
+                    ->action(function (Tenant $record) {
+                        $password = Str::random(10);
+                        $record->user->update(['password' => Hash::make($password)]);
+
+                        try {
+                            Mail::to($record->user->email)->send(new TenantPasswordResetMail($record->user, $password));
+                            Notification::make()->success()->title('Correo enviado con la nueva contraseña')->send();
+                        } catch (\Exception $e) {
+                            Notification::make()->warning()->title('Contraseña actualizada; falló el envío del correo')->send();
                         }
                     }),
 

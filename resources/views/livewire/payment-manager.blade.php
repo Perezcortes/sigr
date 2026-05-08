@@ -1,112 +1,138 @@
 <div class="space-y-6">
-    <div class="flex justify-end">
-        {{ $this->reportarPagoAction }}
+    <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
+            <button type="button" class="px-3 py-1.5 rounded border border-gray-300 text-sm" wire:click="prevMonth">Anterior</button>
+            <h3 class="text-lg font-bold text-gray-900 dark:text-white capitalize">{{ $monthLabel }}</h3>
+            <button type="button" class="px-3 py-1.5 rounded border border-gray-300 text-sm" wire:click="nextMonth">Siguiente</button>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <select
+                class="rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-900 text-sm"
+                wire:model.live="filterType"
+            >
+                <option value="todos">Todos los tipos</option>
+                <option value="renta">Renta</option>
+                <option value="luz">Luz</option>
+                <option value="agua">Agua</option>
+                <option value="gas">Gas</option>
+                <option value="mantenimiento">Mantenimiento</option>
+            </select>
+
+            {{ $this->reportarPagoAction }}
+        </div>
     </div>
 
-    <div class="space-y-4">
-        @forelse($serviciosPorMes as $mes => $items)
-            <div x-data="{ open: false }" class="bg-white border border-gray-200 rounded-xl shadow-sm dark:bg-gray-800 dark:border-gray-700 overflow-hidden">
-                
-                <button @click="open = !open" 
-                        class="flex items-center justify-between w-full p-4 transition-colors duration-200 
-                               bg-gray-50 hover:bg-gray-100 
-                               dark:bg-white/5 dark:hover:bg-white/10">
-                    
-                    <div class="flex items-center gap-3">
-                        <x-filament::icon icon="heroicon-m-calendar-days" class="w-5 h-5 text-gray-400 dark:text-gray-500" />
-                        <span class="font-bold text-gray-800 dark:text-white capitalize text-lg tracking-tight">{{ $mes }}</span>
-                        <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300">
-                            {{ count($items) }}
-                        </span>
+    <div class="flex items-center gap-2">
+        <button
+            type="button"
+            wire:click="$set('viewMode', 'calendario')"
+            class="px-3 py-1.5 rounded-lg text-sm font-semibold border {{ $viewMode === 'calendario' ? 'bg-[#161848] text-white border-[#161848]' : 'bg-white text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600' }}"
+        >
+            Calendario
+        </button>
+        <button
+            type="button"
+            wire:click="$set('viewMode', 'resumen')"
+            class="px-3 py-1.5 rounded-lg text-sm font-semibold border {{ $viewMode === 'resumen' ? 'bg-[#161848] text-white border-[#161848]' : 'bg-white text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600' }}"
+        >
+            Resumen mensual
+        </button>
+    </div>
+
+    @if($viewMode === 'calendario')
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+            @foreach($calendar as $day)
+                <div class="rounded-xl border border-gray-200 dark:border-gray-700 p-3 bg-white dark:bg-gray-800">
+                    <div class="text-xs font-semibold text-gray-500 mb-2">
+                        {{ $day['date']->format('d M') }}
                     </div>
-                    
-                    <svg class="w-5 h-5 text-gray-400 transform transition-transform duration-200" :class="open ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                </button>
 
-                <div x-show="open" x-collapse class="border-t border-gray-100 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-700">
-                    @foreach($items as $item)
-                        <div wire:click="mountAction('verPago', { record: {{ $item->id }} })" 
-                             class="report-row relative group p-4 flex items-center justify-between gap-4 transition-all hover:pl-5">
-                            
-                            <div class="flex items-center gap-4">
-                                @php
-                                    $colorClass = match($item->tipo) {
-                                        'agua' => 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400',
-                                        'gas' => 'bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400',
-                                        'luz' => 'bg-yellow-100 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400',
-                                        'renta' => 'bg-[#161848]/10 text-[#161848] dark:bg-[#26cad3]/20 dark:text-[#26cad3]',
-                                        'mantenimiento' => 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300',
-                                        default => 'bg-gray-100 text-gray-500'
-                                    };
-                                    
-                                    $iconName = match($item->tipo) {
-                                        'renta' => 'heroicon-m-home',
-                                        'luz' => 'heroicon-m-bolt',
-                                        'agua' => 'heroicon-m-beaker',
-                                        'gas' => 'heroicon-m-fire',
-                                        'mantenimiento' => 'heroicon-m-wrench',
-                                        default => 'heroicon-m-banknotes'
-                                    };
-                                @endphp
-
-                                <div class="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center {{ $colorClass }}">
-                                    <x-filament::icon :icon="$iconName" class="w-5 h-5" />
-                                </div>
-
-                                <div class="flex flex-col">
-                                    <span class="font-bold text-gray-900 dark:text-white capitalize text-sm md:text-base">
-                                        {{ $item->tipo }}
-                                    </span>
-                                    <span class="text-xs text-gray-500 dark:text-gray-400">
-                                        {{-- Si tienes el monto disponible en $item, ponlo aquí, si no, deja el texto genérico --}}
-                                        Recibo de servicio
-                                    </span>
-                                </div>
+                    <div class="space-y-2">
+                        @forelse($day['events'] as $event)
+                            @php
+                                $statusClass = match($event['status']) {
+                                    'pagado' => 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
+                                    'vencido' => 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
+                                    default => 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
+                                };
+                            @endphp
+                            <div class="rounded-lg px-2 py-1 {{ $statusClass }}">
+                                <div class="text-xs font-semibold capitalize">{{ $event['tipo'] }}</div>
+                                <div class="text-[11px]">${{ number_format((float) $event['monto'], 2) }} · {{ $event['source'] }}</div>
                             </div>
-
-                            <div class="flex flex-col items-end gap-1">
-                                @if($item->estatus === 'pagado')
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border border-green-200 dark:border-green-800">
-                                        Pagado
-                                    </span>
-                                @elseif($item->estatus === 'atrasado')
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-800">
-                                        Atrasado
-                                    </span>
-                                @elseif($item->estatus === 'vencido')
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 border border-red-200 dark:border-red-800">
-                                        Vencido
-                                    </span>
+                        @empty
+                            <div class="text-xs text-gray-400">Sin pagos</div>
+                        @endforelse
+                    </div>
+                </div>
+            @endforeach
+        </div>
+    @else
+        <div class="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="border-b border-gray-200 dark:border-gray-700 text-left">
+                        <th class="px-4 py-3 font-semibold text-gray-600 dark:text-gray-300">Servicio</th>
+                        <th class="px-4 py-3 font-semibold text-gray-600 dark:text-gray-300">Vencimiento</th>
+                        <th class="px-4 py-3 font-semibold text-gray-600 dark:text-gray-300">Monto pagado</th>
+                        <th class="px-4 py-3 font-semibold text-gray-600 dark:text-gray-300">Estatus</th>
+                        <th class="px-4 py-3 font-semibold text-gray-600 dark:text-gray-300">Acción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($monthlySummary as $obligation)
+                        @php
+                            $statusClass = match($obligation['status']) {
+                                'pagado' => 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
+                                'vencido' => 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
+                                default => 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
+                            };
+                        @endphp
+                        <tr class="border-b border-gray-100 dark:border-gray-700/60">
+                            <td class="px-4 py-3 font-semibold text-gray-900 dark:text-white capitalize">{{ $obligation['tipo'] }}</td>
+                            <td class="px-4 py-3 text-gray-700 dark:text-gray-200">{{ $obligation['due_date']->format('d/m/Y') }}</td>
+                            <td class="px-4 py-3 text-gray-700 dark:text-gray-200">
+                                @if(!is_null($obligation['monto_pagado']))
+                                    ${{ number_format((float) $obligation['monto_pagado'], 2) }}
                                 @else
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
-                                        {{ ucfirst($item->estatus) }}
-                                    </span>
+                                    <span class="text-gray-400">—</span>
                                 @endif
-
-                                <span class="text-xs text-gray-400 dark:text-gray-500 font-medium flex items-center gap-1">
-                                    <x-filament::icon icon="heroicon-m-clock" class="w-3 h-3" />
-                                    {{ \Carbon\Carbon::parse($item->fecha_pago)->format('d M, Y') }}
+                            </td>
+                            <td class="px-4 py-3">
+                                <span class="inline-flex rounded-md px-2 py-1 text-xs font-semibold {{ $statusClass }}">
+                                    {{ str_replace('_', ' ', $obligation['status']) }}
                                 </span>
-                            </div>
-
-                            <div class="absolute right-2 opacity-0 group-hover:opacity-100 transition-opacity text-gray-400">
-                                <x-filament::icon icon="heroicon-m-chevron-right" class="w-4 h-4" />
-                            </div>
-
-                        </div>
-                    @endforeach
-                </div>
-            </div>
-        @empty
-            <div class="flex flex-col items-center justify-center p-8 bg-white border border-gray-200 border-dashed rounded-xl dark:bg-gray-800 dark:border-gray-700">
-                <div class="p-3 bg-gray-50 rounded-full dark:bg-gray-700 mb-3">
-                    <x-filament::icon icon="heroicon-o-currency-dollar" class="w-8 h-8 text-gray-400 dark:text-gray-500" />
-                </div>
-                <p class="text-sm font-medium text-gray-900 dark:text-white">No hay pagos registrados</p>
-                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Los pagos aparecerán aquí organizados por mes.</p>
-            </div>
-        @endforelse
-    </div>
+                            </td>
+                            <td class="px-4 py-3">
+                                @if($obligation['paid_service_id'])
+                                    <button
+                                        type="button"
+                                        class="text-xs font-semibold text-[#161848] hover:underline dark:text-[#26cad3]"
+                                        wire:click="mountAction('verPago', { record: {{ $obligation['paid_service_id'] }} })"
+                                    >
+                                        Ver pago
+                                    </button>
+                                @else
+                                    <button
+                                        type="button"
+                                        class="text-xs font-semibold text-[#FF5A1F] hover:underline"
+                                        wire:click="mountAction('reportarPago', { obligation: '{{ $obligation['key'] }}' })"
+                                    >
+                                        Reportar pago
+                                    </button>
+                                @endif
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="5" class="px-4 py-6 text-center text-gray-400">Sin obligaciones para este mes.</td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    @endif
     
     <x-filament-actions::modals />
 </div>

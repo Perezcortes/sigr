@@ -13,9 +13,11 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\TenantCredentialsMail; // Reutilizamos el correo
+use App\Support\Filament\ScopesByOfficeAndAdvisor;
 use Filament\Forms\Components\Actions\Action;
 use Filament\Forms\Components\Actions;
 use Filament\Notifications\Notification;
@@ -39,6 +41,39 @@ class OwnerResource extends Resource
     public static function getCluster(): ?string
     {
         return null;
+    }
+
+    public static function canViewAny(): bool
+    {
+        return auth()->user()->hasAnyRole(['Administrador', 'Gerente', 'Agente']);
+    }
+
+    public static function canCreate(): bool
+    {
+        // Administradores y Asesores pueden crear propietarios
+        return auth()->user()->hasAnyRole(['Administrador', 'Agente']);
+    }
+
+    public static function canEdit(Model $record): bool
+    {
+        $user = auth()->user();
+
+        if ($user->hasRole('Administrador')) {
+            return true;
+        }
+
+        if ($user->hasRole('Agente')) {
+            // El asesor solo edita si él es el titular asignado a este propietario
+            return $record->asesor_id === $user->id;
+        }
+
+        // El Gerente solo lee, no edita
+        return false;
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        return auth()->user()->hasRole('Administrador');
     }
 
     // --- FORMULARIO REDISEÑADO A 2 COLUMNAS ---
@@ -755,6 +790,19 @@ class OwnerResource extends Resource
         ];
     }
 
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+        $user = auth()->user();
+
+        $query->where(function (Builder $q): void {
+            $q->whereNull($q->qualifyColumn('user_id'))
+                ->orWhereHas('user', fn (Builder $u) => $u->where('is_owner', true));
+        });
+
+        return ScopesByOfficeAndAdvisor::scopeTenantOwnerIndexForFilament($query, $user);
+    }
+
     public static function table(Table $table): Table
     {
         return $table
@@ -789,9 +837,9 @@ class OwnerResource extends Resource
                     }),
 
                 Tables\Columns\TextColumn::make('asesor.name') 
-                    ->label('Asesor Asignado')
+                    ->label('Agente')
                     ->icon('heroicon-o-user-circle')
-                    ->placeholder('Sin Asesor')      
+                    ->placeholder('Sin agente')      
                     ->description(fn ($record) => $record->asesor?->email) 
                     ->searchable() 
                     ->sortable()
@@ -832,22 +880,29 @@ class OwnerResource extends Resource
                     ]),
             ])
             ->actions([
+                // (Mantenemos tu botón personalizado de verPropiedades)
                 Tables\Actions\Action::make('verPropiedades')
                     ->icon('heroicon-o-building-library')
-                    ->iconButton() // Convierte el botón a solo icono
+                    ->iconButton() 
                     ->tooltip('Ver propiedades')
                     ->url(fn ($record) => PropertyResource::getUrl('index', [
                         'tableFilters' => [
                             'user_id' => [
-                                'value' => $record->user_id, // Filtramos por el ID del Usuario vinculado al Owner
+                                'value' => $record->user_id, 
                             ],
                         ],
                     ])),
+                    
+                Tables\Actions\ViewAction::make()
+                    ->iconButton()
+                    ->tooltip('Ver detalles'),
+                    
                 Tables\Actions\EditAction::make()
-                    ->iconButton() // Convierte el botón a solo icono
+                    ->iconButton() 
                     ->tooltip('Editar'),
+                    
                 Tables\Actions\DeleteAction::make()
-                    ->iconButton() // Convierte el botón a solo icono
+                    ->iconButton() 
                     ->tooltip('Eliminar'),
             ])
             ->actionsColumnLabel('ACCIONES')

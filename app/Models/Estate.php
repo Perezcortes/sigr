@@ -15,4 +15,9 @@ class Estate extends Model
     {
         return $this->hasMany(Office::class);
     }
+
+    public function municipalities(): HasMany
+    {
+        return $this->hasMany(Municipality::class, 'state_id');
+    }
 }

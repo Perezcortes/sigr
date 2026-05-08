@@ -126,6 +126,15 @@ class Owner extends Model
         'historial_acciones' => 'array',
     ];
 
+    protected static function booted(): void
+    {
+        static::creating(function (Owner $owner) {
+            if (empty($owner->tipo_persona)) {
+                $owner->tipo_persona = 'fisica';
+            }
+        });
+    }
+
     /**
      * Relación con User
      */

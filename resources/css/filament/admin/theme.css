@@ -1,6 +1,9 @@
 @import '../../../../vendor/filament/filament/resources/css/theme.css';
 @config './tailwind.config.js';
 
+@source '../../../../vendor/wallacemartinss/filament-whatsapp-conector/resources/views/**/*';
+@source '../../../../vendor/wallacemartinss/filament-whatsapp-conector/src/**/*';
+
 /* =========================================
    FONDO Y ESTRUCTURA GENERAL
    ========================================= */

@@ -2,16 +2,23 @@
 
 namespace App\Providers;
 
-use Illuminate\Support\ServiceProvider;
-use Livewire\Livewire;
-use App\Models\Service;
-use App\Policies\ServicePolicy;
-use App\Models\Ticket;
-use App\Policies\TicketPolicy;
-use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Gate;
 use App\Filament\Resources\AdministrationResource\RelationManagers\ServicesRelationManager;
 use App\Filament\Resources\AdministrationResource\RelationManagers\TicketsRelationManager;
+use App\Models\Service;
+use App\Models\Ticket;
+use App\Policies\RolePolicy;
+use App\Policies\ServicePolicy;
+use App\Policies\TicketPolicy;
+use App\Listeners\SaveIncomingWhatsappMessage;
+use Filament\Support\Colors\Color;
+use Filament\Support\Facades\FilamentColor;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Route;
+use Illuminate\Support\ServiceProvider;
+use Livewire\Livewire;
+use Spatie\Permission\Models\Role;
+use WallaceMartinss\FilamentEvolution\Events\MessageReceived;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -28,6 +35,22 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        FilamentColor::register([
+            'primary' => Color::hex('#161848'),   // Azul Marino
+            'secondary' => Color::hex('#26cad3'), // Cian
+            'info' => Color::hex('#26cad3'),      // Cian
+            'success' => Color::hex('#26cad3'),   // Cian
+            'warning' => Color::hex('#fe5f3b'),   // Naranja
+            'danger' => Color::hex('#fe5f3b'),    // Naranja
+            'gray' => Color::Slate,               // Gris base para el modo oscuro
+        ]);
+
+        // El Administrador se salta todas las reglas
+        Gate::before(function ($user, $ability) {
+            return $user->hasRole('Administrador') ? true : null;
+        });
+
+        // Configuración de Livewire
         Livewire::setScriptRoute(function ($handle) {
             return Route::get('/vendor/livewire/livewire.js', $handle);
         });
@@ -42,7 +65,14 @@ class AppServiceProvider extends ServiceProvider
             TicketsRelationManager::class
         );
 
+        // Registro de Políticas manuales
         Gate::policy(Service::class, ServicePolicy::class);
         Gate::policy(Ticket::class, TicketPolicy::class);
+
+        // Conexión de la Política de Roles de Spatie
+        Gate::policy(Role::class, RolePolicy::class);
+
+        // Guardar mensajes entrantes de WhatsApp con el esquema real de la tabla
+        Event::listen(MessageReceived::class, SaveIncomingWhatsappMessage::class);
     }
 }

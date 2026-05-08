@@ -10,77 +10,6 @@ class EditTenantRequest extends EditRecord
 {
     protected static string $resource = TenantRequestResource::class;
 
-    public function mount($record): void
-    {
-        parent::mount($record);
-
-        // Pre-cargar datos del tenant si existen
-        if ($this->record->tenant) {
-            $tenant = $this->record->tenant;
-            
-            $this->form->fill([
-                'tipo_persona' => $tenant->tipo_persona,
-                'nombres' => $tenant->nombres,
-                'primer_apellido' => $tenant->primer_apellido,
-                'segundo_apellido' => $tenant->segundo_apellido,
-                'email' => $tenant->email,
-                'email_confirmacion' => $tenant->email_confirmacion,
-                'telefono_celular' => $tenant->telefono_celular,
-                'telefono_fijo' => $tenant->telefono_fijo,
-                'nacionalidad' => $tenant->nacionalidad,
-                'nacionalidad_especifica' => $tenant->nacionalidad_especifica,
-                'sexo' => $tenant->sexo,
-                'estado_civil' => $tenant->estado_civil,
-                'tipo_identificacion' => $tenant->tipo_identificacion,
-                'fecha_nacimiento' => $tenant->fecha_nacimiento,
-                'rfc' => $tenant->rfc,
-                'curp' => $tenant->curp,
-                'conyuge_nombres' => $tenant->conyuge_nombres,
-                'conyuge_primer_apellido' => $tenant->conyuge_primer_apellido,
-                'conyuge_segundo_apellido' => $tenant->conyuge_segundo_apellido,
-                'conyuge_telefono' => $tenant->conyuge_telefono,
-                'razon_social' => $tenant->razon_social,
-                'dominio_internet' => $tenant->dominio_internet,
-                'telefono' => $tenant->telefono,
-                'calle' => $tenant->calle,
-                'numero_exterior' => $tenant->numero_exterior,
-                'numero_interior' => $tenant->numero_interior,
-                'codigo_postal' => $tenant->cp,
-                'colonia' => $tenant->colonia,
-                'municipio' => $tenant->municipio,
-                'estado' => $tenant->estado,
-                'ingreso_mensual_promedio' => $tenant->ingreso_mensual_promedio,
-                'referencias_ubicacion' => $tenant->referencias_ubicacion,
-                'notario_nombres' => $tenant->notario_nombres,
-                'notario_primer_apellido' => $tenant->notario_primer_apellido,
-                'notario_segundo_apellido' => $tenant->notario_segundo_apellido,
-                'numero_escritura' => $tenant->numero_escritura,
-                'fecha_constitucion' => $tenant->fecha_constitucion,
-                'notario_numero' => $tenant->notario_numero,
-                'ciudad_registro' => $tenant->ciudad_registro,
-                'estado_registro' => $tenant->estado_registro,
-                'numero_registro_inscripcion' => $tenant->numero_registro_inscripcion,
-                'giro_comercial' => $tenant->giro_comercial,
-                'apoderado_nombres' => $tenant->apoderado_nombres,
-                'apoderado_primer_apellido' => $tenant->apoderado_primer_apellido,
-                'apoderado_segundo_apellido' => $tenant->apoderado_segundo_apellido,
-                'apoderado_sexo' => $tenant->apoderado_sexo,
-                'apoderado_telefono' => $tenant->apoderado_telefono,
-                'apoderado_extension' => $tenant->apoderado_extension,
-                'apoderado_email' => $tenant->apoderado_email,
-                'facultades_en_acta' => $tenant->facultades_en_acta,
-                'escritura_publica_numero' => $tenant->escritura_publica_numero,
-                'notario_numero_facultades' => $tenant->notario_numero_facultades,
-                'fecha_escritura_facultades' => $tenant->fecha_escritura_facultades,
-                'numero_inscripcion_registro_publico' => $tenant->numero_inscripcion_registro_publico,
-                'ciudad_registro_facultades' => $tenant->ciudad_registro_facultades,
-                'estado_registro_facultades' => $tenant->estado_registro_facultades,
-                'fecha_inscripcion_facultades' => $tenant->fecha_inscripcion_facultades,
-                'tipo_representacion' => $tenant->tipo_representacion,
-            ]);
-        }
-    }
-
     protected function getHeaderActions(): array
     {
         return [
@@ -112,7 +41,6 @@ class EditTenantRequest extends EditRecord
 
     protected function mutateFormDataBeforeSave(array $data): array
     {
-        // Sincronizar datos con la tabla tenants
         if ($this->record->tenant) {
             $tenantData = [
                 'tipo_persona' => $data['tipo_persona'],

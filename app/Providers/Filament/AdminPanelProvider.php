@@ -2,42 +2,46 @@
 
 namespace App\Providers\Filament;
 
-use App\Filament\Resources\OfficeResource;
-use App\Filament\Resources\OwnerResource;
-use App\Filament\Resources\RentResource;
-use App\Filament\Resources\TenantResource;
-use App\Filament\Resources\GuarantorRequestResource;
-use App\Filament\Resources\TenantRequestResource;
-use App\Filament\Resources\OwnerRequestResource;
-use App\Filament\Resources\UserResource;
-use App\Filament\Resources\SaleResource;
-use App\Filament\Resources\LeadResource;
+use App\Filament\Pages\Auth\EditProfile;
 use App\Filament\Resources\AdministrationResource;
+use App\Filament\Resources\ApplicationsResource;
+use App\Filament\Resources\CompradoresResource;
+use App\Filament\Resources\GuarantorRequestResource;
+use App\Filament\Resources\LeadResource;
+use App\Filament\Resources\MortgageSaleResource;
+use App\Filament\Resources\OfficeResource;
+use App\Filament\Resources\OwnerRequestResource;
+use App\Filament\Resources\OwnerResource;
 use App\Filament\Resources\PayableOperationResource;
-use App\Filament\Widgets\ResumenDashboardWidget;
-use App\Filament\Widgets\RentasMensualesChartWidget;
-use App\Filament\Widgets\SolicitudesMensualesChartWidget;
+use App\Filament\Resources\PropertyResource;
+use App\Filament\Resources\PropietariosVendedoresResource;
+use App\Filament\Resources\RentResource;
+use App\Filament\Resources\RoleResource;
+use App\Filament\Resources\SaleResource;
+use App\Filament\Resources\TenantRequestResource;
+use App\Filament\Resources\TenantResource;
+use App\Filament\Resources\UserResource;
+use App\Filament\Resources\WhatsappInstanceResource;
 use App\Filament\Widgets\EstatusRentasChartWidget;
 use App\Filament\Widgets\EstatusSolicitudesChartWidget;
-use Filament\Facades\Filament;
+use App\Filament\Widgets\RentasMensualesChartWidget;
+use App\Filament\Widgets\ResumenDashboardWidget;
+use App\Filament\Widgets\SolicitudesMensualesChartWidget;
+use App\Http\Middleware\CheckPagosVencidos;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
-use Filament\Navigation\MenuItem;
 use Filament\Pages;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
-use Filament\Widgets;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
-use App\Filament\Resources\ApplicationsResource;
-use App\Filament\Resources\PropertyResource;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -48,7 +52,7 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
-            ->profile()
+            ->profile(EditProfile::class)
 
             ->navigationGroups([
                 'Dashboard',
@@ -57,7 +61,8 @@ class AdminPanelProvider extends PanelProvider
                 'Ventas',
                 'Centro de pagos',
                 'Mis Administraciones',
-                'Administración',   
+                'WhatsApp',
+                'Administración',
             ])
 
             // CONFIGURACIÓN DE COLORES (Rentas.com)
@@ -74,31 +79,31 @@ class AdminPanelProvider extends PanelProvider
             ->viteTheme('resources/css/filament/admin/theme.css')
             // CONFIGURACIÓN DE BRANDING (Logos)
             ->brandName('SIGR')
-            
+
             // LOGO PARA MODO CLARO (Fondo Blanco)
             ->brandLogo(fn () => request()->routeIs('filament.admin.auth.login')
-                ? asset('images/logo-rentas-w.png') 
-                : asset('images/logo-rentas-b.png')    
+                ? asset('images/logo-rentas-w.png')
+                : asset('images/logo-rentas-b.png')
             )
 
             // LOGO PARA MODO OSCURO (Fondo Negro)
             ->darkModeBrandLogo(fn () => request()->routeIs('filament.admin.auth.login')
-                ? asset('images/logo-rentas-b.png') 
-                : asset('images/logo-rentas-b.png')         
+                ? asset('images/logo-rentas-b.png')
+                : asset('images/logo-rentas-b.png')
             )
-            
+
             // ALTURA DEL LOGO (Importante para que en el login se vea grande)
             ->brandLogoHeight(fn () => request()->routeIs('filament.admin.auth.login')
                 ? '5rem' // Altura grande en el Login
                 : '2rem' // Altura pequeña en el Dashboard
             )
-            
+
             ->brandLogoHeight('2rem')
             ->favicon(asset('images/favicon.ico'))
-            
-            // ACTIVAR MODO OSCURO 
-            ->darkMode(true) 
-            
+
+            // ACTIVAR MODO OSCURO
+            ->darkMode(true)
+
             ->resources([
                 OfficeResource::class,
                 TenantResource::class,
@@ -110,14 +115,19 @@ class AdminPanelProvider extends PanelProvider
                 PropertyResource::class,
                 UserResource::class,
                 SaleResource::class,
+                CompradoresResource::class,
+                PropietariosVendedoresResource::class,
+                MortgageSaleResource::class,
                 LeadResource::class,
                 AdministrationResource::class,
                 PayableOperationResource::class,
                 GuarantorRequestResource::class,
+                RoleResource::class,
+                WhatsappInstanceResource::class,
             ])
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
             ->pages([
-                //Pages\Dashboard::class,
+                // Pages\Dashboard::class,
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
             ->widgets([
@@ -140,7 +150,7 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->authMiddleware([
                 Authenticate::class,
-                \App\Http\Middleware\CheckPagosVencidos::class,
+                CheckPagosVencidos::class,
             ]);
     }
 }
