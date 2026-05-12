@@ -3,18 +3,25 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\UserResource\Pages;
+use App\Livewire\AdvisorWhatsappEvolutionPanel;
+use App\Models\Estate;
+use App\Models\Municipality;
 use App\Models\User;
 use Filament\Forms;
 use Filament\Forms\Components\Actions\Action;
+use Filament\Forms\Components\Livewire;
+use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
+use Filament\Forms\Set;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
@@ -35,25 +42,28 @@ class UserResource extends Resource
     public static function canViewAny(): bool
     {
         // Admin, Gerente y Asesor pueden ver el menú de Usuarios
-        return auth()->user()->hasAnyRole(['Administrador', 'Gerente', 'Asesor']);
+        return auth()->user()->hasAnyRole(['Administrador', 'Gerente', 'Agente', 'Asesor']);
     }
 
     public static function canCreate(): bool
     {
-        // Solo el Administrador puede crear usuarios nuevos
-        return auth()->user()->hasRole('Administrador');
+        // Administradores y usuarios con el permiso explícito pueden crear usuarios nuevos
+        return auth()->user()->hasAnyRole(['Administrador', 'Gerente'])
+            || auth()->user()->can('Gestionar Usuarios');
     }
 
     public static function canEdit(Model $record): bool
     {
-        // Solo el Administrador puede editar a los usuarios
-        return auth()->user()->hasRole('Administrador');
+        // Permitir a quien tenga permiso explícito (y al Administrador)
+        return auth()->user()->hasRole('Administrador')
+            || auth()->user()->can('Gestionar Usuarios');
     }
 
     public static function canDelete(Model $record): bool
     {
-        // Solo el Administrador puede eliminar
-        return auth()->user()->hasRole('Administrador');
+        // Permitir a quien tenga permiso explícito (y al Administrador)
+        return auth()->user()->hasRole('Administrador')
+            || auth()->user()->can('Gestionar Usuarios');
     }
 
     public static function form(Form $form): Form
@@ -67,7 +77,21 @@ class UserResource extends Resource
                         Forms\Components\TextInput::make('name')
                             ->label('NOMBRE')
                             ->required()
-                            ->maxLength(255),
+                            ->maxLength(255)
+                            ->live(onBlur: true)
+                            ->afterStateUpdated(function (Set $set, Get $get, ?string $old, ?string $state): void {
+                                if (! in_array((string) $get('primary_role'), ['Agente', 'Asesor'], true)) {
+                                    return;
+                                }
+                                $currentSlug = (string) $get('slug');
+                                $oldGeneratedSlug = Str::slug((string) $old);
+
+                                if (filled($currentSlug) && $currentSlug !== $oldGeneratedSlug) {
+                                    return;
+                                }
+
+                                $set('slug', Str::slug((string) $state));
+                            }),
 
                         Forms\Components\TextInput::make('email')
                             ->label('CORREO ELECTRÓNICO')
@@ -82,12 +106,19 @@ class UserResource extends Resource
                             ->tel()
                             ->maxLength(20),
 
+                        Forms\Components\TextInput::make('id_nocnok')
+                            ->label('ID Nocnok')
+                            ->maxLength(255)
+                            ->columnSpanFull(),
+
                         Forms\Components\Select::make('primary_role')
                             ->label('ROL')
                             ->options(fn () => Role::query()->orderBy('name')->pluck('name', 'name')->all())
                             ->required()
                             ->live()
-                            ->afterStateUpdated(function ($state, callable $set) {
+                            ->afterStateUpdated(function ($state, callable $set, Get $get) {
+                                $creator = auth()->user();
+
                                 if ($state !== 'Cliente') {
                                     $set('asesor_id', null);
                                     $set('is_owner', false);
@@ -95,8 +126,24 @@ class UserResource extends Resource
                                     $set('is_seller', false);
                                     $set('is_buyer', false);
                                 }
-                                if (! in_array((string) $state, ['Gerente', 'Asesor', 'Cliente'], true)) {
+                                if (! in_array((string) $state, ['Gerente', 'Agente', 'Asesor', 'Cliente'], true)) {
                                     $set('office_id', null);
+                                }
+
+                                // Si un Gerente crea un Agente/Asesor, forzar su misma oficina
+                                if (
+                                    $creator?->hasRole('Gerente')
+                                    && in_array((string) $state, ['Agente', 'Asesor'], true)
+                                    && ! empty($creator->office_id)
+                                ) {
+                                    $set('office_id', $creator->office_id);
+                                }
+
+                                if (in_array((string) $state, ['Agente', 'Asesor'], true)) {
+                                    $name = (string) $get('name');
+                                    if (filled($name) && blank($get('slug'))) {
+                                        $set('slug', Str::slug($name));
+                                    }
                                 }
                             }),
 
@@ -133,14 +180,22 @@ class UserResource extends Resource
                             ->searchable()
                             ->preload()
                             ->live()
+                            ->disabled(function (Get $get) {
+                                $user = auth()->user();
+                                $role = (string) $get('primary_role');
+
+                                return $user?->hasRole('Gerente')
+                                    && in_array($role, ['Agente', 'Asesor'], true)
+                                    && ! empty($user->office_id);
+                            })
                             ->visible(fn (Get $get): bool => in_array(
                                 (string) $get('primary_role'),
-                                ['Gerente', 'Asesor', 'Cliente'],
+                                ['Gerente', 'Agente', 'Asesor', 'Cliente'],
                                 true
                             ))
                             ->required(fn (Get $get): bool => in_array(
                                 (string) $get('primary_role'),
-                                ['Gerente', 'Asesor', 'Cliente'],
+                                ['Gerente', 'Agente', 'Asesor', 'Cliente'],
                                 true
                             ))
                             ->afterStateUpdated(fn (callable $set) => $set('asesor_id', null)),
@@ -157,7 +212,7 @@ class UserResource extends Resource
                             ->helperText('Opcional. Se usa al enviar mensajes desde Interesados con la cuenta de este usuario.')
                             ->visible(fn (Get $get): bool => in_array(
                                 (string) $get('primary_role'),
-                                ['Gerente', 'Asesor'],
+                                ['Gerente', 'Agente', 'Asesor'],
                                 true
                             )),
 
@@ -171,7 +226,7 @@ class UserResource extends Resource
 
                                 return User::query()
                                     ->where('office_id', $officeId)
-                                    ->whereHas('roles', fn (Builder $q) => $q->where('name', 'Asesor'))
+                                    ->whereHas('roles', fn (Builder $q) => $q->whereIn('name', ['Agente', 'Asesor']))
                                     ->orderBy('name')
                                     ->pluck('name', 'id')
                                     ->all();
@@ -217,6 +272,114 @@ class UserResource extends Resource
                             ->columnSpanFull(),
                     ])
                     ->columns(2),
+
+                Forms\Components\Section::make('Perfil de asesor')
+                    ->description('Datos de contacto y zona como en el perfil del asesor (/admin/profile).')
+                    ->visible(fn (Get $get): bool => in_array((string) $get('primary_role'), ['Agente', 'Asesor'], true))
+                    ->schema([
+                        Forms\Components\TextInput::make('slug')
+                            ->label('Slug')
+                            ->required(fn (Get $get): bool => in_array((string) $get('primary_role'), ['Agente', 'Asesor'], true))
+                            ->maxLength(255)
+                            ->alphaDash()
+                            ->unique(ignoreRecord: true)
+                            ->helperText('Se autocompleta con el nombre; puedes editarlo.')
+                            ->columnSpanFull()
+                            ->dehydrated(fn (Get $get): bool => in_array((string) $get('primary_role'), ['Agente', 'Asesor'], true)),
+                        Forms\Components\TextInput::make('telefono')
+                            ->label('Teléfono')
+                            ->tel()
+                            ->maxLength(20)
+                            ->dehydrated(fn (Get $get): bool => in_array((string) $get('primary_role'), ['Agente', 'Asesor'], true)),
+                        Forms\Components\TextInput::make('whatsapp')
+                            ->label('WhatsApp')
+                            ->tel()
+                            ->maxLength(20)
+                            ->dehydrated(fn (Get $get): bool => in_array((string) $get('primary_role'), ['Agente', 'Asesor'], true)),
+                        Forms\Components\TextInput::make('facebook')
+                            ->label('Facebook')
+                            ->maxLength(255)
+                            ->url()
+                            ->prefixIcon('heroicon-o-link')
+                            ->dehydrated(fn (Get $get): bool => in_array((string) $get('primary_role'), ['Agente', 'Asesor'], true)),
+                        Forms\Components\TextInput::make('instagram')
+                            ->label('Instagram')
+                            ->maxLength(255)
+                            ->url()
+                            ->prefixIcon('heroicon-o-link')
+                            ->dehydrated(fn (Get $get): bool => in_array((string) $get('primary_role'), ['Agente', 'Asesor'], true)),
+                        Forms\Components\TextInput::make('linkedin')
+                            ->label('LinkedIn')
+                            ->maxLength(255)
+                            ->url()
+                            ->prefixIcon('heroicon-o-link')
+                            ->dehydrated(fn (Get $get): bool => in_array((string) $get('primary_role'), ['Agente', 'Asesor'], true)),
+                        RichEditor::make('about_me')
+                            ->label('Sobre mí')
+                            ->toolbarButtons([
+                                'bold',
+                                'italic',
+                                'underline',
+                                'strike',
+                                'h2',
+                                'h3',
+                                'blockquote',
+                                'bulletList',
+                                'orderedList',
+                                'redo',
+                                'undo',
+                            ])
+                            ->columnSpanFull()
+                            ->dehydrated(fn (Get $get): bool => in_array((string) $get('primary_role'), ['Agente', 'Asesor'], true)),
+                        Forms\Components\Select::make('zone_estate_id')
+                            ->label('Estado de zona')
+                            ->options(fn () => Estate::query()->orderBy('nombre')->pluck('nombre', 'id'))
+                            ->searchable()
+                            ->preload()
+                            ->live()
+                            ->afterStateUpdated(fn (Set $set) => $set('zone_city_ids', []))
+                            ->dehydrated(fn (Get $get): bool => in_array((string) $get('primary_role'), ['Agente', 'Asesor'], true)),
+                        Forms\Components\Select::make('zone_city_ids')
+                            ->label('Municipios de zona')
+                            ->multiple()
+                            ->options(function (Get $get) {
+                                $estateId = $get('zone_estate_id');
+                                if (blank($estateId)) {
+                                    return [];
+                                }
+
+                                return Municipality::query()
+                                    ->where('state_id', $estateId)
+                                    ->orderBy('name')
+                                    ->pluck('name', 'id')
+                                    ->toArray();
+                            })
+                            ->searchable()
+                            ->preload()
+                            ->dehydrated(fn (Get $get): bool => in_array((string) $get('primary_role'), ['Agente', 'Asesor'], true)),
+                    ])
+                    ->columns(2)
+                    ->columnSpanFull(),
+
+                Forms\Components\Section::make('WhatsApp Evolution')
+                    ->description('Instancia Evolution API para este asesor (código QR, conexión).')
+                    ->visible(function (Get $get, $livewire): bool {
+                        return $livewire instanceof Pages\EditUser
+                            && in_array((string) $get('primary_role'), ['Agente', 'Asesor'], true);
+                    })
+                    ->schema([
+                        Livewire::make(
+                            AdvisorWhatsappEvolutionPanel::class,
+                            fn ($livewire): array => $livewire instanceof Pages\EditUser
+                                ? ['advisorUserId' => $livewire->record->getKey()]
+                                : []
+                        )
+                            ->key(fn ($livewire): string => $livewire instanceof Pages\EditUser
+                                ? 'advisor-evolution-'.$livewire->record->getKey()
+                                : 'advisor-evolution-none')
+                            ->lazy(),
+                    ])
+                    ->columnSpanFull(),
 
                 // --- SECCIÓN 2: PERMISOS DIRECTOS DINÁMICOS ---
                 Forms\Components\Section::make('Permisos Directos del Usuario')
@@ -266,7 +429,7 @@ class UserResource extends Resource
         }
 
         // Gerentes y Asesores solo ven los usuarios que pertenecen a su misma oficina
-        if ($user->hasAnyRole(['Gerente', 'Asesor'])) {
+        if ($user->hasAnyRole(['Gerente', 'Agente', 'Asesor'])) {
             return $query->where('office_id', $user->office_id);
         }
 

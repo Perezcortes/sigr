@@ -308,7 +308,7 @@ class ViewRent extends EditRecord
                                         Forms\Components\Select::make('asesor_id')
                                             ->relationship('asesor', 'name', function (Builder $query) {
                                                 $query->whereHas('roles', function ($q) {
-                                                    $q->whereIn('name', ['Asesor', 'Gerente']);
+                                                    $q->whereIn('name', ['Agente', 'Gerente']);
                                                 });
 
                                                 $user = auth()->user();
@@ -478,7 +478,7 @@ class ViewRent extends EditRecord
 
                                                                             return User::query()
                                                                                 ->where('office_id', $officeId)
-                                                                                ->whereHas('roles', fn ($q) => $q->whereIn('name', ['Asesor', 'Gerente']))
+                                                                                ->whereHas('roles', fn ($q) => $q->whereIn('name', ['Agente', 'Gerente']))
                                                                                 ->orderBy('name')
                                                                                 ->pluck('name', 'id')
                                                                                 ->all();
@@ -578,7 +578,7 @@ class ViewRent extends EditRecord
 
                                                                         return User::query()
                                                                             ->where('office_id', $officeId)
-                                                                            ->whereHas('roles', fn ($q) => $q->whereIn('name', ['Asesor', 'Gerente']))
+                                                                            ->whereHas('roles', fn ($q) => $q->whereIn('name', ['Agente', 'Gerente']))
                                                                             ->orderBy('name')
                                                                             ->pluck('name', 'id')
                                                                             ->all();

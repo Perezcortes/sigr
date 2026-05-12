@@ -59,7 +59,7 @@ class AdministrationResource extends Resource
         if ($user->hasRole('Administrador')) {
             return $query;
         }
-        if ($user->hasRole('Asesor')) {
+        if ($user->hasRole('Agente')) {
             return $query->where('asesor_id', $user->id);
         }
         if ($user->hasRole('Cliente')) {

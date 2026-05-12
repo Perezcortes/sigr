@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Municipality;
 use App\Models\Estate;
+use App\Models\Municipality;
 use App\Models\Property;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
@@ -74,13 +74,16 @@ class AdvisorSearchController extends Controller
             ->where('name', 'like', "%{$query}%")
             ->orderBy('name')
             ->limit(10)
-            ->get(['id', 'name', 'slug'])
+            ->get(['id', 'name', 'slug', 'telefono', 'mobile', 'whatsapp'])
             ->map(fn (User $advisor) => [
                 'type' => 'advisor',
                 'hash_id' => $advisor->hash_id,
                 'user_id_hashed' => $advisor->hash_id,
                 'name' => $advisor->name,
                 'slug' => $advisor->slug,
+                'telefono' => $advisor->telefono,
+                'mobile' => $advisor->mobile,
+                'whatsapp' => $advisor->whatsapp,
             ])
             ->values();
 
@@ -133,7 +136,7 @@ class AdvisorSearchController extends Controller
             ->when($estateId, fn (Builder $q) => $this->applyStateFilter($q, (int) $estateId))
             ->when($cityId, fn (Builder $q) => $q->where(function ($query) use ($cityId) {
                 $query->whereJsonContains('zone_city_ids', (int) $cityId)
-                      ->orWhereJsonContains('zone_city_ids', (string) $cityId);
+                    ->orWhereJsonContains('zone_city_ids', (string) $cityId);
             }))
             ->when($name !== '', fn (Builder $q) => $q->where('name', 'like', "%{$name}%"));
 
@@ -157,7 +160,7 @@ class AdvisorSearchController extends Controller
 
                 foreach ($queryCityIds as $cityIdFromQuery) {
                     $q->orWhereJsonContains('zone_city_ids', (int) $cityIdFromQuery)
-                      ->orWhereJsonContains('zone_city_ids', (string) $cityIdFromQuery);
+                        ->orWhereJsonContains('zone_city_ids', (string) $cityIdFromQuery);
                 }
             });
         }
@@ -271,7 +274,7 @@ class AdvisorSearchController extends Controller
                 $advisorsQuery->where(function (Builder $q) use ($cityIds) {
                     foreach ($cityIds as $cityId) {
                         $q->orWhereJsonContains('zone_city_ids', (int) $cityId)
-                          ->orWhereJsonContains('zone_city_ids', (string) $cityId);
+                            ->orWhereJsonContains('zone_city_ids', (string) $cityId);
                     }
                 });
             }
@@ -282,6 +285,7 @@ class AdvisorSearchController extends Controller
             ->paginate($perPage)
             ->through(function (User $advisor) use ($matchedBy) {
                 $resolvedStateId = $this->resolveStateId($advisor);
+
                 return $this->formatAdvisorData($advisor, $resolvedStateId, [$matchedBy]);
             });
 
@@ -356,7 +360,7 @@ class AdvisorSearchController extends Controller
             ])
             ->where('is_active', true)
             ->whereHas('roles', function (Builder $q) {
-                $q->where('name', 'Asesor')->orWhere('id', 3);
+                $q->where('name', 'Agente');
             });
     }
 
@@ -407,8 +411,9 @@ class AdvisorSearchController extends Controller
 
         return null;
     }
+
     /**
-     * @param array<int, string> $matchedBy
+     * @param  array<int, string>  $matchedBy
      * @return array<string, mixed>
      */
     private function formatAdvisorData(User $advisor, ?int $resolvedStateId, array $matchedBy): array
@@ -420,6 +425,7 @@ class AdvisorSearchController extends Controller
             'slug' => $advisor->slug,
             'email' => $advisor->email,
             'telefono' => $advisor->telefono,
+            'mobile' => $advisor->mobile,
             'whatsapp' => $advisor->whatsapp,
             'facebook' => $advisor->facebook,
             'instagram' => $advisor->instagram,
