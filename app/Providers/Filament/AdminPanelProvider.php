@@ -32,6 +32,7 @@ use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
+use Filament\View\PanelsRenderHook;
 use Filament\Pages;
 use Filament\Panel;
 use Filament\PanelProvider;
@@ -103,6 +104,12 @@ class AdminPanelProvider extends PanelProvider
 
             // ACTIVAR MODO OSCURO
             ->darkMode(true)
+
+            // PWA meta tags en el <head> (admin)
+            ->renderHook(
+                PanelsRenderHook::HEAD_END,
+                fn () => view('pwa.head'),
+            )
 
             ->resources([
                 OfficeResource::class,
