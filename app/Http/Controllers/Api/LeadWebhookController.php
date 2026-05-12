@@ -12,21 +12,27 @@ class LeadWebhookController extends Controller
 {
     private const RAW_BODY_LOG_MAX_BYTES = 65536;
 
+    /** Tamaño máximo del cuerpo guardado en JSON (evita filas enormes). */
+    private const RAW_BODY_DB_MAX_BYTES = 1048576;
+
     public function handle(Request $request)
     {
-        $this->logIncomingWebhook($request);
+        $capture = $this->captureIncomingPayload($request);
+        $this->logIncomingWebhook($request, $capture);
+
+        $input = $this->mergedWebhookInput($request, $capture);
 
         try {
             $lead = Lead::create([
-                'nombre' => $request->input('ContactName') ?? 'Desconocido',
-                'correo' => $request->input('ContactEmail'),
-                'telefono' => $request->input('ContactPhone'),
-                'mensaje' => $request->input('ContactMessage'),
+                'nombre' => $input['ContactName'] ?? 'Desconocido',
+                'correo' => $input['ContactEmail'] ?? null,
+                'telefono' => $input['ContactPhone'] ?? null,
+                'mensaje' => $input['ContactMessage'] ?? null,
                 'canal' => LeadCanal::Nocnok,
-                'origen' => $request->input('ContactOrigin') ?? 'Nocnok',
-                'url_propiedad' => $request->input('PropertyUrl'),
+                'origen' => $input['ContactOrigin'] ?? 'Nocnok',
+                'url_propiedad' => $input['PropertyUrl'] ?? null,
                 'etapa' => 'no_contactado',
-                'payload_original' => $request->all(),
+                'payload_original' => $capture,
             ]);
 
             Log::channel('nocnok_webhook')->info('Nocnok webhook: lead creado', [
@@ -56,28 +62,17 @@ class LeadWebhookController extends Controller
     }
 
     /**
-     * Registra cómo llega la petición (útil si Nocnok envía JSON, form-data o claves distintas).
+     * @param  array<string, mixed>  $capture
      */
-    private function logIncomingWebhook(Request $request): void
+    private function logIncomingWebhook(Request $request, array $capture): void
     {
         if (! filter_var(env('NOCNOK_WEBHOOK_LOG', true), FILTER_VALIDATE_BOOLEAN)) {
             return;
         }
 
-        $raw = $request->getContent();
-        $rawLen = strlen($raw);
-        if ($rawLen > self::RAW_BODY_LOG_MAX_BYTES) {
-            $raw = substr($raw, 0, self::RAW_BODY_LOG_MAX_BYTES).'… [truncado, '.$rawLen.' bytes totales]';
-        }
-
-        $decodedJson = null;
-        $ct = (string) $request->header('Content-Type');
-        if ($raw !== '' && (str_contains($ct, 'json') || str_starts_with(ltrim($raw), '{') || str_starts_with(ltrim($raw), '['))) {
-            try {
-                $decodedJson = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
-            } catch (\JsonException) {
-                $decodedJson = 'JSON inválido (revisar raw_body)';
-            }
+        $rawForLog = $capture['raw_body'] ?? null;
+        if (is_string($rawForLog) && strlen($rawForLog) > self::RAW_BODY_LOG_MAX_BYTES) {
+            $rawForLog = substr($rawForLog, 0, self::RAW_BODY_LOG_MAX_BYTES).'… [truncado para log]';
         }
 
         Log::channel('nocnok_webhook')->info('Nocnok webhook: petición recibida', [
@@ -88,12 +83,66 @@ class LeadWebhookController extends Controller
             'content_type' => $request->header('Content-Type'),
             'content_length' => $request->header('Content-Length'),
             'user_agent' => $request->userAgent(),
-            'query' => $request->query->all(),
-            'request_all' => $request->all(),
-            'json_decoded_from_raw' => $decodedJson,
-            'raw_body' => $raw !== '' ? $raw : null,
+            'query' => $capture['query'] ?? [],
+            'request_all' => $capture['request_all'] ?? [],
+            'json_decoded_from_raw' => $capture['json_decoded_from_raw_body'] ?? null,
+            'raw_body' => $rawForLog,
             'headers' => $this->sanitizedHeaders($request),
         ]);
+    }
+
+    /**
+     * Lo que llegó antes de mapear a columnas (BD + depuración).
+     *
+     * @return array<string, mixed>
+     */
+    private function captureIncomingPayload(Request $request): array
+    {
+        $raw = $request->getContent();
+        $rawLen = strlen($raw);
+        $rawForDb = $raw;
+        $rawTruncated = false;
+        if ($rawLen > self::RAW_BODY_DB_MAX_BYTES) {
+            $rawForDb = substr($raw, 0, self::RAW_BODY_DB_MAX_BYTES).'… [truncado, '.$rawLen.' bytes totales]';
+            $rawTruncated = true;
+        }
+
+        $decoded = null;
+        if ($raw !== '') {
+            try {
+                $d = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
+                $decoded = is_array($d) ? $d : ['_root' => $d];
+            } catch (\JsonException) {
+                $decoded = null;
+            }
+        }
+
+        return [
+            'captured_at' => now()->toIso8601String(),
+            'content_type' => $request->header('Content-Type'),
+            'query' => $request->query->all(),
+            'request_all' => $request->all(),
+            'json_decoded_from_raw_body' => $decoded,
+            'raw_body' => $rawForDb !== '' ? $rawForDb : null,
+            'raw_body_truncated' => $rawTruncated,
+            'raw_body_length' => $rawLen,
+        ];
+    }
+
+    /**
+     * Combina el JSON del body (aunque Laravel no lo haya fusionado) con la petición.
+     *
+     * @param  array<string, mixed>  $capture
+     * @return array<string, mixed>
+     */
+    private function mergedWebhookInput(Request $request, array $capture): array
+    {
+        $fromBody = $capture['json_decoded_from_raw_body'] ?? null;
+        if (! is_array($fromBody)) {
+            return $request->all();
+        }
+
+        return array_merge($fromBody, $request->all());
     }
 
     /**
