@@ -14,6 +14,8 @@ use WallaceMartinss\FilamentEvolution\Enums\StatusConnectionEnum;
 
 class AdvisorWhatsappEvolutionPanel extends Component
 {
+    public ?int $advisorUserId = null;
+
     public string $createNumber = '';
 
     public bool $showQr = false;
@@ -22,27 +24,69 @@ class AdvisorWhatsappEvolutionPanel extends Component
 
     public function mount(): void
     {
-        if (! $this->userIsAdvisor()) {
+        if (! $this->shouldShowPanel()) {
             return;
         }
 
         $this->loadAdvisorState();
     }
 
-    protected function userIsAdvisor(): bool
+    /**
+     * Perfil: usuario logueado. Admin: usuario con id advisorUserId (tras autorización).
+     */
+    protected function targetUser(): ?User
     {
-        $user = auth()->user();
+        if ($this->advisorUserId === null) {
+            $user = auth()->user();
 
-        if (! $user instanceof User) {
+            return $user instanceof User ? $user : null;
+        }
+
+        if (! $this->actingUserCanManageAdvisors()) {
+            return null;
+        }
+
+        $target = User::query()->find($this->advisorUserId);
+
+        return $target instanceof User ? $target : null;
+    }
+
+    /**
+     * Misma regla que editar usuarios en Filament (Administrador o permiso explícito).
+     */
+    protected function actingUserCanManageAdvisors(): bool
+    {
+        $actor = auth()->user();
+
+        if (! $actor instanceof User) {
             return false;
         }
 
-        return $user->hasRole('Agente');
+        return $actor->hasRole('Administrador') || $actor->can('Gestionar Usuarios');
+    }
+
+    protected function shouldShowPanel(): bool
+    {
+        $target = $this->targetUser();
+
+        if (! $target instanceof User) {
+            return false;
+        }
+
+        if (! $target->hasAnyRole(['Agente', 'Asesor'])) {
+            return false;
+        }
+
+        if ($this->advisorUserId !== null) {
+            return $this->actingUserCanManageAdvisors();
+        }
+
+        return $target->hasAnyRole(['Agente', 'Asesor']);
     }
 
     public function loadAdvisorState(): void
     {
-        $user = auth()->user();
+        $user = $this->targetUser();
 
         if (! $user instanceof User) {
             return;
@@ -55,11 +99,11 @@ class AdvisorWhatsappEvolutionPanel extends Component
 
     public function createInstance(): void
     {
-        if (! $this->userIsAdvisor()) {
+        if (! $this->shouldShowPanel()) {
             return;
         }
 
-        $user = auth()->user();
+        $user = $this->targetUser();
 
         if (! $user instanceof User) {
             return;
@@ -71,7 +115,9 @@ class AdvisorWhatsappEvolutionPanel extends Component
             Notification::make()
                 ->warning()
                 ->title('Instancia ya asignada')
-                ->body('Tu cuenta ya tiene una instancia de WhatsApp. Usa «Mostrar código QR» para conectar.')
+                ->body($this->advisorUserId !== null
+                    ? 'Esta cuenta ya tiene una instancia de WhatsApp. Usa «Mostrar código QR» para conectar.'
+                    : 'Tu cuenta ya tiene una instancia de WhatsApp. Usa «Mostrar código QR» para conectar.')
                 ->send();
             $this->loadAdvisorState();
 
@@ -92,13 +138,13 @@ class AdvisorWhatsappEvolutionPanel extends Component
         Notification::make()
             ->success()
             ->title('Instancia creada')
-            ->body('Escanea el código QR para vincular tu WhatsApp.')
+            ->body('Escanea el código QR para vincular el WhatsApp.')
             ->send();
     }
 
     public function openQr(): void
     {
-        if (! $this->userIsAdvisor()) {
+        if (! $this->shouldShowPanel()) {
             return;
         }
 
@@ -108,7 +154,7 @@ class AdvisorWhatsappEvolutionPanel extends Component
             Notification::make()
                 ->warning()
                 ->title('Sin instancia')
-                ->body('Primero crea una instancia con tu número.')
+                ->body('Primero crea una instancia con el número.')
                 ->send();
 
             return;
@@ -118,7 +164,7 @@ class AdvisorWhatsappEvolutionPanel extends Component
             Notification::make()
                 ->info()
                 ->title('Ya conectado')
-                ->body('Tu WhatsApp ya está conectado.')
+                ->body('El WhatsApp ya está conectado.')
                 ->send();
 
             return;
@@ -142,13 +188,13 @@ class AdvisorWhatsappEvolutionPanel extends Component
         Notification::make()
             ->success()
             ->title('WhatsApp conectado')
-            ->body('Tu línea quedó vinculada correctamente.')
+            ->body('La línea quedó vinculada correctamente.')
             ->send();
     }
 
     public function render()
     {
-        if (! $this->userIsAdvisor()) {
+        if (! $this->shouldShowPanel()) {
             return view('livewire.advisor-whatsapp-evolution-panel-empty');
         }
 

@@ -25,7 +25,7 @@ class EditProfile extends \Filament\Pages\Auth\EditProfile
     {
         $user = $this->getUser();
 
-        return $user->hasRole('Agente');
+        return $user->hasAnyRole(['Agente', 'Asesor']);
     }
 
     protected function getPhoneFormComponent(): Component

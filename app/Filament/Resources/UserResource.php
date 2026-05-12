@@ -3,18 +3,25 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\UserResource\Pages;
+use App\Livewire\AdvisorWhatsappEvolutionPanel;
+use App\Models\Estate;
+use App\Models\Municipality;
 use App\Models\User;
 use Filament\Forms;
 use Filament\Forms\Components\Actions\Action;
+use Filament\Forms\Components\Livewire;
+use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
+use Filament\Forms\Set;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
@@ -70,7 +77,21 @@ class UserResource extends Resource
                         Forms\Components\TextInput::make('name')
                             ->label('NOMBRE')
                             ->required()
-                            ->maxLength(255),
+                            ->maxLength(255)
+                            ->live(onBlur: true)
+                            ->afterStateUpdated(function (Set $set, Get $get, ?string $old, ?string $state): void {
+                                if (! in_array((string) $get('primary_role'), ['Agente', 'Asesor'], true)) {
+                                    return;
+                                }
+                                $currentSlug = (string) $get('slug');
+                                $oldGeneratedSlug = Str::slug((string) $old);
+
+                                if (filled($currentSlug) && $currentSlug !== $oldGeneratedSlug) {
+                                    return;
+                                }
+
+                                $set('slug', Str::slug((string) $state));
+                            }),
 
                         Forms\Components\TextInput::make('email')
                             ->label('CORREO ELECTRÓNICO')
@@ -85,12 +106,17 @@ class UserResource extends Resource
                             ->tel()
                             ->maxLength(20),
 
+                        Forms\Components\TextInput::make('id_nocnok')
+                            ->label('ID Nocnok')
+                            ->maxLength(255)
+                            ->columnSpanFull(),
+
                         Forms\Components\Select::make('primary_role')
                             ->label('ROL')
                             ->options(fn () => Role::query()->orderBy('name')->pluck('name', 'name')->all())
                             ->required()
                             ->live()
-                            ->afterStateUpdated(function ($state, callable $set) {
+                            ->afterStateUpdated(function ($state, callable $set, Get $get) {
                                 $creator = auth()->user();
 
                                 if ($state !== 'Cliente') {
@@ -111,6 +137,13 @@ class UserResource extends Resource
                                     && ! empty($creator->office_id)
                                 ) {
                                     $set('office_id', $creator->office_id);
+                                }
+
+                                if (in_array((string) $state, ['Agente', 'Asesor'], true)) {
+                                    $name = (string) $get('name');
+                                    if (filled($name) && blank($get('slug'))) {
+                                        $set('slug', Str::slug($name));
+                                    }
                                 }
                             }),
 
@@ -239,6 +272,114 @@ class UserResource extends Resource
                             ->columnSpanFull(),
                     ])
                     ->columns(2),
+
+                Forms\Components\Section::make('Perfil de asesor')
+                    ->description('Datos de contacto y zona como en el perfil del asesor (/admin/profile).')
+                    ->visible(fn (Get $get): bool => in_array((string) $get('primary_role'), ['Agente', 'Asesor'], true))
+                    ->schema([
+                        Forms\Components\TextInput::make('slug')
+                            ->label('Slug')
+                            ->required(fn (Get $get): bool => in_array((string) $get('primary_role'), ['Agente', 'Asesor'], true))
+                            ->maxLength(255)
+                            ->alphaDash()
+                            ->unique(ignoreRecord: true)
+                            ->helperText('Se autocompleta con el nombre; puedes editarlo.')
+                            ->columnSpanFull()
+                            ->dehydrated(fn (Get $get): bool => in_array((string) $get('primary_role'), ['Agente', 'Asesor'], true)),
+                        Forms\Components\TextInput::make('telefono')
+                            ->label('Teléfono')
+                            ->tel()
+                            ->maxLength(20)
+                            ->dehydrated(fn (Get $get): bool => in_array((string) $get('primary_role'), ['Agente', 'Asesor'], true)),
+                        Forms\Components\TextInput::make('whatsapp')
+                            ->label('WhatsApp')
+                            ->tel()
+                            ->maxLength(20)
+                            ->dehydrated(fn (Get $get): bool => in_array((string) $get('primary_role'), ['Agente', 'Asesor'], true)),
+                        Forms\Components\TextInput::make('facebook')
+                            ->label('Facebook')
+                            ->maxLength(255)
+                            ->url()
+                            ->prefixIcon('heroicon-o-link')
+                            ->dehydrated(fn (Get $get): bool => in_array((string) $get('primary_role'), ['Agente', 'Asesor'], true)),
+                        Forms\Components\TextInput::make('instagram')
+                            ->label('Instagram')
+                            ->maxLength(255)
+                            ->url()
+                            ->prefixIcon('heroicon-o-link')
+                            ->dehydrated(fn (Get $get): bool => in_array((string) $get('primary_role'), ['Agente', 'Asesor'], true)),
+                        Forms\Components\TextInput::make('linkedin')
+                            ->label('LinkedIn')
+                            ->maxLength(255)
+                            ->url()
+                            ->prefixIcon('heroicon-o-link')
+                            ->dehydrated(fn (Get $get): bool => in_array((string) $get('primary_role'), ['Agente', 'Asesor'], true)),
+                        RichEditor::make('about_me')
+                            ->label('Sobre mí')
+                            ->toolbarButtons([
+                                'bold',
+                                'italic',
+                                'underline',
+                                'strike',
+                                'h2',
+                                'h3',
+                                'blockquote',
+                                'bulletList',
+                                'orderedList',
+                                'redo',
+                                'undo',
+                            ])
+                            ->columnSpanFull()
+                            ->dehydrated(fn (Get $get): bool => in_array((string) $get('primary_role'), ['Agente', 'Asesor'], true)),
+                        Forms\Components\Select::make('zone_estate_id')
+                            ->label('Estado de zona')
+                            ->options(fn () => Estate::query()->orderBy('nombre')->pluck('nombre', 'id'))
+                            ->searchable()
+                            ->preload()
+                            ->live()
+                            ->afterStateUpdated(fn (Set $set) => $set('zone_city_ids', []))
+                            ->dehydrated(fn (Get $get): bool => in_array((string) $get('primary_role'), ['Agente', 'Asesor'], true)),
+                        Forms\Components\Select::make('zone_city_ids')
+                            ->label('Municipios de zona')
+                            ->multiple()
+                            ->options(function (Get $get) {
+                                $estateId = $get('zone_estate_id');
+                                if (blank($estateId)) {
+                                    return [];
+                                }
+
+                                return Municipality::query()
+                                    ->where('state_id', $estateId)
+                                    ->orderBy('name')
+                                    ->pluck('name', 'id')
+                                    ->toArray();
+                            })
+                            ->searchable()
+                            ->preload()
+                            ->dehydrated(fn (Get $get): bool => in_array((string) $get('primary_role'), ['Agente', 'Asesor'], true)),
+                    ])
+                    ->columns(2)
+                    ->columnSpanFull(),
+
+                Forms\Components\Section::make('WhatsApp Evolution')
+                    ->description('Instancia Evolution API para este asesor (código QR, conexión).')
+                    ->visible(function (Get $get, $livewire): bool {
+                        return $livewire instanceof Pages\EditUser
+                            && in_array((string) $get('primary_role'), ['Agente', 'Asesor'], true);
+                    })
+                    ->schema([
+                        Livewire::make(
+                            AdvisorWhatsappEvolutionPanel::class,
+                            fn ($livewire): array => $livewire instanceof Pages\EditUser
+                                ? ['advisorUserId' => $livewire->record->getKey()]
+                                : []
+                        )
+                            ->key(fn ($livewire): string => $livewire instanceof Pages\EditUser
+                                ? 'advisor-evolution-'.$livewire->record->getKey()
+                                : 'advisor-evolution-none')
+                            ->lazy(),
+                    ])
+                    ->columnSpanFull(),
 
                 // --- SECCIÓN 2: PERMISOS DIRECTOS DINÁMICOS ---
                 Forms\Components\Section::make('Permisos Directos del Usuario')
