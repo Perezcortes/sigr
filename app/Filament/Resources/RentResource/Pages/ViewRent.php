@@ -1629,34 +1629,57 @@ class ViewRent extends EditRecord
                                                         : 'Documentación de identidad (Persona Física)')
                                                     ->headerActions([
                                                         Forms\Components\Actions\Action::make('subir_doc_inquilino')
-                                                            ->label('Nuevo Documento')
-                                                            ->color('primary')
-                                                            ->icon('heroicon-o-arrow-up-tray')
-                                                            ->form([
-                                                                Forms\Components\Select::make('tag')
-                                                                    ->label('Tipo de Documento')
-                                                                    ->options(fn () => $this->record->tenant?->tipo_persona === 'moral'
-                                                                        ? TenantDocument::tiposPersonaMoral()
-                                                                        : TenantDocument::tiposPersonaFisica())
-                                                                    ->required(),
-                                                                Forms\Components\FileUpload::make('file')
-                                                                    ->label('Seleccionar Archivo')
-                                                                    ->directory('tenant-documents')
-                                                                    ->acceptedFileTypes(['application/pdf', 'image/*'])
-                                                                    ->maxSize(10240)
-                                                                    ->required(),
-                                                            ])
-                                                            ->action(function (array $data) {
-                                                                TenantDocument::create([
-                                                                    'rent_id' => $this->record->id,
-                                                                    'user_id' => auth()->id(),
-                                                                    'user_name' => auth()->user()->name,
-                                                                    'tag' => $data['tag'],
-                                                                    'path_file' => $data['file'],
-                                                                    'mime' => Storage::disk('public')->mimeType($data['file']) ?? 'application/octet-stream',
-                                                                ]);
-                                                                \Filament\Notifications\Notification::make()->success()->title('Documento cargado')->send();
-                                                            }),
+                                                        ->label('Nuevo Documento')
+                                                        ->color('primary')
+                                                        ->icon('heroicon-o-arrow-up-tray')
+                                                        ->form([
+                                                            Forms\Components\Select::make('tag')
+                                                                ->label('Tipo de Documento')
+                                                                ->options(function () {
+                                                                    $esMoral = $this->record->tenant?->tipo_persona === 'moral';
+                                                                    return $esMoral ? [
+                                                                        'Acta constitutiva' => 'Acta constitutiva',
+                                                                        'Constancia de situación fiscal' => 'Constancia de situación fiscal',
+                                                                        'Comprobante de domicilio' => 'Comprobante de domicilio',
+                                                                        'Identificación rep legal' => 'Identificación rep legal',
+                                                                    ] : [
+                                                                        'Identificación oficial' => 'Identificación oficial',
+                                                                        'Comprobante de domicilio' => 'Comprobante de domicilio',
+                                                                        'Comprobante de ingresos' => 'Comprobante de ingresos',
+                                                                        'Constancia de situación fiscal' => 'Constancia de situación fiscal',
+                                                                    ];
+                                                                })
+                                                                ->required()
+                                                                ->validationMessages([
+                                                                    'required' => 'Seleccione un tipo de documento válido.',
+                                                                ]),
+                                                                
+                                                            Forms\Components\FileUpload::make('file')
+                                                                ->label('Seleccionar Archivo')
+                                                                ->directory('tenant-documents')
+                                                                ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png']) 
+                                                                ->maxSize(10240) // 10MB 
+                                                                ->required()
+                                                                ->validationMessages([
+                                                                    'required' => 'Debe subir un archivo.',
+                                                                    'mimetypes' => 'El archivo no tiene un formato válido (solo se permite jpeg, png o pdf).',
+                                                                ]),
+                                                        ])
+                                                        ->action(function (array $data) {
+                                                            $mimeType = Storage::disk('public')->mimeType($data['file']) ?? 'application/octet-stream';
+                                                            
+                                                            \App\Models\TenantDocument::create([
+                                                                'rent_id' => $this->record->id,
+                                                                'user_id' => auth()->id(),
+                                                                'user_name' => substr(auth()->user()->name, 0, 100), 
+                                                                // Guardamos el nombre del documento en tu columna tag
+                                                                'tag' => $data['tag'], 
+                                                                'path_file' => $data['file'],
+                                                                'mime' => $mimeType,
+                                                            ]);
+                                                            
+                                                            \Filament\Notifications\Notification::make()->success()->title('Documento cargado')->send();
+                                                        }),
                                                     ])
                                                     ->schema([
                                                         Forms\Components\Placeholder::make('tenant_docs_grid')
@@ -1685,7 +1708,6 @@ class ViewRent extends EditRecord
                                                                     $typeLabel = $tipos[$doc->tag] ?? $doc->tag;
                                                                     $isPdf = str_ends_with(strtolower($doc->path_file), '.pdf');
 
-                                                                    // NOTA: Aquí corregí las comillas dentro del SVG (ahora son simples ' ')
                                                                     $icon = $isPdf
                                                                         ? '<svg class="w-8 h-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>'
                                                                         : '<svg class="w-8 h-8 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>';
