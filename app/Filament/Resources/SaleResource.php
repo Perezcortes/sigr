@@ -20,6 +20,7 @@ use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 
 class SaleResource extends Resource
 {
@@ -27,7 +28,7 @@ class SaleResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-currency-dollar';
 
-    protected static ?string $navigationLabel = 'Ventas';
+    protected static ?string $navigationLabel = 'Mis ventas';
 
     protected static ?string $modelLabel = 'Proceso de Venta';
 
@@ -35,7 +36,37 @@ class SaleResource extends Resource
 
     protected static ?string $navigationGroup = 'Ventas';
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 3;
+
+    public static function canViewAny(): bool
+    {
+        return auth()->user()->hasAnyRole(['Administrador', 'Gerente', 'Agente']);
+    }
+
+    public static function canCreate(): bool
+    {
+        return auth()->user()->hasAnyRole(['Administrador', 'Agente']);
+    }
+
+    public static function canEdit(Model $record): bool
+    {
+        $user = auth()->user();
+
+        if ($user->hasAnyRole(['Administrador', 'Gerente'])) {
+            return true;
+        }
+
+        if ($user->hasRole('Agente')) {
+            return $record->user_id === $user->id;
+        }
+
+        return false;
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        return auth()->user()->hasRole('Administrador');
+    }
 
     public static function form(Form $form): Form
     {

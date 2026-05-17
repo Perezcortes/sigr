@@ -26,7 +26,7 @@ class PropietariosVendedoresResource extends Resource
 
     protected static ?string $navigationGroup = 'Ventas';
 
-    protected static ?int $navigationSort = 3;
+    protected static ?int $navigationSort = 2;
 
     protected static ?string $slug = 'propietarios-vendedores';
 

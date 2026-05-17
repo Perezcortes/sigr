@@ -2,6 +2,17 @@
 
 use Illuminate\Support\Str;
 
+/**
+ * PHP 8.5 depreca PDO::MYSQL_ATTR_SSL_CA en favor de Pdo\Mysql::ATTR_SSL_CA.
+ * No referenciar PDO::MYSQL_ATTR_SSL_CA en 8.5+ para evitar avisos Deprecated.
+ */
+$pdoMysqlSslCaAttribute = null;
+if (PHP_VERSION_ID >= 80500 && class_exists(\Pdo\Mysql::class)) {
+    $pdoMysqlSslCaAttribute = \Pdo\Mysql::ATTR_SSL_CA;
+} elseif (PHP_VERSION_ID < 80500 && defined('PDO::MYSQL_ATTR_SSL_CA')) {
+    $pdoMysqlSslCaAttribute = \PDO::MYSQL_ATTR_SSL_CA;
+}
+
 return [
 
     /*
@@ -60,8 +71,8 @@ return [
             'engine' => null,
             'options' => extension_loaded('pdo_mysql')
                 ? array_filter(array_merge(
-                    defined('PDO::MYSQL_ATTR_SSL_CA')
-                        ? [PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA')]
+                    $pdoMysqlSslCaAttribute !== null
+                        ? [$pdoMysqlSslCaAttribute => env('MYSQL_ATTR_SSL_CA')]
                         : [],
                     [
                         PDO::ATTR_PERSISTENT => false,
@@ -89,8 +100,8 @@ return [
             'engine' => null,
             'options' => extension_loaded('pdo_mysql')
                 ? array_filter(
-                    defined('PDO::MYSQL_ATTR_SSL_CA')
-                        ? [PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA')]
+                    $pdoMysqlSslCaAttribute !== null
+                        ? [$pdoMysqlSslCaAttribute => env('MYSQL_ATTR_SSL_CA')]
                         : [],
                 )
                 : [],

@@ -24,6 +24,7 @@ use App\Filament\Resources\UserResource;
 use App\Filament\Resources\WhatsappInstanceResource;
 use App\Filament\Widgets\EstatusRentasChartWidget;
 use App\Filament\Widgets\EstatusSolicitudesChartWidget;
+use App\Filament\Widgets\ProximasActividadesWidget;
 use App\Filament\Widgets\RentasMensualesChartWidget;
 use App\Filament\Widgets\ResumenDashboardWidget;
 use App\Filament\Widgets\SolicitudesMensualesChartWidget;
@@ -105,6 +106,10 @@ class AdminPanelProvider extends PanelProvider
             // ACTIVAR MODO OSCURO
             ->darkMode(true)
 
+            // Notificaciones de base de datos (campana en el topbar)
+            ->databaseNotifications()
+            ->databaseNotificationsPolling('30s')
+
             // PWA meta tags en el <head> (admin)
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
@@ -139,6 +144,7 @@ class AdminPanelProvider extends PanelProvider
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
             ->widgets([
                 ResumenDashboardWidget::class,
+                ProximasActividadesWidget::class,
                 RentasMensualesChartWidget::class,
                 SolicitudesMensualesChartWidget::class,
                 EstatusRentasChartWidget::class,
