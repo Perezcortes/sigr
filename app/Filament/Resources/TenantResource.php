@@ -124,7 +124,7 @@ class TenantResource extends Resource
 
                         Forms\Components\Section::make('Facultades en Acta')
                             ->schema(self::getFacultadesActaSchema())
-                            ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'moral' && $get('facultades_en_acta') === true)
+                            ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'moral' && (int)$get('facultades_en_acta') === 1)
                             ->columns(2),
                         
                         Forms\Components\Section::make('Credenciales de Acceso y Envío')
@@ -239,29 +239,48 @@ class TenantResource extends Resource
             Forms\Components\TextInput::make('nombres')
                 ->label('Nombre(s)')
                 ->required(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica')
-                ->maxLength(255),
+                ->maxLength(255)
+                ->validationMessages([
+                    'required' => 'Este campo es obligatorio.',
+                    'max' => 'Este campo no puede tener más de 255 caracteres.',
+                ]),
 
             Forms\Components\TextInput::make('primer_apellido')
                 ->label('Apellido Paterno')
                 ->required(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica')
-                ->maxLength(255),
+                ->maxLength(100)
+                ->validationMessages([
+                    'required' => 'Este campo es obligatorio.',
+                    'max' => 'Este campo no puede tener más de 100 caracteres.',
+                ]),
 
             Forms\Components\TextInput::make('segundo_apellido')
                 ->label('Apellido Materno')
-                ->maxLength(255),
+                ->maxLength(100)
+                ->validationMessages([
+                    'max' => 'Este campo no puede tener más de 100 caracteres.',
+                ]),
 
             Forms\Components\TextInput::make('email')
                 ->label('E-mail')
                 ->email()
                 ->required(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica')
                 ->unique(ignoreRecord: true)
-                ->maxLength(255),
+                ->maxLength(255)
+                ->validationMessages([
+                    'required' => 'Este campo es obligatorio.',
+                    'email' => 'Este campo no tiene un formato válido.',
+                ]),
 
             Forms\Components\TextInput::make('telefono_celular')
                 ->label('Teléfono Celular')
                 ->tel()
                 ->required(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica')
-                ->maxLength(20),
+                ->length(10) 
+                ->validationMessages([
+                    'required' => 'Este campo es obligatorio.',
+                    'length' => 'Este campo debe tener 10 dígitos.',
+                ]),
 
             Forms\Components\TextInput::make('email_confirmacion')
                 ->label('Confirmar E-mail')
@@ -270,22 +289,33 @@ class TenantResource extends Resource
                 ->same('email')
                 ->maxLength(255)
                 ->dehydrated(false)
-                ->formatStateUsing(fn ($record) => $record?->email), // Auto-rellénalo al abrir,
+                ->formatStateUsing(fn ($record) => $record?->email)
+                ->validationMessages([
+                    'required' => 'Este campo es obligatorio.',
+                    'same' => 'Este campo no coincide con el campo E-mail.',
+                ]),
 
             Forms\Components\Radio::make('nacionalidad')
                 ->label('Nacionalidad')
                 ->options([
                     'mexicana' => 'Mexicana',
-                    'otra' => 'Otra',
+                    'otra' => 'Otra', 
                 ])
                 ->required(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica')
-                ->live(),
+                ->live()
+                ->validationMessages([
+                    'required' => 'Este campo es obligatorio.',
+                ]),
 
             Forms\Components\TextInput::make('nacionalidad_especifica')
                 ->label('Especifique')
                 ->required(fn (Forms\Get $get) => $get('nacionalidad') === 'otra')
                 ->visible(fn (Forms\Get $get) => $get('nacionalidad') === 'otra')
-                ->maxLength(255),
+                ->maxLength(255)
+                ->validationMessages([
+                    'required' => 'Este campo es obligatorio.',
+                    'max' => 'Este campo no puede tener más de 255 caracteres.',
+                ]),
 
             Forms\Components\Radio::make('sexo')
                 ->label('Sexo')
@@ -293,7 +323,10 @@ class TenantResource extends Resource
                     'masculino' => 'Masculino',
                     'femenino' => 'Femenino',
                 ])
-                ->required(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica'),
+                ->required(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica')
+                ->validationMessages([
+                    'required' => 'Este campo es obligatorio.',
+                ]),
 
             Forms\Components\Radio::make('estado_civil')
                 ->label('Estado Civil')
@@ -302,7 +335,10 @@ class TenantResource extends Resource
                     'casado' => 'Casado',
                 ])
                 ->required(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica')
-                ->live(),
+                ->live()
+                ->validationMessages([
+                    'required' => 'Este campo es obligatorio.',
+                ]),
 
             Forms\Components\Select::make('tipo_identificacion')
                 ->label('Identificación')
@@ -313,28 +349,47 @@ class TenantResource extends Resource
                     'Licencia' => 'Licencia',
                     'Otro' => 'Otro',
                 ])
-                ->required(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica'),
+                ->required(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica')
+                ->validationMessages([
+                    'required' => 'Este campo es obligatorio.',
+                ]),
 
             Forms\Components\DatePicker::make('fecha_nacimiento')
                 ->label('Fecha de Nacimiento')
                 ->displayFormat('d/m/Y')
+                ->format('Y-m-d')
                 ->required(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica')
-                ->native(false),
+                ->native(false)
+                ->validationMessages([
+                    'required' => 'Este campo es obligatorio.',
+                ]),
 
             Forms\Components\TextInput::make('rfc')
                 ->label('RFC')
                 ->maxLength(13)
-                ->rules(['regex:/^[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}$/i']),
+                ->required(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica') 
+                ->rules(['regex:/^[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}$/i'])
+                ->validationMessages([
+                    'required' => 'Este campo es obligatorio.',
+                ]),
 
             Forms\Components\TextInput::make('curp')
                 ->label('CURP')
-                ->maxLength(18)
-                ->rules(['regex:/^[A-Z]{4}\d{6}[HM][A-Z]{5}[0-9A-Z]\d$/i']),
+                ->length(18) 
+                ->required(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica')
+                ->rules(['regex:/^[A-Z]{4}\d{6}[HM][A-Z]{5}[0-9A-Z]\d$/i'])
+                ->validationMessages([
+                    'required' => 'Este campo es obligatorio.',
+                    'length' => 'Este campo debe tener 18 caracteres.',
+                ]),
 
             Forms\Components\TextInput::make('telefono_fijo')
                 ->label('Teléfono Fijo')
                 ->tel()
-                ->maxLength(20),
+                ->length(10) 
+                ->validationMessages([
+                    'length' => 'Este campo debe tener 10 dígitos.',
+                ]),
         ];
     }
 
@@ -344,101 +399,155 @@ class TenantResource extends Resource
             Forms\Components\TextInput::make('conyuge_nombres')
                 ->label('Nombre(s)')
                 ->required()
-                ->maxLength(255),
+                ->maxLength(255)
+                ->validationMessages(['required' => 'Este campo es obligatorio.', 'max' => 'Máximo 255 caracteres.']),
 
             Forms\Components\TextInput::make('conyuge_primer_apellido')
                 ->label('Apellido Paterno')
                 ->required()
-                ->maxLength(255),
+                ->maxLength(100)
+                ->validationMessages(['required' => 'Este campo es obligatorio.', 'max' => 'Máximo 100 caracteres.']),
 
             Forms\Components\TextInput::make('conyuge_segundo_apellido')
                 ->label('Apellido Materno')
-                ->maxLength(255),
+                ->maxLength(100)
+                ->validationMessages(['max' => 'Máximo 100 caracteres.']),
 
             Forms\Components\TextInput::make('conyuge_telefono')
                 ->label('Teléfono')
                 ->tel()
-                ->maxLength(20),
+                ->length(10) 
+                ->validationMessages(['length' => 'Debe tener exactamente 10 dígitos.']),
         ];
     }
 
     protected static function getPersonaMoralSchema(): array
     {
         return [
+            Forms\Components\Select::make('regimen_fiscal')
+                ->label('Régimen Fiscal')
+                ->options([
+                    'Asalariado' => 'Asalariado',
+                    'Actividad empresarial' => 'Actividad empresarial',
+                    'Honorarios' => 'Honorarios',
+                    'No aplica' => 'No aplica',
+                ])
+                ->required(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
+                ->validationMessages(['required' => 'Este campo es obligatorio.']),
+
             Forms\Components\TextInput::make('razon_social')
                 ->label('Razón Social')
                 ->required(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
-                ->maxLength(255),
+                ->maxLength(255)
+                ->validationMessages(['required' => 'Este campo es obligatorio.', 'max' => 'Máximo 255 caracteres.']),
 
             Forms\Components\TextInput::make('email')
                 ->label('Correo Electrónico')
                 ->email()
                 ->required(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
                 ->unique(ignoreRecord: true)
-                ->maxLength(255),
+                ->maxLength(255)
+                ->validationMessages(['required' => 'Este campo es obligatorio.', 'email' => 'Formato inválido.']),
 
             Forms\Components\TextInput::make('dominio_internet')
                 ->label('Dominio de Internet')
-                ->maxLength(255),
+                ->maxLength(150) 
+                ->validationMessages(['max' => 'Máximo 150 caracteres.']),
 
             Forms\Components\TextInput::make('rfc')
                 ->label('RFC')
                 ->required(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
                 ->maxLength(13)
-                ->rules(['regex:/^[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}$/i']),
+                ->rules(['regex:/^[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}$/i'])
+                ->validationMessages(['required' => 'Este campo es obligatorio.']),
 
             Forms\Components\TextInput::make('telefono')
                 ->label('Teléfono')
                 ->tel()
                 ->required(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
-                ->maxLength(20),
-
-            Forms\Components\TextInput::make('calle')
-                ->label('Calle')
-                ->required(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
-                ->maxLength(255),
-
-            Forms\Components\TextInput::make('numero_exterior')
-                ->label('Número Exterior')
-                ->required(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
-                ->maxLength(20),
-
-            Forms\Components\TextInput::make('numero_interior')
-                ->label('Número Interior')
-                ->maxLength(20),
-
-            Forms\Components\TextInput::make('cp')
-                ->label('Código Postal')
-                ->required(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
-                ->maxLength(5)
-                ->rules(['regex:/^\d{5}$/']),
-
-            Forms\Components\TextInput::make('colonia')
-                ->label('Colonia')
-                ->required(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
-                ->maxLength(255),
-
-            Forms\Components\TextInput::make('municipio')
-                ->label('Municipio')
-                ->required(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
-                ->maxLength(255),
-
-            Forms\Components\Select::make('estado')
-                ->label('Estado')
-                ->options(EstadosMexico::getEstados())
-                ->required(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
-                ->searchable(),
+                ->length(10) 
+                ->validationMessages(['required' => 'Este campo es obligatorio.', 'length' => 'Debe tener 10 dígitos.']),
 
             Forms\Components\TextInput::make('ingreso_mensual_promedio')
                 ->label('Ingreso Mensual Promedio')
                 ->numeric()
+                ->minValue(0)
                 ->prefix('$')
-                ->maxValue(999999999.99),
+                ->validationMessages(['min' => 'No puede ser negativo.']),
 
             Forms\Components\Textarea::make('referencias_ubicacion')
                 ->label('Referencias de Ubicación')
                 ->rows(3)
-                ->maxLength(500),
+                ->columnSpanFull(),
+
+            // BLOQUE DE DOMICILIO
+            Forms\Components\Fieldset::make('Domicilio Físico')
+                ->schema([
+                    Forms\Components\TextInput::make('calle')
+                        ->label('Calle')
+                        ->required(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
+                        ->maxLength(200) 
+                        ->columnSpanFull()
+                        ->validationMessages(['required' => 'Este campo es obligatorio.', 'max' => 'Máximo 200 caracteres.']),
+
+                    Forms\Components\TextInput::make('numero_exterior')
+                        ->label('Número Exterior')
+                        ->required(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
+                        ->maxLength(100) 
+                        ->validationMessages(['required' => 'Este campo es obligatorio.', 'max' => 'Máximo 100 caracteres.']),
+
+                    Forms\Components\TextInput::make('numero_interior')
+                        ->label('Número Interior')
+                        ->maxLength(100) 
+                        ->validationMessages(['max' => 'Máximo 100 caracteres.']),
+
+                    Forms\Components\TextInput::make('cp') // Pendiente revisar: 'cp' y no 'codigo_postal' 
+                        ->label('Código Postal')
+                        ->required(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
+                        ->length(5) 
+                        ->rules(['regex:/^\d{5}$/'])
+                        ->validationMessages(['required' => 'Este campo es obligatorio.', 'length' => 'Debe tener 5 dígitos.']),
+
+                    Forms\Components\TextInput::make('colonia')
+                        ->label('Colonia')
+                        ->required(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
+                        ->maxLength(100) 
+                        ->validationMessages(['required' => 'Este campo es obligatorio.', 'max' => 'Máximo 100 caracteres.']),
+
+                    Forms\Components\TextInput::make('municipio')
+                        ->label('Municipio')
+                        ->required(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
+                        ->maxLength(100) 
+                        ->validationMessages(['required' => 'Este campo es obligatorio.', 'max' => 'Máximo 100 caracteres.']),
+
+                    Forms\Components\Select::make('estado')
+                        ->label('Estado')
+                        ->options(\App\Helpers\EstadosMexico::getEstados())
+                        ->required(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
+                        ->searchable()
+                        ->validationMessages(['required' => 'Este campo es obligatorio.']),
+                ])->columns(2),
+
+            // LÓGICA DE DOMICILIO FISCAL 
+            Forms\Components\Radio::make('mismo_domicilio_fiscal')
+                ->label('¿Este domicilio es el mismo registrado como domicilio fiscal ante el SAT?')
+                ->options(['Si' => 'Sí', 'No' => 'No'])
+                ->required(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
+                ->live()
+                ->columnSpanFull()
+                ->validationMessages(['required' => 'Este campo es obligatorio.']),
+
+            Forms\Components\Fieldset::make('Domicilio Fiscal')
+                ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'moral' && $get('mismo_domicilio_fiscal') === 'No')
+                ->schema([
+                    Forms\Components\TextInput::make('calle_fiscal')->label('Calle')->maxLength(200)->required()->columnSpanFull(),
+                    Forms\Components\TextInput::make('numero_exterior_fiscal')->label('Número exterior')->maxLength(100)->required(),
+                    Forms\Components\TextInput::make('numero_interior_fiscal')->label('Número interior')->maxLength(100),
+                    Forms\Components\TextInput::make('codigo_postal_fiscal')->label('Código postal')->length(5)->required(),
+                    Forms\Components\TextInput::make('colonia_fiscal')->label('Colonia')->maxLength(100)->required(),
+                    Forms\Components\TextInput::make('municipio_fiscal')->label('Municipio')->maxLength(100)->required(),
+                    Forms\Components\Select::make('estado_fiscal')->label('Estado')->options(\App\Helpers\EstadosMexico::getEstados())->required()->searchable(),
+                ])->columns(2)->columnSpanFull(),
         ];
     }
 
@@ -447,41 +556,47 @@ class TenantResource extends Resource
         return [
             Forms\Components\TextInput::make('notario_nombres')
                 ->label('Nombre(s) del Notario')
-                ->maxLength(255),
+                ->maxLength(100) 
+                ->validationMessages(['max' => 'Máximo 100 caracteres.']),
 
             Forms\Components\TextInput::make('notario_primer_apellido')
                 ->label('Apellido Paterno')
-                ->maxLength(255),
+                ->maxLength(100) 
+                ->validationMessages(['max' => 'Máximo 100 caracteres.']),
 
             Forms\Components\TextInput::make('notario_segundo_apellido')
                 ->label('Apellido Materno')
-                ->maxLength(255),
+                ->maxLength(100) 
+                ->validationMessages(['max' => 'Máximo 100 caracteres.']),
 
             Forms\Components\TextInput::make('numero_escritura')
                 ->label('No. de Escritura')
-                ->maxLength(50),
+                ->maxLength(255),
 
             Forms\Components\DatePicker::make('fecha_constitucion')
                 ->label('Fecha de Constitución')
                 ->displayFormat('d/m/Y')
+                ->format('Y-m-d')
                 ->native(false),
 
             Forms\Components\TextInput::make('notario_numero')
                 ->label('Notario Número')
-                ->maxLength(50),
+                ->maxLength(255),
 
             Forms\Components\TextInput::make('ciudad_registro')
                 ->label('Ciudad de Registro')
-                ->maxLength(255),
+                ->maxLength(60) 
+                ->validationMessages(['max' => 'Máximo 60 caracteres.']),
 
             Forms\Components\Select::make('estado_registro')
                 ->label('Estado de Registro')
-                ->options(EstadosMexico::getEstados())
+                ->options(\App\Helpers\EstadosMexico::getEstados())
                 ->searchable(),
 
             Forms\Components\TextInput::make('numero_registro_inscripcion')
                 ->label('Número de Registro o Inscripción')
-                ->maxLength(100),
+                ->maxLength(40) 
+                ->validationMessages(['max' => 'Máximo 40 caracteres.']),
 
             Forms\Components\TextInput::make('giro_comercial')
                 ->label('Giro Comercial')
@@ -498,27 +613,31 @@ class TenantResource extends Resource
 
             Forms\Components\TextInput::make('apoderado_primer_apellido')
                 ->label('Apellido Paterno')
-                ->maxLength(255),
+                ->maxLength(100) 
+                ->validationMessages(['max' => 'Máximo 100 caracteres.']),
 
             Forms\Components\TextInput::make('apoderado_segundo_apellido')
                 ->label('Apellido Materno')
-                ->maxLength(255),
+                ->maxLength(50) 
+                ->validationMessages(['max' => 'Máximo 50 caracteres.']),
 
             Forms\Components\Select::make('apoderado_sexo')
                 ->label('Sexo')
                 ->options([
-                    'masculino' => 'Masculino',
-                    'femenino' => 'Femenino',
+                    'Masculino' => 'Masculino',
+                    'Femenino' => 'Femenino',
                 ]),
 
             Forms\Components\TextInput::make('apoderado_telefono')
                 ->label('Teléfono')
                 ->tel()
-                ->maxLength(20),
+                ->length(10) 
+                ->validationMessages(['length' => 'Debe tener 10 dígitos.']),
 
             Forms\Components\TextInput::make('apoderado_extension')
                 ->label('Extensión')
-                ->maxLength(10),
+                ->maxLength(50) 
+                ->validationMessages(['max' => 'Máximo 50 caracteres.']),
 
             Forms\Components\TextInput::make('apoderado_email')
                 ->label('Correo Electrónico')
@@ -528,11 +647,17 @@ class TenantResource extends Resource
             Forms\Components\Radio::make('facultades_en_acta')
                 ->label('¿Sus facultades constan en el acta constitutiva?')
                 ->options([
-                    false => 'No',
-                    true => 'Sí',
+                    0 => 'Sí', 
+                    1 => 'No',
                 ])
                 ->required()
                 ->live()
+                ->columnSpanFull(),
+
+            // EL AVISO LEGAL FALTANTE
+            Forms\Components\Placeholder::make('nota_facultades_tenant')
+                ->label('')
+                ->content(new \Illuminate\Support\HtmlString('<p class="text-sm text-gray-500 italic"><span class="font-semibold text-warning-600">Nota Legal:</span> Deberá contar con facultades para obligarse a nombre de la sociedad ante terceros o para firmar contratos de arrendamiento y con facultades para otorgar y suscribir títulos de crédito.</p>'))
                 ->columnSpanFull(),
         ];
     }
@@ -543,40 +668,49 @@ class TenantResource extends Resource
             Forms\Components\TextInput::make('escritura_publica_numero')
                 ->label('Escritura Pública o Acta Número')
                 ->required()
-                ->maxLength(50),
+                ->maxLength(12) 
+                ->validationMessages(['required' => 'Este campo es obligatorio.', 'max' => 'Máximo 12 caracteres.']),
 
             Forms\Components\TextInput::make('notario_numero_facultades')
                 ->label('Notario Número')
                 ->required()
-                ->maxLength(50),
+                ->maxLength(100) 
+                ->validationMessages(['required' => 'Este campo es obligatorio.', 'max' => 'Máximo 100 caracteres.']),
 
             Forms\Components\DatePicker::make('fecha_escritura_facultades')
                 ->label('Fecha de Escritura o Acta')
                 ->displayFormat('d/m/Y')
+                ->format('Y-m-d')
                 ->required()
-                ->native(false),
+                ->native(false)
+                ->validationMessages(['required' => 'Este campo es obligatorio.']),
 
             Forms\Components\TextInput::make('numero_inscripcion_registro_publico')
                 ->label('No. de Inscripción en el Registro Público')
                 ->required()
-                ->maxLength(100),
+                ->maxLength(50) 
+                ->validationMessages(['required' => 'Este campo es obligatorio.', 'max' => 'Máximo 50 caracteres.']),
 
             Forms\Components\TextInput::make('ciudad_registro_facultades')
                 ->label('Ciudad de Registro')
                 ->required()
-                ->maxLength(255),
+                ->maxLength(100) 
+                ->validationMessages(['required' => 'Este campo es obligatorio.', 'max' => 'Máximo 100 caracteres.']),
 
             Forms\Components\Select::make('estado_registro_facultades')
                 ->label('Estado de Registro')
-                ->options(EstadosMexico::getEstados())
+                ->options(\App\Helpers\EstadosMexico::getEstados())
                 ->required()
-                ->searchable(),
+                ->searchable()
+                ->validationMessages(['required' => 'Este campo es obligatorio.']),
 
             Forms\Components\DatePicker::make('fecha_inscripcion_facultades')
                 ->label('Fecha de Inscripción')
                 ->displayFormat('d/m/Y')
+                ->format('Y-m-d')
                 ->required()
-                ->native(false),
+                ->native(false)
+                ->validationMessages(['required' => 'Este campo es obligatorio.']),
 
             Forms\Components\Select::make('tipo_representacion')
                 ->label('Tipo de Representación')
@@ -587,7 +721,8 @@ class TenantResource extends Resource
                     'Gerente' => 'Gerente',
                     'Otro' => 'Otro',
                 ])
-                ->required(),
+                ->required()
+                ->validationMessages(['required' => 'Este campo es obligatorio.']),
         ];
     }
 
