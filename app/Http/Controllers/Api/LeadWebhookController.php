@@ -21,22 +21,23 @@ class LeadWebhookController extends Controller
         $this->logIncomingWebhook($request, $capture);
 
         $input = $this->mergedWebhookInput($request, $capture);
+        $attributes = $this->mapNocnokPayloadToLead($input);
 
         try {
             $lead = Lead::create([
-                'nombre' => $input['ContactName'] ?? 'Desconocido',
-                'correo' => $input['ContactEmail'] ?? null,
-                'telefono' => $input['ContactPhone'] ?? null,
-                'mensaje' => $input['ContactMessage'] ?? null,
+                ...$attributes,
                 'canal' => LeadCanal::Nocnok,
-                'origen' => $input['ContactOrigin'] ?? 'Nocnok',
-                'url_propiedad' => $input['PropertyUrl'] ?? null,
                 'etapa' => 'no_contactado',
                 'payload_original' => $capture,
             ]);
 
             Log::channel('nocnok_webhook')->info('Nocnok webhook: lead creado', [
                 'lead_id' => $lead->id,
+                'nombre' => $lead->nombre,
+                'correo' => $lead->correo,
+                'telefono' => $lead->telefono,
+                'origen' => $lead->origen,
+                'tipo_cliente' => $lead->tipo_cliente,
             ]);
 
             return response()->json([
@@ -127,6 +128,98 @@ class LeadWebhookController extends Controller
             'raw_body_truncated' => $rawTruncated,
             'raw_body_length' => $rawLen,
         ];
+    }
+
+    /**
+     * Mapea el JSON real de Nocnok (camelCase) a columnas de leads.
+     * También acepta PascalCase por compatibilidad con integraciones antiguas.
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    private function mapNocnokPayloadToLead(array $input): array
+    {
+        $nombre = $this->stringFromInput($input, 'contactName', 'ContactName') ?? 'Desconocido';
+        $correo = $this->stringFromInput($input, 'contactEmail', 'ContactEmail');
+        $telefono = $this->stringFromInput($input, 'contactPhone', 'ContactPhone');
+        $mensaje = $this->stringFromInput($input, 'contactMessage', 'ContactMessage');
+        $origen = $this->stringFromInput($input, 'contactOrigin', 'ContactOrigin') ?? 'Nocnok';
+
+        $propertyUrl = $this->stringFromInput($input, 'propertyUrl', 'PropertyUrl');
+        $propertyCode = $this->stringFromInput($input, 'propertyCode', 'PropertyCode');
+        $propertyTypeText = $this->stringFromInput($input, 'propertyTypeText', 'PropertyTypeText');
+        $propertyOperation = $this->stringFromInput($input, 'propertyOperation', 'PropertyOperation');
+        $propertyLocation = $this->stringFromInput($input, 'propertyLocation', 'PropertyLocation');
+
+        $comentariosParts = array_filter([
+            $propertyCode ? "Código: {$propertyCode}" : null,
+            $propertyTypeText ? "Tipo: {$propertyTypeText}" : null,
+            $propertyOperation ? "Operación: {$propertyOperation}" : null,
+        ]);
+
+        return [
+            'nombre' => $nombre,
+            'correo' => $correo,
+            'telefono' => $telefono,
+            'mensaje' => $mensaje,
+            'origen' => $origen,
+            'url_propiedad' => $this->resolvePropertyUrl($propertyUrl),
+            'localidades' => $propertyLocation,
+            'tipo_cliente' => $this->mapPropertyOperationToTipoCliente($propertyOperation),
+            'comentarios' => $comentariosParts !== [] ? implode(' · ', $comentariosParts) : null,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $input
+     */
+    private function stringFromInput(array $input, string ...$keys): ?string
+    {
+        foreach ($keys as $key) {
+            if (! array_key_exists($key, $input)) {
+                continue;
+            }
+
+            $value = $input[$key];
+
+            if ($value === null || $value === '') {
+                continue;
+            }
+
+            if (is_scalar($value)) {
+                return trim((string) $value);
+            }
+        }
+
+        return null;
+    }
+
+    private function resolvePropertyUrl(?string $propertyUrl): ?string
+    {
+        if ($propertyUrl === null || $propertyUrl === '') {
+            return null;
+        }
+
+        if (str_starts_with($propertyUrl, 'http://') || str_starts_with($propertyUrl, 'https://')) {
+            return $propertyUrl;
+        }
+
+        $base = rtrim((string) env('NOCNOK_SITE_URL', 'https://www.rentas.com'), '/');
+
+        return $base.'/'.ltrim($propertyUrl, '/');
+    }
+
+    private function mapPropertyOperationToTipoCliente(?string $operation): ?string
+    {
+        if ($operation === null) {
+            return null;
+        }
+
+        return match (mb_strtolower($operation)) {
+            'renta', 'alquiler' => 'inquilino',
+            'venta' => 'comprador',
+            default => 'NA',
+        };
     }
 
     /**

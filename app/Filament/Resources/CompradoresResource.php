@@ -26,7 +26,7 @@ class CompradoresResource extends Resource
 
     protected static ?string $navigationGroup = 'Ventas';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 1;
 
     protected static ?string $slug = 'compradores';
 

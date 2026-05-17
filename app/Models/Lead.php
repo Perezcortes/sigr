@@ -6,6 +6,7 @@ use App\Enums\LeadCanal;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use App\Models\WhatsappMessage;
+use App\Models\LeadActivity;
 
 class Lead extends Model
 {
@@ -41,6 +42,11 @@ class Lead extends Model
     public function responsable()
     {
         return $this->belongsTo(User::class, 'responsable_id');
+    }
+
+    public function activities(): HasMany
+    {
+        return $this->hasMany(LeadActivity::class)->orderBy('fecha')->orderBy('hora');
     }
 
     /**

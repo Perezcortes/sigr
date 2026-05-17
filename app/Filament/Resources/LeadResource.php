@@ -6,6 +6,7 @@ use App\Enums\LeadCanal;
 use App\Exports\LeadsExport;
 use App\Filament\Resources\LeadResource\Pages;
 use App\Models\Lead;
+use App\Models\LeadActivity;
 use App\Models\WhatsappInstance;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -152,7 +153,7 @@ class LeadResource extends Resource
                             ->tabs([
 
                                 // --- NOTAS Y ACCIONES ---
-                                Forms\Components\Tabs\Tab::make('Notas y Seguimiento')
+                                Forms\Components\Tabs\Tab::make('Notas')
                                     ->icon('heroicon-m-document-text')
                                     ->schema([
 
@@ -367,6 +368,66 @@ class LeadResource extends Resource
                             ->columnSpanFull(),
                     ]),
                 ]),
+
+                // ── SECCIÓN SEGUIMIENTO ────────────────────────────────────────
+                Forms\Components\Section::make('Seguimiento')
+                    ->icon('heroicon-o-calendar-days')
+                    ->description('Agenda actividades y próximas acciones con este interesado.')
+                    ->visible(fn ($livewire) => $livewire instanceof Pages\EditLead)
+                    ->schema([
+                        Forms\Components\Repeater::make('activities')
+                            ->relationship('activities')
+                            ->label('')
+                            ->addActionLabel('+ Agregar actividad')
+                            ->orderColumn(false)
+                            ->defaultItems(0)
+                            ->schema([
+                                Forms\Components\Grid::make(3)->schema([
+                                    Forms\Components\DatePicker::make('fecha')
+                                        ->label('Fecha')
+                                        ->required()
+                                        ->native(false)
+                                        ->displayFormat('d/m/Y')
+                                        ->default(now()->addDay()),
+
+                                    Forms\Components\TextInput::make('hora')
+                                        ->label('Hora')
+                                        ->type('time')
+                                        ->required()
+                                        ->default('09:00'),
+
+                                    Forms\Components\Toggle::make('completada')
+                                        ->label('Realizada')
+                                        ->inline(false)
+                                        ->default(false),
+                                ]),
+
+                                Forms\Components\Textarea::make('descripcion')
+                                    ->label('¿Qué vas a hacer con este prospecto?')
+                                    ->required()
+                                    ->rows(2)
+                                    ->placeholder('Ej: Llamarle para confirmar visita, enviar cotización, agendar cita...')
+                                    ->columnSpanFull(),
+                            ])
+                            ->mutateRelationshipDataBeforeCreateUsing(function (array $data): array {
+                                $data['user_id'] = auth()->id();
+                                return $data;
+                            })
+                            ->itemLabel(function (array $state): ?string {
+                                $fecha = isset($state['fecha'])
+                                    ? \Carbon\Carbon::parse($state['fecha'])->format('d/m/Y')
+                                    : '—';
+                                $hora = $state['hora'] ?? '';
+                                $desc = isset($state['descripcion'])
+                                    ? \Illuminate\Support\Str::limit($state['descripcion'], 40)
+                                    : '';
+                                $status = ($state['completada'] ?? false) ? '✓' : '•';
+                                return "{$status}  {$fecha}" . ($hora ? " {$hora}" : '') . "  —  {$desc}";
+                            })
+                            ->collapsible()
+                            ->collapsed(false),
+                    ]),
+                // ──────────────────────────────────────────────────────────────
             ]);
     }
 

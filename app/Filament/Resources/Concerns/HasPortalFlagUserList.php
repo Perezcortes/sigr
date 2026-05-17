@@ -21,7 +21,7 @@ trait HasPortalFlagUserList
 
     public static function canViewAny(): bool
     {
-        return auth()->user()->hasAnyRole(['Administrador', 'Gerente', 'Asesor']);
+        return auth()->user()->hasAnyRole(['Administrador', 'Gerente', 'Agente', 'Asesor']);
     }
 
     public static function canCreate(): bool
