@@ -35,4 +35,8 @@ return [
         ],
     ],
 
+    'nocnok' => [
+        'site_url' => env('NOCNOK_SITE_URL', 'https://rentascom.nocnok.com'),
+    ],
+
 ];
