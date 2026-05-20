@@ -37,6 +37,7 @@ return [
 
     'nocnok' => [
         'site_url' => env('NOCNOK_SITE_URL', 'https://rentascom.nocnok.com'),
+        'webhook_log' => env('NOCNOK_WEBHOOK_LOG', true),
     ],
 
 ];

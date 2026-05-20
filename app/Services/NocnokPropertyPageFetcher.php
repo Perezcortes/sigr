@@ -24,7 +24,17 @@ class NocnokPropertyPageFetcher
             return null;
         }
 
-        return $this->parseFromHtml($html);
+        $parsed = $this->parseFromHtml($html);
+
+        if ($parsed['imagen_propiedad'] === null) {
+            Log::channel('nocnok_webhook')->warning('Nocnok página: HTML recibido pero sin imagen extraíble', [
+                'url' => $propertyPageUrl,
+                'html_bytes' => strlen($html),
+                'has_picture_urls' => str_contains($html, 'pictureUrls'),
+            ]);
+        }
+
+        return $parsed;
     }
 
     /**
@@ -61,6 +71,9 @@ class NocnokPropertyPageFetcher
                 Log::channel('nocnok_webhook')->warning('Nocnok página: respuesta HTTP no exitosa', [
                     'url' => $propertyPageUrl,
                     'status' => $response->status(),
+                    'hint' => $response->status() === 404
+                        ? 'Revisa NOCNOK_SITE_URL (debe ser https://rentascom.nocnok.com) y ejecuta php artisan config:clear'
+                        : null,
                 ]);
 
                 return null;

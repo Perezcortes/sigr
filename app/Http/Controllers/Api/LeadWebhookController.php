@@ -78,7 +78,7 @@ class LeadWebhookController extends Controller
      */
     private function logIncomingWebhook(Request $request, array $capture): void
     {
-        if (! filter_var(env('NOCNOK_WEBHOOK_LOG', true), FILTER_VALIDATE_BOOLEAN)) {
+        if (! filter_var(config('services.nocnok.webhook_log', true), FILTER_VALIDATE_BOOLEAN)) {
             return;
         }
 
@@ -172,6 +172,14 @@ class LeadWebhookController extends Controller
         $pageData = $resolvedPropertyUrl
             ? ($this->propertyPageFetcher->fetchPropertyPageData($resolvedPropertyUrl) ?? [])
             : [];
+
+        if ($resolvedPropertyUrl !== null && empty($pageData['imagen_propiedad'])) {
+            Log::channel('nocnok_webhook')->warning('Nocnok webhook: lead sin imagen de propiedad', [
+                'url_propiedad' => $resolvedPropertyUrl,
+                'nocnok_site_url' => config('services.nocnok.site_url'),
+                'page_data_vacia' => $pageData === [],
+            ]);
+        }
 
         $agentEmail = $pageData['agent_email'] ?? null;
         $responsableId = $this->resolveResponsableIdFromAgentEmail($agentEmail);
