@@ -169,14 +169,13 @@ class LeadResource extends Resource
                                             ->label('Imagen de la propiedad')
                                             ->content(function (?Lead $record): HtmlString|string {
                                                 if (! filled($record?->imagen_propiedad)) {
-                                                    return 'Sin imagen';
+                                                    return 'Sin imagen disponible (se obtiene al crear el lead desde el webhook de Nocnok).';
                                                 }
 
                                                 return new HtmlString(
-                                                    '<img src="'.e($record->imagen_propiedad).'" alt="Propiedad" class="rounded-lg max-h-48 object-cover" />'
+                                                    '<img src="'.e($record->imagen_propiedad).'" alt="Propiedad" class="rounded-lg max-h-48 w-full object-cover border border-gray-200 dark:border-gray-700" />'
                                                 );
-                                            })
-                                            ->visible(fn (?Lead $record): bool => filled($record?->imagen_propiedad)),
+                                            }),
 
                                         Forms\Components\Grid::make(2)->schema([
                                             Forms\Components\TextInput::make('metros_cuadrados')
