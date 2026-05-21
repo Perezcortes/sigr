@@ -105,11 +105,10 @@ class LeadResource extends Resource
                                         'arrendador' => 'Arrendador',
                                         'comprador' => 'Comprador',
                                         'vendedor' => 'Vendedor',
-                                        'NA' => 'NA',
                                     ])
-                                    ->placeholder('Selecciona un tipo de cliente')
+                                    ->placeholder('Sin asignar')
                                     ->native(false)
-                                    ->required()
+                                    ->nullable()
                                     ->columnSpanFull(),
 
                                 Forms\Components\Select::make('canal')

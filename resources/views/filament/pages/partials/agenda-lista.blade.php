@@ -48,9 +48,7 @@
                 @foreach($items as $actividad)
                     @php
                         $esMia = $actividad->user_id === $authId;
-                        $puedeToggle = auth()->user()->hasRole('Administrador')
-                            || (auth()->user()->hasRole('Gerente') && $actividad->user && $actividad->user->office_id === auth()->user()->office_id)
-                            || $esMia;
+                        $puedeToggle = $this->puedeEditar($actividad);
                     @endphp
 
                     <div class="flex items-start gap-3 bg-white dark:bg-gray-800 rounded-xl
@@ -99,13 +97,13 @@
                                     </a>
                                 @endif
 
-                                @if($verEquipo && ! $esMia && $actividad->user)
-                                    <span class="text-xs text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">
-                                        {{ $actividad->user->name }}
-                                    </span>
-                                @elseif($verEquipo && $esMia)
-                                    <span class="text-xs text-[#26cad3] bg-[#26cad3]/10 px-2 py-0.5 rounded-full font-medium">
-                                        Yo
+                                @if($verEquipo)
+                                    <span @class([
+                                        'text-xs px-2 py-0.5 rounded-full font-medium',
+                                        'text-[#26cad3] bg-[#26cad3]/10' => $esMia,
+                                        'text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700' => ! $esMia,
+                                    ])>
+                                        {{ $actividad->user?->name ?? 'Sin agente' }}{{ $esMia ? ' (Yo)' : '' }}
                                     </span>
                                 @endif
                             </div>

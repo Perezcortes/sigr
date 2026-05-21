@@ -203,7 +203,7 @@ class LeadWebhookController extends Controller
             'numero_recamaras' => $pageData['numero_recamaras'] ?? null,
             'responsable_id' => $responsableId,
             'localidades' => $propertyLocation,
-            'tipo_cliente' => $this->mapPropertyOperationToTipoCliente($propertyOperation),
+            'tipo_cliente' => null,
             'comentarios' => $comentariosParts !== [] ? implode(' · ', $comentariosParts) : null,
         ];
     }
@@ -258,19 +258,6 @@ class LeadWebhookController extends Controller
         $base = rtrim((string) config('services.nocnok.site_url', 'https://rentascom.nocnok.com'), '/');
 
         return $base.'/'.ltrim($propertyUrl, '/');
-    }
-
-    private function mapPropertyOperationToTipoCliente(?string $operation): ?string
-    {
-        if ($operation === null) {
-            return null;
-        }
-
-        return match (mb_strtolower($operation)) {
-            'renta', 'alquiler' => 'inquilino',
-            'venta' => 'comprador',
-            default => 'NA',
-        };
     }
 
     /**

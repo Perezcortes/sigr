@@ -24,22 +24,11 @@ class ProximasActividadesWidget extends BaseWidget
         return $table
             ->query(
                 LeadActivity::query()
+                    ->visibleToAgendaUser($user)
                     ->with(['lead', 'user'])
                     ->where('completada', false)
                     ->where('fecha', '>=', now()->startOfDay()->toDateString())
                     ->where('fecha', '<=', now()->addDays(7)->toDateString())
-                    ->when(
-                        $user->hasRole('Agente'),
-                        fn (Builder $q) => $q->where('user_id', $user->id)
-                    )
-                    ->when(
-                        $user->hasRole('Gerente'),
-                        fn (Builder $q) => $q->whereHas(
-                            'user',
-                            fn (Builder $u) => $u->where('office_id', $user->office_id)
-                        )
-                    )
-                    // Administrador: sin restricción adicional
                     ->orderBy('fecha')
                     ->orderBy('hora')
             )
@@ -89,11 +78,12 @@ class ProximasActividadesWidget extends BaseWidget
                     ->modalHeading('¿Marcar como realizada?')
                     ->modalDescription(fn (LeadActivity $record) => $record->descripcion)
                     // Solo puede marcar la suya (o Admin/Gerente las de su oficina)
-                    ->visible(fn (LeadActivity $record): bool =>
-                        auth()->user()->hasRole('Administrador')
-                        || (auth()->user()->hasRole('Gerente') && $record->user && $record->user->office_id === auth()->user()->office_id)
-                        || $record->user_id === auth()->id()
-                    ),
+                    ->visible(fn (LeadActivity $record): bool => $record->isVisibleToAgendaUser()
+                        && (
+                            auth()->user()->hasRole('Administrador')
+                            || auth()->user()->hasRole('Gerente')
+                            || $record->user_id === auth()->id()
+                        )),
             ])
             ->emptyStateHeading('Sin actividades próximas')
             ->emptyStateDescription('Agrega seguimientos desde el perfil de cada interesado.')

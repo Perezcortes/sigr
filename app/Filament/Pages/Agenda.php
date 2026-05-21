@@ -18,8 +18,6 @@ class Agenda extends Page
 
     protected static ?string $navigationGroup = 'Dashboard';
 
-    protected static ?string $title = 'Mi Agenda';
-
     protected static ?int $navigationSort = 0;
 
     protected static string $view = 'filament.pages.agenda';
@@ -61,22 +59,11 @@ class Agenda extends Page
      */
     protected function actividadesQuery(): Builder
     {
-        $user = auth()->user();
-
-        $query = LeadActivity::query()
+        return LeadActivity::query()
+            ->visibleToAgendaUser()
             ->with(['lead', 'user'])
             ->when($this->filtro === 'pendientes', fn ($q) => $q->where('completada', false))
             ->when($this->filtro === 'completadas', fn ($q) => $q->where('completada', true));
-
-        if ($user->hasRole('Administrador')) {
-            return $query;
-        }
-
-        if ($user->hasRole('Gerente')) {
-            return $query->whereHas('user', fn ($q) => $q->where('office_id', $user->office_id));
-        }
-
-        return $query->where('user_id', $user->id);
     }
 
     public function getActividades(): Collection
@@ -201,11 +188,11 @@ class Agenda extends Page
 
     public function puedeEditar(LeadActivity $actividad): bool
     {
-        $user = auth()->user();
-
-        return $user->hasRole('Administrador')
-            || ($user->hasRole('Gerente') && $actividad->user && $actividad->user->office_id === $user->office_id)
-            || $actividad->user_id === $user->id;
+        return $actividad->isVisibleToAgendaUser() && (
+            auth()->user()->hasRole('Administrador')
+            || auth()->user()->hasRole('Gerente')
+            || $actividad->user_id === auth()->id()
+        );
     }
 
     public function verEquipo(): bool
@@ -215,13 +202,18 @@ class Agenda extends Page
 
     public function marcarCompletada(int $id): void
     {
-        $activity = LeadActivity::find($id);
+        $activity = $this->actividadesQuery()->whereKey($id)->first();
 
         if (! $activity || ! $this->puedeEditar($activity)) {
             return;
         }
 
         $activity->update(['completada' => ! $activity->completada]);
+    }
+
+    public function getTitle(): string
+    {
+        return $this->verEquipo() ? 'Agenda del equipo' : 'Mi Agenda';
     }
 
     public function getViewData(): array
