@@ -33,7 +33,7 @@ class LeadWebhookController extends Controller
             $lead = Lead::create([
                 ...$attributes,
                 'canal' => LeadCanal::Nocnok,
-                'etapa' => 'no_contactado',
+                'etapa' => 'nuevo',
                 'payload_original' => $capture,
             ]);
 

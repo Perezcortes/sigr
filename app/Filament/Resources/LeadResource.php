@@ -40,12 +40,12 @@ class LeadResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        return static::getModel()::where('etapa', 'no_contactado')->count();
+        return static::getModel()::where('etapa', 'nuevo')->count();
     }
 
     public static function getNavigationBadgeColor(): ?string
     {
-        return static::getModel()::where('etapa', 'no_contactado')->count() > 0 ? 'danger' : 'success';
+        return static::getModel()::where('etapa', 'nuevo')->count() > 0 ? 'danger' : 'success';
     }
 
     public static function form(Form $form): Form
@@ -106,7 +106,10 @@ class LeadResource extends Resource
                                         'comprador' => 'Comprador',
                                         'vendedor' => 'Vendedor',
                                         'NA' => 'NA',
-                                    ])->required()
+                                    ])
+                                    ->placeholder('Selecciona un tipo de cliente')
+                                    ->native(false)
+                                    ->required()
                                     ->columnSpanFull(),
 
                                 Forms\Components\Select::make('canal')
@@ -394,7 +397,7 @@ class LeadResource extends Resource
     {
         return $table
             ->actionsColumnLabel('Acciones')
-            ->defaultSort(fn ($query) => $query->orderByRaw("CASE WHEN etapa = 'no_contactado' THEN 1 ELSE 2 END")->orderBy('created_at', 'desc'))
+            ->defaultSort(fn ($query) => $query->orderByRaw("CASE WHEN etapa IN ('nuevo', 'no_contactado') THEN 1 ELSE 2 END")->orderBy('created_at', 'desc'))
             ->modifyQueryUsing(fn (Builder $query) => $query->whereNotIn('etapa', ['ganado', 'perdido', 'no_califica']))
             ->headerActions([
                 Action::make('exportar_todo_bonito')
@@ -420,7 +423,7 @@ class LeadResource extends Resource
                     ->label('Etapa')
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
-                        'no_contactado' => 'danger',
+                        'nuevo', 'no_contactado' => 'danger',
                         'ganado' => 'success',
                         'perdido', 'no_califica' => 'gray',
                         default => 'warning',

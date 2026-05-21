@@ -10,6 +10,10 @@ class Lead extends Model
 {
     protected $table = 'leads';
 
+    protected $attributes = [
+        'etapa' => 'nuevo',
+    ];
+
     protected $fillable = [
         'nombre',
         'correo',
