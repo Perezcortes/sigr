@@ -26,6 +26,7 @@ npm run build
 
 # 5. Verificar que existen los directorios
 ls -la public/build/
+ls -la public/build/sw.js || true
 ls -la public/css/filament/
 ls -la public/js/filament/
 

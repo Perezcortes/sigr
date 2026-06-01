@@ -9,10 +9,13 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 use WallaceMartinss\FilamentEvolution\Enums\StatusConnectionEnum;
 
 class WhatsappInstanceResource extends Resource
 {
+    public const MANAGE_INSTANCES_PERMISSION = 'Gestionar instancias WhatsApp';
+
     protected static ?string $model = WhatsappInstance::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-chat-bubble-left-right';
@@ -20,6 +23,43 @@ class WhatsappInstanceResource extends Resource
     protected static ?string $navigationGroup = 'WhatsApp';
 
     protected static ?int $navigationSort = 5;
+
+    public static function canManageWhatsappInstances(): bool
+    {
+        $user = auth()->user();
+
+        if (! $user) {
+            return false;
+        }
+
+        return $user->hasRole('Administrador')
+            || $user->can(self::MANAGE_INSTANCES_PERMISSION);
+    }
+
+    public static function canViewAny(): bool
+    {
+        return static::canManageWhatsappInstances();
+    }
+
+    public static function canCreate(): bool
+    {
+        return static::canManageWhatsappInstances();
+    }
+
+    public static function canView(Model $record): bool
+    {
+        return static::canManageWhatsappInstances();
+    }
+
+    public static function canEdit(Model $record): bool
+    {
+        return static::canManageWhatsappInstances();
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        return static::canManageWhatsappInstances();
+    }
 
     public static function getNavigationLabel(): string
     {

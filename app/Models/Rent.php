@@ -12,6 +12,7 @@ class Rent extends Model
     use HasHashId;
 
     protected $fillable = [
+        'tipo_poliza',
         'office_id',
         'tenant_id',
         'owner_id',
@@ -34,6 +35,7 @@ class Rent extends Model
         'comisiones_divididas',
         'plazo_arrendamiento',
         'fecha_firma',
+        'con_poliza',
         // Obligado solidario / fiador
         'tiene_fiador',
         'fiador_tipo_persona',
@@ -83,6 +85,7 @@ class Rent extends Model
         'porcentaje_comision_principal' => 'decimal:2',
         'comisiones_divididas' => 'array',
         'fecha_firma' => 'date',
+        'con_poliza' => 'boolean',
         'is_administrada_por_agente' => 'boolean',
         'enviar_recordatorio_inquilino' => 'boolean',
         'enviar_recordatorio_propietario' => 'boolean',

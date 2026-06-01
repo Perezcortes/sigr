@@ -45,13 +45,13 @@ class OwnerResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->user()->hasAnyRole(['Administrador', 'Gerente', 'Asesor']);
+        return auth()->user()->hasAnyRole(['Administrador', 'Gerente', 'Agente']);
     }
 
     public static function canCreate(): bool
     {
         // Administradores y Asesores pueden crear propietarios
-        return auth()->user()->hasAnyRole(['Administrador', 'Asesor']);
+        return auth()->user()->hasAnyRole(['Administrador', 'Agente']);
     }
 
     public static function canEdit(Model $record): bool
@@ -62,7 +62,7 @@ class OwnerResource extends Resource
             return true;
         }
 
-        if ($user->hasRole('Asesor')) {
+        if ($user->hasRole('Agente')) {
             // El asesor solo edita si él es el titular asignado a este propietario
             return $record->asesor_id === $user->id;
         }
@@ -837,9 +837,9 @@ class OwnerResource extends Resource
                     }),
 
                 Tables\Columns\TextColumn::make('asesor.name') 
-                    ->label('Asesor Asignado')
+                    ->label('Agente')
                     ->icon('heroicon-o-user-circle')
-                    ->placeholder('Sin Asesor')      
+                    ->placeholder('Sin agente')      
                     ->description(fn ($record) => $record->asesor?->email) 
                     ->searchable() 
                     ->sortable()

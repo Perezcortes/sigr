@@ -48,6 +48,15 @@ else
     echo "✅ Assets de Filament publicados correctamente"
 fi
 
+# Compilar assets de Vite (incluye manifest + PWA service worker)
+if command -v npm &> /dev/null; then
+    echo "📦 Compilando assets de Vite (PWA)..."
+    npm install
+    npm run build
+else
+    echo "⚠️  npm no está disponible; asegúrate de compilar assets fuera del servidor."
+fi
+
 # Ejecutar migraciones si hay nuevas
 echo "🗄️  Ejecutando migraciones..."
 php artisan migrate --force

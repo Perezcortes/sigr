@@ -31,6 +31,16 @@ class MortgageSaleResource extends Resource
 
     protected static ?string $slug = 'mis-hipotecas';
 
+    public static function canViewAny(): bool
+    {
+        return SaleResource::canViewAny();
+    }
+
+    public static function canView(Model $record): bool
+    {
+        return SaleResource::canEdit($record);
+    }
+
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery()->where('requiere_hipoteca', true);

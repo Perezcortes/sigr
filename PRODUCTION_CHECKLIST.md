@@ -26,6 +26,10 @@ DB_PASSWORD=contraseña_segura
 # Limpiar todo
 php artisan optimize:clear
 
+# Build de assets (Vite + PWA: manifest web + service worker)
+npm install
+npm run build
+
 # Crear directorio de vistas faltante
 mkdir -p vendor/cwsps154/users-roles-permissions/resources/views
 

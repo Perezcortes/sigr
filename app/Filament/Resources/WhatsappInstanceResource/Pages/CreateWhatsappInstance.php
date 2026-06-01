@@ -3,11 +3,11 @@
 namespace App\Filament\Resources\WhatsappInstanceResource\Pages;
 
 use App\Filament\Resources\WhatsappInstanceResource;
+use App\Services\EvolutionInstanceBootstrapper;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
 use WallaceMartinss\FilamentEvolution\Enums\StatusConnectionEnum;
 use WallaceMartinss\FilamentEvolution\Exceptions\EvolutionApiException;
-use WallaceMartinss\FilamentEvolution\Services\EvolutionClient;
 
 class CreateWhatsappInstance extends CreateRecord
 {
@@ -23,13 +23,7 @@ class CreateWhatsappInstance extends CreateRecord
     protected function afterCreate(): void
     {
         try {
-            $client = app(EvolutionClient::class);
-            $client->createInstance(
-                instanceName: $this->record->name,
-                number: $this->record->number,
-                qrcode: false,
-                options: $this->getInstanceOptions()
-            );
+            app(EvolutionInstanceBootstrapper::class)->syncInstanceToEvolutionApi($this->record);
 
             Notification::make()
                 ->success()
@@ -43,19 +37,6 @@ class CreateWhatsappInstance extends CreateRecord
                 ->body('Guardado local. Error al sincronizar con la API: '.$e->getMessage())
                 ->send();
         }
-    }
-
-    protected function getInstanceOptions(): array
-    {
-        return [
-            'reject_call' => (bool) $this->record->reject_call,
-            'msg_call' => $this->record->msg_call ?? '',
-            'groups_ignore' => (bool) $this->record->groups_ignore,
-            'always_online' => (bool) $this->record->always_online,
-            'read_messages' => (bool) $this->record->read_messages,
-            'read_status' => (bool) $this->record->read_status,
-            'sync_full_history' => (bool) $this->record->sync_full_history,
-        ];
     }
 
     protected function getRedirectUrl(): string

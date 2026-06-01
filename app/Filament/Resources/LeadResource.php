@@ -6,6 +6,7 @@ use App\Enums\LeadCanal;
 use App\Exports\LeadsExport;
 use App\Filament\Resources\LeadResource\Pages;
 use App\Models\Lead;
+use App\Models\LeadActivity;
 use App\Models\WhatsappInstance;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -152,7 +153,7 @@ class LeadResource extends Resource
                             ->tabs([
 
                                 // --- NOTAS Y ACCIONES ---
-                                Forms\Components\Tabs\Tab::make('Notas y Seguimiento')
+                                Forms\Components\Tabs\Tab::make('Notas')
                                     ->icon('heroicon-m-document-text')
                                     ->schema([
 
@@ -367,12 +368,73 @@ class LeadResource extends Resource
                             ->columnSpanFull(),
                     ]),
                 ]),
+
+                // ── SECCIÓN SEGUIMIENTO ────────────────────────────────────────
+                Forms\Components\Section::make('Seguimiento')
+                    ->icon('heroicon-o-calendar-days')
+                    ->description('Agenda actividades y próximas acciones con este interesado.')
+                    ->visible(fn ($livewire) => $livewire instanceof Pages\EditLead)
+                    ->schema([
+                        Forms\Components\Repeater::make('activities')
+                            ->relationship('activities')
+                            ->label('')
+                            ->addActionLabel('+ Agregar actividad')
+                            ->orderColumn(false)
+                            ->defaultItems(0)
+                            ->schema([
+                                Forms\Components\Grid::make(3)->schema([
+                                    Forms\Components\DatePicker::make('fecha')
+                                        ->label('Fecha')
+                                        ->required()
+                                        ->native(false)
+                                        ->displayFormat('d/m/Y')
+                                        ->default(now()->addDay()),
+
+                                    Forms\Components\TextInput::make('hora')
+                                        ->label('Hora')
+                                        ->type('time')
+                                        ->required()
+                                        ->default('09:00'),
+
+                                    Forms\Components\Toggle::make('completada')
+                                        ->label('Realizada')
+                                        ->inline(false)
+                                        ->default(false),
+                                ]),
+
+                                Forms\Components\Textarea::make('descripcion')
+                                    ->label('¿Qué vas a hacer con este prospecto?')
+                                    ->required()
+                                    ->rows(2)
+                                    ->placeholder('Ej: Llamarle para confirmar visita, enviar cotización, agendar cita...')
+                                    ->columnSpanFull(),
+                            ])
+                            ->mutateRelationshipDataBeforeCreateUsing(function (array $data): array {
+                                $data['user_id'] = auth()->id();
+                                return $data;
+                            })
+                            ->itemLabel(function (array $state): ?string {
+                                $fecha = isset($state['fecha'])
+                                    ? \Carbon\Carbon::parse($state['fecha'])->format('d/m/Y')
+                                    : '—';
+                                $hora = $state['hora'] ?? '';
+                                $desc = isset($state['descripcion'])
+                                    ? \Illuminate\Support\Str::limit($state['descripcion'], 40)
+                                    : '';
+                                $status = ($state['completada'] ?? false) ? '✓' : '•';
+                                return "{$status}  {$fecha}" . ($hora ? " {$hora}" : '') . "  —  {$desc}";
+                            })
+                            ->collapsible()
+                            ->collapsed(false),
+                    ]),
+                // ──────────────────────────────────────────────────────────────
             ]);
     }
 
     public static function table(Table $table): Table
     {
         return $table
+            ->actionsColumnLabel('Acciones')
             ->defaultSort(fn ($query) => $query->orderByRaw("CASE WHEN etapa = 'no_contactado' THEN 1 ELSE 2 END")->orderBy('created_at', 'desc'))
             ->modifyQueryUsing(fn (Builder $query) => $query->whereNotIn('etapa', ['ganado', 'perdido', 'no_califica']))
             ->headerActions([
@@ -396,6 +458,7 @@ class LeadResource extends Resource
                     ->searchable(),
 
                 Tables\Columns\TextColumn::make('etapa')
+                    ->label('Etapa')
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
                         'no_contactado' => 'danger',
@@ -403,7 +466,20 @@ class LeadResource extends Resource
                         'perdido', 'no_califica' => 'gray',
                         default => 'warning',
                     })
-                    ->formatStateUsing(fn (string $state): string => ucfirst(str_replace('_', ' ', $state))),
+                    ->formatStateUsing(fn (?string $state): string => match ($state) {
+                        'no_contactado' => 'No contactado',
+                        'contactado' => 'Contactado',
+                        'cita' => 'Cita',
+                        'seguimiento' => 'Seguimiento',
+                        'propuesta' => 'Propuesta',
+                        'en_cierre' => 'En cierre',
+                        'en_proceso' => 'En proceso',
+                        'nuevo' => 'Nuevo',
+                        'ganado' => 'Ganado',
+                        'perdido' => 'Perdido',
+                        'no_califica' => 'No califica',
+                        default => $state ? ucfirst(str_replace('_', ' ', $state)) : '—',
+                    }),
 
                 // Agregado a la tabla para mayor visibilidad
                 Tables\Columns\TextColumn::make('calificacion_lead')
@@ -462,12 +538,6 @@ class LeadResource extends Resource
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
-                Action::make('contactar')
-                    ->label('Ya contacté')
-                    ->icon('heroicon-o-check')
-                    ->color('success')
-                    ->action(fn (Lead $record) => $record->update(['etapa' => 'contactado']))
-                    ->visible(fn (Lead $record) => $record->etapa === 'no_contactado'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

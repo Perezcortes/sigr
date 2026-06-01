@@ -24,6 +24,7 @@ use App\Filament\Resources\UserResource;
 use App\Filament\Resources\WhatsappInstanceResource;
 use App\Filament\Widgets\EstatusRentasChartWidget;
 use App\Filament\Widgets\EstatusSolicitudesChartWidget;
+use App\Filament\Widgets\ProximasActividadesWidget;
 use App\Filament\Widgets\RentasMensualesChartWidget;
 use App\Filament\Widgets\ResumenDashboardWidget;
 use App\Filament\Widgets\SolicitudesMensualesChartWidget;
@@ -32,6 +33,7 @@ use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
+use Filament\View\PanelsRenderHook;
 use Filament\Pages;
 use Filament\Panel;
 use Filament\PanelProvider;
@@ -104,6 +106,16 @@ class AdminPanelProvider extends PanelProvider
             // ACTIVAR MODO OSCURO
             ->darkMode(true)
 
+            // Notificaciones de base de datos (campana en el topbar)
+            ->databaseNotifications()
+            ->databaseNotificationsPolling('30s')
+
+            // PWA meta tags en el <head> (admin)
+            ->renderHook(
+                PanelsRenderHook::HEAD_END,
+                fn () => view('pwa.head'),
+            )
+
             ->resources([
                 OfficeResource::class,
                 TenantResource::class,
@@ -132,6 +144,7 @@ class AdminPanelProvider extends PanelProvider
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
             ->widgets([
                 ResumenDashboardWidget::class,
+                ProximasActividadesWidget::class,
                 RentasMensualesChartWidget::class,
                 SolicitudesMensualesChartWidget::class,
                 EstatusRentasChartWidget::class,

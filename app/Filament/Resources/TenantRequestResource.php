@@ -156,22 +156,72 @@ class TenantRequestResource extends Resource
 
                     Forms\Components\Radio::make('nacionalidad')
                         ->label('Nacionalidad')
-                        ->options(['mexicana' => 'Mexicana', 'extranjera' => 'Otra'])
+                        ->options(['mexicana' => 'Mexicana', 'extranjera' => 'Extranjera'])
                         ->required()
                         ->live()
                         ->validationMessages([
                             'required' => 'Este campo es obligatorio.',
                         ]),
 
+                    // TEXTO (Para pólizas Integrales y Amplias)
                     Forms\Components\TextInput::make('nacionalidad_especifica')
-                        ->label('Especifique')
+                        ->label('Especifique su país')
                         ->maxLength(255)
-                        ->required(fn (Forms\Get $get) => $get('nacionalidad') === 'extranjera')
+                        ->visible(fn (Forms\Get $get, ?\Illuminate\Database\Eloquent\Model $record) => 
+                            $get('nacionalidad') === 'extranjera' && 
+                            $record?->rent?->tipo_poliza !== 'PÓLIZA CON SEGURO'
+                        )
+                        ->required(fn (Forms\Get $get, ?\Illuminate\Database\Eloquent\Model $record) => 
+                            $get('nacionalidad') === 'extranjera' && 
+                            $record?->rent?->tipo_poliza !== 'PÓLIZA CON SEGURO'
+                        ),
+
+                    // SELECT (Solo para Póliza con Seguro)
+                    Forms\Components\Select::make('pais_origen')
+                        ->label('País de origen')
+                        ->searchable()
+                        ->preload() 
+                        ->options(\App\Models\Pais::pluck('name', 'id')->toArray()) 
+                        ->visible(fn (Forms\Get $get, ?\Illuminate\Database\Eloquent\Model $record) => 
+                            $get('nacionalidad') === 'extranjera' && 
+                            $record?->rent?->tipo_poliza === 'PÓLIZA CON SEGURO'
+                        )
+                        ->required(fn (Forms\Get $get, ?\Illuminate\Database\Eloquent\Model $record) => 
+                            $get('nacionalidad') === 'extranjera' && 
+                            $record?->rent?->tipo_poliza === 'PÓLIZA CON SEGURO'
+                        ),
+
+                    Forms\Components\DatePicker::make('fecha_vencimiento_tarjeta')
+                        ->label('Fecha de Vencimiento de Tarjeta') 
+                        ->displayFormat('d/m/Y')
+                        ->format('Y-m-d')
+                        ->native(false)
                         ->visible(fn (Forms\Get $get) => $get('nacionalidad') === 'extranjera')
-                        ->validationMessages([
-                            'required' => 'Este campo es obligatorio.',
-                            'max' => 'Este campo no puede tener más de 255 caracteres.',
-                        ]),
+                        ->required(fn (Forms\Get $get, ?\Illuminate\Database\Eloquent\Model $record) => 
+                            $get('nacionalidad') === 'extranjera' && 
+                            $record?->rent?->tipo_poliza === 'PÓLIZA CON SEGURO'
+                        ),
+
+                    Forms\Components\TextInput::make('nue')
+                        ->label('NUE (Número Único de Extranjero)')
+                        ->maxLength(50)
+                        ->visible(fn (Forms\Get $get) => $get('nacionalidad') === 'extranjera')
+                        ->required(fn (Forms\Get $get, ?\Illuminate\Database\Eloquent\Model $record) => 
+                            $get('nacionalidad') === 'extranjera' && 
+                            $record?->rent?->tipo_poliza === 'PÓLIZA CON SEGURO'
+                        ),
+
+                    Forms\Components\Select::make('tipo_residencia')
+                        ->label('Tipo de Residencia')
+                        ->options([
+                            'permanente' => 'Permanente',
+                            'temporal' => 'Temporal',
+                        ])
+                        ->visible(fn (Forms\Get $get) => $get('nacionalidad') === 'extranjera')
+                        ->required(fn (Forms\Get $get, ?\Illuminate\Database\Eloquent\Model $record) => 
+                            $get('nacionalidad') === 'extranjera' && 
+                            $record?->rent?->tipo_poliza === 'PÓLIZA CON SEGURO'
+                        ),
 
                     Forms\Components\Radio::make('sexo')
                         ->label('Sexo')
@@ -434,6 +484,17 @@ class TenantRequestResource extends Resource
                         ])
                         ->columns(2)
                         ->visible(fn (Forms\Get $get, ?\Illuminate\Database\Eloquent\Model $record) => $record?->rent?->tipo_inmueble === 'comercial' && $get('mismo_domicilio_fiscal') === 'No')
+                        ->columnSpanFull(),
+
+                        // METROS CUADRADOS (SOLO VISIBLE SI LA PÓLIZA ES CON SEGURO)
+                        Forms\Components\TextInput::make('metros_cuadrados')
+                        ->label('Número de m²')
+                        ->helperText('Ingresa el no. de metros cuadrados aproximados del domicilio que habitas actualmente.')
+                        ->numeric()
+                        ->minValue(1)
+                        ->required(fn (?\Illuminate\Database\Eloquent\Model $record) => 
+                            $record?->rent?->tipo_poliza === 'PÓLIZA CON SEGURO'
+                        )
                         ->columnSpanFull(),
 
                     // ==========================================
