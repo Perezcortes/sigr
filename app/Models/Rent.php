@@ -12,6 +12,7 @@ class Rent extends Model
     use HasHashId;
 
     protected $fillable = [
+        'tipo_poliza',
         'office_id',
         'tenant_id',
         'owner_id',
