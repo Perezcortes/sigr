@@ -917,6 +917,10 @@ class ViewRent extends EditRecord
                                                         ->label('Editar solicitud del inquilino')
                                                         ->color('primary')
                                                         ->action(function () {
+                                                            // Guardamos el tipo de póliza actual en la BD antes de irnos
+                                                            if (isset($this->data['tipo_poliza'])) {
+                                                                $this->record->update(['tipo_poliza' => $this->data['tipo_poliza']]);
+                                                            }
                                                             // Si hay una Application vinculada, usar esa
                                                             if ($this->record->application_id) {
                                                                 $this->redirect(ApplicationsResource::getUrl('edit', ['record' => $this->record->application_id]));
@@ -2021,7 +2025,7 @@ class ViewRent extends EditRecord
                                     ]),
                             ]),
 
-                        // ========== TAB: PÓLIZA DE RENTA (Antes Investigación) ==========
+                        // ========== TAB: PROCESO DE RENTA ==========
                         Forms\Components\Tabs\Tab::make('Proceso de Renta')
                             ->icon('heroicon-o-shield-check')
                             ->visible(fn (): bool => $this->record->estatus !== 'nueva')
@@ -2107,6 +2111,26 @@ class ViewRent extends EditRecord
                                             ->onColor('success')
                                             ->offColor('gray')
                                             ->live(),
+
+                                        // Tipo de Póliza (condicional, solo si "con_poliza" está activo)
+                                        Forms\Components\Select::make('tipo_poliza')
+                                            ->label('Tipo de Póliza')
+                                            ->options(function ($record) {
+                                                // Opciones base para todos
+                                                $opciones = [
+                                                    'PÓLIZA AMPLIA' => 'Póliza Amplia',
+                                                    'PÓLIZA INTEGRAL' => 'Póliza Integral',
+                                                ];
+
+                                                // Si el inquilino existe y es persona física, agregamos la opción con seguro
+                                                if ($record && $record->tenant?->tipo_persona === 'fisica') {
+                                                    $opciones['PÓLIZA CON SEGURO'] = 'Póliza con Seguro';
+                                                }
+
+                                                return $opciones;
+                                            })
+                                            ->visible(fn (Forms\Get $get) => (bool) $get('con_poliza'))
+                                            ->required(fn (Forms\Get $get) => (bool) $get('con_poliza')),
                                     ])->columns(2),
 
                                 // Botón de Envío
@@ -2117,17 +2141,69 @@ class ViewRent extends EditRecord
                                         ->color('success')
                                         ->requiresConfirmation()
                                         ->modalHeading('¿Enviar Expediente a Póliza de Rentas?')
-                                        ->modalDescription('El estatus de la renta cambiará automáticamente a "Análisis" y el abogado asignado recibirá una notificación por correo electrónico con los datos de esta operación.')
+                                        ->modalDescription('El estatus de la renta cambiará automáticamente a "Análisis" y se enviará la información estructurada a PDR.')
                                         ->action(function (Forms\Get $get, Forms\Set $set, $record) {
-                                            $payload = [
+                                                
+                                                // === PÓLIZA CON SEGURO SOLO PARA FÍSICAS ===
+                                                if ($get('tipo_poliza') === 'PÓLIZA CON SEGURO' && $record->tenant?->tipo_persona !== 'fisica') {
+                                                    Notification::make()
+                                                        ->danger()
+                                                        ->title('Operación no permitida')
+                                                        ->body('La Póliza con Seguro es exclusiva para inquilinos registrados como Persona Física.')
+                                                        ->send();
+                                                    return;
+                                                }
+
+                                                // === VALIDACIÓN DE CAMPOS EXTRA ===
+                                                if ($get('tipo_poliza') === 'PÓLIZA CON SEGURO' && $record->tenant?->tipo_persona === 'fisica') {
+                                                    
+                                                    // Buscamos la solicitud atada a esta renta
+                                                    $tenantRequest = \App\Models\TenantRequest::where('tenant_id', $record->tenant_id)
+                                                                                              ->where('rent_id', $record->id)
+                                                                                              ->first();
+
+                                                    // Si no hay solicitud, o si los campos obligatorios de la póliza con seguro están vacíos
+                                                    if (!$tenantRequest || is_null($tenantRequest->metros_cuadrados) || is_null($tenantRequest->nacionalidad)) {
+                                                        
+                                                        // Guardamos los datos antes de redirigir
+                                                        $record->update([
+                                                            'tipo_poliza'         => $get('tipo_poliza'),
+                                                            'plazo_arrendamiento' => $get('plazo_arrendamiento'),
+                                                            'start_date'          => $get('start_date'),
+                                                            'end_date'            => $get('end_date'),
+                                                            'fecha_firma'         => $get('fecha_firma'),
+                                                        ]);
+
+                                                        Notification::make()
+                                                            ->warning()
+                                                            ->title('Faltan datos obligatorios')
+                                                            ->body('La Póliza con Seguro requiere información adicional. Redirigiendo a la solicitud...')
+                                                            ->send();
+                                                            
+                                                        // Si no existía, la creamos
+                                                        if (!$tenantRequest) {
+                                                            $tenantRequest = \App\Models\TenantRequest::create([
+                                                                'tenant_id' => $record->tenant_id,
+                                                                'rent_id'   => $record->id,
+                                                                'estatus'   => 'nueva'
+                                                            ]);
+                                                        }
+                                                        
+                                                        // Cancelamos el envío a PDR y redirigimos al form del inquilino
+                                                        return redirect(\App\Filament\Resources\TenantRequestResource::getUrl('edit', ['record' => $tenantRequest]));
+                                                    }
+                                                }
+
+                                            $payloadValidacion = [
                                                 'plazo_arrendamiento' => $get('plazo_arrendamiento'),
                                                 'start_date' => $get('start_date'),
                                                 'end_date' => $get('end_date'),
                                                 'fecha_firma' => $get('fecha_firma'),
+                                                'tipo_poliza' => $get('tipo_poliza'), // Capturamos el tipo de póliza
                                             ];
 
                                             try {
-                                                Validator::make($payload, [
+                                                Validator::make($payloadValidacion, [
                                                     'plazo_arrendamiento' => ['required', 'in:3,6,12,18,24'],
                                                     'start_date' => ['required', 'date'],
                                                     'end_date' => ['required', 'date'],
@@ -2144,91 +2220,29 @@ class ViewRent extends EditRecord
                                                     ->title('Completa el resumen de la operación')
                                                     ->body(collect($e->errors())->flatten()->implode(' '))
                                                     ->send();
-
                                                 return;
                                             }
 
-                                            // 1. Guardar primero las fechas que acaban de escribir
-                                            $record->update([
-                                                ...$payload,
-                                                'estatus' => 'analisis', // 2. CAMBIO AUTOMÁTICO DE ESTATUS
-                                            ]);
+                                            // === DELEGAMOS EL TRABAJO AL SERVICIO ===
+                                            $pdrService = app(\App\Services\PdrApiService::class);
+                                            $resultado = $pdrService->enviarExpedienteYActualizar($record, $payloadValidacion);
 
-                                            // 3. ACTUALIZAR EL DESPLEGABLE VISUAL DE LA PESTAÑA INFORMACIÓN (Para que no tengan que recargar la página)
-                                            $set('estatus', 'analisis');
-
-                                            // 4. ENVIAR CORREO AL ABOGADO (Simulado por ahora hasta que me des la vista de correo)
-                                            /*
-                                            try {
-                                                Mail::raw("Se ha creado un nuevo expediente de renta para revisar. Folio: {$record->folio}", function ($message) {
-                                                    $message->to('abogado_pdr@tuempresa.com')
-                                                            ->subject('Nuevo Expediente a Revisar');
-                                                });
-                                            } catch (\Exception $e) {}
-                                            */
-
-                                            // 5. MENSAJE DE ÉXITO EXACTO COMO LO PIDIERON
-                                            Notification::make()
-                                                ->success()
-                                                ->title('Expediente enviado exitosamente')
-                                                ->body('El estatus ha cambiado a Análisis y PDR ha sido notificado.')
-                                                ->send();
+                                            if ($resultado['success']) {
+                                                $set('estatus', 'analisis'); 
+                                                Notification::make()
+                                                    ->success()
+                                                    ->title('Expediente enviado exitosamente')
+                                                    ->body('El estatus ha cambiado a Análisis y la Póliza ha sido solicitada.')
+                                                    ->send();
+                                            } else {
+                                                 Notification::make()
+                                                    ->danger()
+                                                    ->title('Error al conectar con PDR')
+                                                    ->body($resultado['error'] ?? 'Ocurrió un error inesperado al enviar los datos.')
+                                                    ->send();
+                                            }
                                         })
-                                        // Solo aparece si "¿Con póliza?" está activado y la renta sigue en fase previa.
                                         ->visible(fn (Forms\Get $get, $record) => (bool) $get('con_poliza') && in_array($record->estatus, ['nueva', 'documentacion'])),
-
-                                    Action::make('activar_renta')
-                                        ->label('Activar Renta')
-                                        ->icon('heroicon-o-check-circle')
-                                        ->color('primary')
-                                        ->size('lg')
-                                        ->requiresConfirmation()
-                                        ->modalHeading('¿Activar Renta?')
-                                        ->modalDescription('La renta cambiará a estatus "Activa" y se habilitará la pestaña siguiente.')
-                                        ->action(function (Forms\Get $get, Forms\Set $set, $record) {
-                                            $payload = [
-                                                'plazo_arrendamiento' => $get('plazo_arrendamiento'),
-                                                'start_date' => $get('start_date'),
-                                                'end_date' => $get('end_date'),
-                                                'fecha_firma' => $get('fecha_firma'),
-                                            ];
-
-                                            try {
-                                                Validator::make($payload, [
-                                                    'plazo_arrendamiento' => ['required', 'in:3,6,12,18,24'],
-                                                    'start_date' => ['required', 'date'],
-                                                    'end_date' => ['required', 'date'],
-                                                    'fecha_firma' => ['required', 'date'],
-                                                ], [], [
-                                                    'plazo_arrendamiento' => 'plazo del arrendamiento',
-                                                    'start_date' => 'fecha de inicio',
-                                                    'end_date' => 'fecha de fin',
-                                                    'fecha_firma' => 'fecha prevista de firma',
-                                                ])->validate();
-                                            } catch (ValidationException $e) {
-                                                Notification::make()
-                                                    ->danger()
-                                                    ->title('Completa el resumen de la operación')
-                                                    ->body(collect($e->errors())->flatten()->implode(' '))
-                                                    ->send();
-
-                                                return;
-                                            }
-
-                                            $record->update([
-                                                ...$payload,
-                                                'estatus' => 'activa',
-                                            ]);
-
-                                            $set('estatus', 'activa');
-
-                                            Notification::make()
-                                                ->success()
-                                                ->title('Renta activada')
-                                                ->body('La renta cambió a estatus Activa.')
-                                                ->send();
-                                        })
-                                        ->visible(fn (Forms\Get $get, $record) => ! (bool) $get('con_poliza') && in_array($record->estatus, ['nueva', 'documentacion'])),
                                 ])->fullWidth(),
                             ]),
 

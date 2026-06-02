@@ -103,6 +103,23 @@ class Owner extends Model
         'estado_registro_facultades',
         'tipo_representacion_moral',
 
+        'nacionalidad_especifica',
+        'pais_origen',
+        'fecha_vencimiento_tarjeta',
+        'nue',
+        'tipo_residencia',
+        'mismo_domicilio_fiscal',
+        'calle_fiscal',
+        'numero_exterior_fiscal',
+        'numero_interior_fiscal',
+        'codigo_postal_fiscal',
+        'colonia_fiscal',
+        'municipio_fiscal',
+        'estado_fiscal',
+        'metros_cuadrados',
+        'fecha_nacimiento',
+        'regimen_fiscal',
+
         'historial_acciones',
     ];
 
@@ -119,9 +136,10 @@ class Owner extends Model
         'representante_sexo' => 'string',
         'fecha_constitucion' => 'date',
         'fecha_escritura_facultades' => 'date',
-        'facultades_en_acta' => 'boolean',
+        'facultades_en_acta' => 'string',
         'apoderado_sexo' => 'string',
         'tipo_representacion_moral' => 'string',
+        'fecha_nacimiento' => 'date',
 
         'historial_acciones' => 'array',
     ];
