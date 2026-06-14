@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\Route;
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/webhooks/leads/nocnok', [LeadWebhookController::class, 'handle']);
+// Ruta para recibir los webhooks de estado de póliza 
+Route::post('/webhooks/poliza-status', [\App\Http\Controllers\Api\PolizaWebhookController::class, 'handle']); 
 Route::get('/advisors/suggestions', [AdvisorSearchController::class, 'suggestions']);
 Route::get('/advisors/search', [AdvisorSearchController::class, 'search']);
 Route::get('/advisors/details', [AdvisorSearchController::class, 'details']);

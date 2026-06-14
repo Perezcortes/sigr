@@ -2224,7 +2224,7 @@ class ViewRent extends EditRecord
                                             }
 
                                             // === DELEGAMOS EL TRABAJO AL SERVICIO ===
-                                            $pdrService = app(\App\Services\PdrApiService::class);
+                                            $pdrService = app(\App\Services\PdrApi\PdrApiService::class);
                                             $resultado = $pdrService->enviarExpedienteYActualizar($record, $payloadValidacion);
 
                                             if ($resultado['success']) {

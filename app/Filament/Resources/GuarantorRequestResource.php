@@ -25,7 +25,6 @@ class GuarantorRequestResource extends Resource
             ->schema([
                 Forms\Components\Wizard::make([
                     
-                    // PASO 1: Inicio
                     Forms\Components\Wizard\Step::make('Información Base')
                         ->icon('heroicon-o-clipboard-document-check')
                         ->schema([
@@ -86,9 +85,7 @@ class GuarantorRequestResource extends Resource
     protected static function getDatosPersonalesFisica(): array
     {
         return [
-            // ==========================================
             // SECCIÓN 1: INFORMACIÓN PERSONAL
-            // ==========================================
             Forms\Components\Section::make('Datos Personales del Obligado Solidario')
                 ->description('Información personal y de contacto')
                 ->collapsible()
@@ -280,11 +277,11 @@ class GuarantorRequestResource extends Resource
                         ->validationMessages(['required' => 'Este campo es obligatorio.']),
 
                     // Datos del Cónyuge (Solo aparece si selecciona Casado)
-                    Forms\Components\Group::make()
+                    Forms\Components\Section::make('Datos del Cónyuge')
+                        ->description('Información del cónyuge del obligado solidario')
                         ->schema([
                             Forms\Components\Placeholder::make('conyuge_info')
                                 ->label('')
-                                ->content(new \Illuminate\Support\HtmlString('<span class="font-semibold text-primary-600">Datos del Cónyuge</span><br><span class="text-sm text-gray-500">Complete la información del cónyuge del obligado solidario.</span>'))
                                 ->columnSpanFull(),
 
                             Forms\Components\TextInput::make('conyuge_nombres')
@@ -311,9 +308,7 @@ class GuarantorRequestResource extends Resource
                         ->columnSpanFull(),
                 ])->columns(2),
 
-            // ==========================================
             // SECCIÓN 2: DOMICILIO DONDE VIVE ACTUALMENTE
-            // ==========================================
             Forms\Components\Section::make('Domicilio donde vive actualmente')
                 ->description('Información de la residencia actual del obligado solidario')
                 ->collapsible()
@@ -427,9 +422,7 @@ class GuarantorRequestResource extends Resource
     protected static function getDatosEmpleoFisica(): array
     {
         return [
-            // ==========================================
             // SECCIÓN 3: DATOS LABORALES
-            // ==========================================
             Forms\Components\Section::make('Datos Laborales')
                 ->description('Información sobre el empleo del obligado solidario')
                 ->collapsible()
@@ -485,9 +478,7 @@ class GuarantorRequestResource extends Resource
                         ->validationMessages(['required' => 'Este campo es obligatorio.', 'min' => 'No se permiten valores negativos.']),
                 ])->columns(2),
 
-            // ==========================================
             // SECCIÓN 4: UBICACIÓN DE LA EMPRESA
-            // ==========================================
             Forms\Components\Section::make('Ubicación de la empresa donde labora')
                 ->collapsible()
                 ->schema([
@@ -538,9 +529,7 @@ class GuarantorRequestResource extends Resource
                         ->label('No. de extensión'),
                 ])->columns(2),
 
-            // ==========================================
             // SECCIÓN 5: DECLARACIONES Y AUTORIZACIONES
-            // ==========================================
             Forms\Components\Section::make('Declaraciones y Autorizaciones')
                 ->schema([
                     Forms\Components\Checkbox::make('autoriza_buro')
@@ -561,9 +550,7 @@ class GuarantorRequestResource extends Resource
     protected static function getDatosEmpresaMoral(): array
     {
         return [
-            // ==========================================
             // SECCIÓN 1: DATOS DE LA EMPRESA
-            // ==========================================
             Forms\Components\Section::make('Información de la Empresa')
                 ->description('Datos generales y fiscales de la persona moral')
                 ->collapsible()
@@ -624,9 +611,7 @@ class GuarantorRequestResource extends Resource
                         ->validationMessages(['required' => 'Este campo es obligatorio.']),
                 ])->columns(2),
 
-            // ==========================================
             // SECCIÓN 2: DOMICILIO DE LA EMPRESA Y SAT
-            // ==========================================
             Forms\Components\Section::make('Domicilio de la Empresa')
                 ->collapsible()
                 ->schema([
@@ -725,9 +710,7 @@ class GuarantorRequestResource extends Resource
                         ->columnSpanFull(),
                 ])->columns(2),
 
-            // ==========================================
             // SECCIÓN 3: ACTA CONSTITUTIVA
-            // ==========================================
             Forms\Components\Section::make('Datos del Acta Constitutiva')
                 ->collapsible()
                 ->schema([
@@ -783,9 +766,7 @@ class GuarantorRequestResource extends Resource
                         ->validationMessages(['required' => 'Este campo es obligatorio.']),
                 ])->columns(2),
 
-            // ==========================================
             // SECCIÓN 4: REPRESENTANTE LEGAL Y FACULTADES
-            // ==========================================
             Forms\Components\Section::make('Información sobre el Representante Legal')
                 ->collapsible()
                 ->schema([
@@ -945,9 +926,7 @@ class GuarantorRequestResource extends Resource
     protected static function getPropiedadGarantia(): array
     {
         return [
-            // ==========================================
             // SECCIÓN 1: DOMICILIO DE LA PROPIEDAD
-            // ==========================================
             Forms\Components\Section::make('Domicilio de la propiedad en garantía')
                 ->description('Ubicación del inmueble que quedará como garantía')
                 ->collapsible()
@@ -990,9 +969,7 @@ class GuarantorRequestResource extends Resource
                         ->validationMessages(['required' => 'Este campo es obligatorio.']),
                 ])->columns(2),
 
-            // ==========================================
             // SECCIÓN 2: DATOS DE LA ESCRITURA
-            // ==========================================
             Forms\Components\Section::make('Datos de la escritura')
                 ->collapsible()
                 ->schema([
@@ -1010,9 +987,7 @@ class GuarantorRequestResource extends Resource
                         ->validationMessages(['required' => 'Este campo es obligatorio.']),
                 ])->columns(2),
 
-            // ==========================================
             // SECCIÓN 3: INFORMACIÓN DEL NOTARIO
-            // ==========================================
             Forms\Components\Section::make('Información del notario')
                 ->collapsible()
                 ->schema([
@@ -1040,9 +1015,7 @@ class GuarantorRequestResource extends Resource
                         ->validationMessages(['required' => 'Este campo es obligatorio.']),
                 ])->columns(2),
 
-            // ==========================================
             // SECCIÓN 4: REGISTRO PÚBLICO
-            // ==========================================
             Forms\Components\Section::make('Registro público de propiedad')
                 ->collapsible()
                 ->schema([
