@@ -28,6 +28,7 @@ use App\Filament\Widgets\ProximasActividadesWidget;
 use App\Filament\Widgets\RentasMensualesChartWidget;
 use App\Filament\Widgets\ResumenDashboardWidget;
 use App\Filament\Widgets\SolicitudesMensualesChartWidget;
+use App\Filament\Resources\SolicitudesPolizaLogResource;
 use App\Http\Middleware\CheckPagosVencidos;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -136,6 +137,7 @@ class AdminPanelProvider extends PanelProvider
                 GuarantorRequestResource::class,
                 RoleResource::class,
                 WhatsappInstanceResource::class,
+                SolicitudesPolizaLogResource::class,
             ])
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
             ->pages([
