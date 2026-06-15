@@ -44,9 +44,15 @@ return new class extends Migration
 
     public function up(): void
     {
+        try {
+            if (DB::getDriverName() === 'mysql') {
+                DB::statement('ALTER TABLE guarantor_requests ROW_FORMAT=DYNAMIC;');
+            }
+        } catch (\Throwable $e) {
+        }
+
         if (DB::getDriverName() !== 'mysql') {
             $this->upWithSchemaBuilder();
-
             return;
         }
 
@@ -58,30 +64,22 @@ return new class extends Migration
             $this->ensureTextColumn('guarantor_requests', $column);
         }
 
-        if (! Schema::hasColumn('guarantor_requests', 'fecha_vencimiento_tarjeta')) {
-            Schema::table('guarantor_requests', function (Blueprint $table) {
-                $table->date('fecha_vencimiento_tarjeta')->nullable();
-            });
+        if (!Schema::hasColumn('guarantor_requests', 'fecha_vencimiento_tarjeta')) {
+            DB::statement("ALTER TABLE guarantor_requests ADD fecha_vencimiento_tarjeta DATE NULL;");
         }
 
-        if (! Schema::hasColumn('guarantor_requests', 'metros_cuadrados')) {
-            Schema::table('guarantor_requests', function (Blueprint $table) {
-                $table->integer('metros_cuadrados')->nullable();
-            });
+        if (!Schema::hasColumn('guarantor_requests', 'metros_cuadrados')) {
+            DB::statement("ALTER TABLE guarantor_requests ADD metros_cuadrados INT NULL;");
         }
 
-        if (! Schema::hasColumn('guarantor_requests', 'fiscal_codigo_postal')) {
-            Schema::table('guarantor_requests', function (Blueprint $table) {
-                $table->string('fiscal_codigo_postal', 10)->nullable();
-            });
+        if (!Schema::hasColumn('guarantor_requests', 'es_domicilio_fiscal')) {
+            DB::statement("ALTER TABLE guarantor_requests ADD es_domicilio_fiscal INT NULL COMMENT '1 = Sí, 0 = No';");
+        }
+
+        if (!Schema::hasColumn('guarantor_requests', 'fiscal_codigo_postal')) {
+            DB::statement("ALTER TABLE guarantor_requests ADD fiscal_codigo_postal VARCHAR(10) NULL;");
         } else {
-            DB::statement('ALTER TABLE guarantor_requests MODIFY fiscal_codigo_postal VARCHAR(10) NULL');
-        }
-
-        try {
-            DB::statement('ALTER TABLE guarantor_requests ROW_FORMAT=DYNAMIC');
-        } catch (Throwable) {
-            // Opcional: la tabla ya puede estar en DYNAMIC tras convertir a TEXT.
+            DB::statement("ALTER TABLE guarantor_requests MODIFY fiscal_codigo_postal VARCHAR(10) NULL;");
         }
     }
 
@@ -91,38 +89,44 @@ return new class extends Migration
             $textColumns = array_unique(array_merge($this->wideVarcharToText, $this->newTextColumns));
 
             foreach ($textColumns as $column) {
-                if (! Schema::hasColumn('guarantor_requests', $column)) {
+                if (!Schema::hasColumn('guarantor_requests', $column)) {
                     $table->text($column)->nullable();
+                } else {
+                    $table->text($column)->nullable()->change();
                 }
             }
 
-            if (! Schema::hasColumn('guarantor_requests', 'fecha_vencimiento_tarjeta')) {
+            if (!Schema::hasColumn('guarantor_requests', 'fecha_vencimiento_tarjeta')) {
                 $table->date('fecha_vencimiento_tarjeta')->nullable();
             }
 
-            if (! Schema::hasColumn('guarantor_requests', 'metros_cuadrados')) {
+            if (!Schema::hasColumn('guarantor_requests', 'metros_cuadrados')) {
                 $table->integer('metros_cuadrados')->nullable();
             }
 
-            if (! Schema::hasColumn('guarantor_requests', 'fiscal_codigo_postal')) {
+            if (!Schema::hasColumn('guarantor_requests', 'es_domicilio_fiscal')) {
+                $table->integer('es_domicilio_fiscal')->nullable()->comment('1 = Sí, 0 = No');
+            }
+
+            if (!Schema::hasColumn('guarantor_requests', 'fiscal_codigo_postal')) {
                 $table->string('fiscal_codigo_postal', 10)->nullable();
+            } else {
+                $table->string('fiscal_codigo_postal', 10)->nullable()->change();
             }
         });
     }
 
     private function ensureTextColumn(string $table, string $column): void
     {
-        if (! Schema::hasColumn($table, $column)) {
-            DB::statement("ALTER TABLE {$table} ADD {$column} TEXT NULL");
-
-            return;
+        if (!Schema::hasColumn($table, $column)) {
+            DB::statement("ALTER TABLE {$table} ADD {$column} TEXT NULL;");
+        } else {
+            DB::statement("ALTER TABLE {$table} MODIFY {$column} TEXT NULL;");
         }
-
-        DB::statement("ALTER TABLE {$table} MODIFY {$column} TEXT NULL");
     }
 
     public function down(): void
     {
-        //
+        
     }
 };
