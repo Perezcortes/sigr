@@ -11,7 +11,7 @@ return new class extends Migration
         DB::statement('ALTER TABLE guarantor_requests ROW_FORMAT=DYNAMIC;');
 
         $columnasText = [
-            'nacionalidad_especifica', 'pais_origen', 'nue', 'tipo_residencia',
+            'estatus', 'nacionalidad_especifica', 'pais_origen', 'nue', 'tipo_residencia',
             'fiscal_calle', 'fiscal_numero_exterior', 'fiscal_numero_interior',
             'fiscal_colonia', 'fiscal_municipio', 'fiscal_estado'
         ];
