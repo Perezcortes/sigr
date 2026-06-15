@@ -32,9 +32,10 @@ class LeadsExport implements FromView, WithColumnWidths, WithStyles
             'B' => 18, // Teléfono
             'C' => 35, // Correo
             'D' => 20, // Etapa
-            'E' => 18, // Origen
-            'F' => 45, // Mensaje
-            'G' => 22, // Fecha
+            'E' => 14, // Canal
+            'F' => 18, // Origen
+            'G' => 45, // Mensaje
+            'H' => 22, // Fecha
         ];
     }
 
@@ -48,7 +49,7 @@ class LeadsExport implements FromView, WithColumnWidths, WithStyles
             4 => ['font' => ['bold' => true, 'size' => 12]],
 
             // 3. ESTILO GENERAL: Alinear verticalmente al centro TODO el documento
-            'A:G' => [
+            'A:H' => [
                 'alignment' => [
                     'vertical' => Alignment::VERTICAL_CENTER, // Centrado vertical (No pegado al piso)
                     'wrapText' => true, // Permitir que el texto baje si es muy largo
@@ -58,8 +59,9 @@ class LeadsExport implements FromView, WithColumnWidths, WithStyles
             // 4. ALINEACIONES ESPECÍFICAS (Para que se vea ordenado)
             'B' => ['alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER]], // Teléfono centrado
             'D' => ['alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER]], // Etapa centrada
-            'E' => ['alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER]], // Origen centrado
-            'G' => ['alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER]], // Fecha centrada
+            'E' => ['alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER]], // Canal centrado
+            'F' => ['alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER]], // Origen centrado
+            'H' => ['alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER]], // Fecha centrada
         ];
     }
 }

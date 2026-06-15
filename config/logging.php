@@ -123,6 +123,17 @@ return [
             'handler' => NullHandler::class,
         ],
 
+        /*
+        | Webhook POST /api/webhooks/leads/nocnok — ver LeadWebhookController.
+        | tail -f storage/logs/nocnok-webhook.log
+        */
+        'nocnok_webhook' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/nocnok-webhook.log'),
+            'level' => env('NOCNOK_WEBHOOK_LOG_LEVEL', 'debug'),
+            'replace_placeholders' => true,
+        ],
+
         'emergency' => [
             'path' => storage_path('logs/laravel.log'),
         ],

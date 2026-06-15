@@ -13,6 +13,7 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
 
 class PropertyResource extends Resource
@@ -33,12 +34,67 @@ class PropertyResource extends Resource
         return null;
     }
 
+    public static function canViewAny(): bool
+    {
+        return auth()->user()->hasAnyRole(['Administrador', 'Gerente', 'Agente']);
+    }
+
+    public static function canCreate(): bool
+    {
+        // Administradores y Asesores pueden crear propiedades.
+        return auth()->user()->hasAnyRole(['Administrador', 'Asesor']);
+    }
+
+    public static function canEdit(Model $record): bool
+    {
+        $user = auth()->user();
+
+        if ($user->hasRole('Administrador')) {
+            return true;
+        }
+
+        if ($user->hasRole('Asesor')) {
+            // El asesor solo edita si el dueño de esta propiedad está asignado a él
+            return $record->user && 
+                   $record->user->owner && 
+                   $record->user->owner->asesor_id === $user->id;
+        }
+
+        // El Gerente solo lee, no edita
+        return false;
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        return auth()->user()->hasRole('Administrador');
+    }
+
     public static function form(Form $form): Form
     {
         return $form
             ->schema([
                 Forms\Components\Section::make('Información de la Propiedad')
                     ->schema([
+                        Forms\Components\Hidden::make('user_id')
+                            ->default(fn () => request()->query('user_id'))
+                            ->dehydrated(fn ($livewire) => $livewire instanceof Pages\CreateProperty && filled(request()->query('user_id'))),
+
+                        Forms\Components\Placeholder::make('owner_selected')
+                            ->label('Propietario')
+                            ->content(function () {
+                                $userId = request()->query('user_id');
+                                if (!$userId) {
+                                    return '-';
+                                }
+
+                                $user = User::find((int) $userId);
+
+                                return $user
+                                    ? $user->name . ' (' . $user->email . ')'
+                                    : 'Propietario no encontrado';
+                            })
+                            ->visible(fn ($livewire) => $livewire instanceof Pages\CreateProperty && filled(request()->query('user_id'))),
+
                         Forms\Components\Select::make('user_id')
                             ->label('Propietario')
                             ->relationship('user', 'name', modifyQueryUsing: fn (Builder $query) => $query->where('is_owner', true))
@@ -47,6 +103,7 @@ class PropertyResource extends Resource
                             ->preload()
                             ->required()
                             ->live()
+                            ->visible(fn ($livewire) => !($livewire instanceof Pages\CreateProperty && filled(request()->query('user_id'))))
                             ->afterStateUpdated(function (Forms\Set $set, $state) {
                                 if ($state) {
                                     $user = User::find($state);
@@ -494,6 +551,25 @@ class PropertyResource extends Resource
                 ->rows(3)
                 ->required()
                 ->columnSpanFull(),
+
+            // Nuevos campos - Características del inmueble
+            Forms\Components\TextInput::make('recamaras')
+                ->label('Número de habitaciones')
+                ->numeric()
+                ->minValue(0)
+                ->step(1),
+
+            Forms\Components\TextInput::make('banos')
+                ->label('Número de baños')
+                ->numeric()
+                ->minValue(0)
+                ->step('0.5'),
+
+            Forms\Components\TextInput::make('metros_cuadrados')
+                ->label('Metros cuadrados')
+                ->numeric()
+                ->minValue(0)
+                ->step('0.01'),
         ];
     }
 
@@ -551,17 +627,22 @@ class PropertyResource extends Resource
         $query = parent::getEloquentQuery();
         $user = auth()->user();
 
+        // Administrador ve todas las propiedades
         if ($user->hasRole('Administrador')) {
             return $query;
         }
 
-        if ($user->hasRole('Asesor')) {
-            // Filtrar propiedades donde el Propietario (Owner) esté asignado a este Asesor
-            // Asumiendo que Property tiene 'user_id' (el dueño) 
-            // y Owner tiene 'user_id' y 'asesor_id'.
-            
+        // Gerente ve las propiedades que pertenecen a los clientes de SU oficina
+        if ($user->hasRole('Gerente')) {
             return $query->whereHas('user', function ($q) use ($user) {
-                // Buscamos en la tabla users -> owners
+                // Buscamos que el usuario dueño de la propiedad pertenezca a la oficina del gerente
+                $q->where('office_id', $user->office_id);
+            });
+        }
+
+        // Asesor ve solo las propiedades de sus propios clientes
+        if ($user->hasRole('Asesor')) {
+            return $query->whereHas('user', function ($q) use ($user) {
                 $q->whereHas('owner', function ($q2) use ($user) {
                     $q2->where('asesor_id', $user->id);
                 });

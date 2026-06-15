@@ -2,11 +2,12 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
-use Spatie\Permission\Models\Role;
-use Spatie\Permission\Models\Permission;
 use App\Models\User;
+use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 class RolePermissionSeeder extends Seeder
 {
@@ -16,7 +17,7 @@ class RolePermissionSeeder extends Seeder
     public function run(): void
     {
         // Limpiar la caché de permisos de Spatie para evitar errores
-        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+        app()->make(PermissionRegistrar::class)->forgetCachedPermissions();
 
         // Definir la lista de permisos
         // Spatie solo necesita el 'name'. La lógica de rutas se maneja en Policies o Middleware.
@@ -65,6 +66,9 @@ class RolePermissionSeeder extends Seeder
             'Crear Solicitudes de Propietarios',
             'Editar Solicitudes de Propietarios',
             'Eliminar Solicitudes de Propietarios',
+
+            // WhatsApp Evolution (listado global en admin; los asesores usan solo su perfil)
+            'Gestionar instancias WhatsApp',
         ];
 
         // Crear los permisos en la base de datos
@@ -75,7 +79,7 @@ class RolePermissionSeeder extends Seeder
         // Crear Roles
         $roleAdmin = Role::firstOrCreate(['name' => 'Administrador']);
         $roleGerente = Role::firstOrCreate(['name' => 'Gerente']);
-        $roleAsesor = Role::firstOrCreate(['name' => 'Asesor']);
+        $roleAgente = Role::firstOrCreate(['name' => 'Agente']);
         $roleCliente = Role::firstOrCreate(['name' => 'Cliente']);
 
         // Asignar permisos a los roles
@@ -90,12 +94,13 @@ class RolePermissionSeeder extends Seeder
             'Ver Oficinas',
             'Crear Oficinas',
             'Editar Oficinas',
-            'Ver Inquilinos', 
+            'Ver Inquilinos',
+            'Gestionar instancias WhatsApp',
             // Aquí los demás permisos que requiera el Gerente
         ]);
 
-        // ASESOR:
-        $roleAsesor->givePermissionTo([
+        // AGENTE (antes «Asesor»):
+        $roleAgente->givePermissionTo([
             'Ver Dashboard',
             'Ver Oficinas', // Necesario para entrar al módulo
             'Ver Inquilinos',
@@ -104,7 +109,7 @@ class RolePermissionSeeder extends Seeder
             // Permisos limitados a su operación
         ]);
 
-        // Al Cliente le podrías dar permisos específicos, por ejemplo: 
+        // Al Cliente le podrías dar permisos específicos, por ejemplo:
         $roleCliente->givePermissionTo(['Ver Rentas']);
 
         // CREAR EL USUARIO ADMINISTRADOR POR DEFECTO

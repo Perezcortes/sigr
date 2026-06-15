@@ -3,6 +3,8 @@
 namespace App\Filament\Resources\OwnerRequestResource\Pages;
 
 use App\Filament\Resources\OwnerRequestResource;
+use App\Models\Property;
+use App\Models\PropertyImage;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 
@@ -10,81 +12,12 @@ class EditOwnerRequest extends EditRecord
 {
     protected static string $resource = OwnerRequestResource::class;
 
-    public function mount($record): void
+    protected function mutateFormDataBeforeFill(array $data): array
     {
-        parent::mount($record);
+        $this->record->loadMissing('rent');
+        $data['selected_property_id'] = $this->record->rent?->property_id;
 
-        // Pre-cargar datos del owner si existen
-        if ($this->record->owner) {
-            $owner = $this->record->owner;
-            
-            $this->form->fill([
-                'tipo_persona' => $owner->tipo_persona,
-                'nombres' => $owner->nombres,
-                'primer_apellido' => $owner->primer_apellido,
-                'segundo_apellido' => $owner->segundo_apellido,
-                'email' => $owner->email,
-                'telefono' => $owner->telefono,
-                'sexo' => $owner->sexo,
-                'estado_civil' => $owner->estado_civil,
-                'regimen_conyugal' => $owner->regimen_conyugal,
-                'nacionalidad' => $owner->nacionalidad,
-                'tipo_identificacion' => $owner->tipo_identificacion,
-                'rfc' => $owner->rfc,
-                'curp' => $owner->curp,
-                'calle' => $owner->calle,
-                'numero_exterior' => $owner->numero_exterior,
-                'numero_interior' => $owner->numero_interior,
-                'codigo_postal' => $owner->codigo_postal,
-                'colonia' => $owner->colonia,
-                'delegacion_municipio' => $owner->delegacion_municipio,
-                'estado' => $owner->estado,
-                'referencias_ubicacion' => $owner->referencias_ubicacion,
-                'forma_pago' => $owner->forma_pago,
-                'forma_pago_otro' => $owner->forma_pago_otro,
-                'titular_cuenta' => $owner->titular_cuenta,
-                'numero_cuenta' => $owner->numero_cuenta,
-                'nombre_banco' => $owner->nombre_banco,
-                'clabe_interbancaria' => $owner->clabe_interbancaria,
-                'sera_representado' => $owner->sera_representado,
-                'tipo_representacion' => $owner->tipo_representacion,
-                // Campos para Persona Moral
-                'razon_social' => $owner->razon_social,
-                'dominio_internet' => $owner->dominio_internet,
-                'notario_nombres' => $owner->notario_nombres,
-                'notario_primer_apellido' => $owner->notario_primer_apellido,
-                'notario_segundo_apellido' => $owner->notario_segundo_apellido,
-                'numero_escritura' => $owner->numero_escritura,
-                'fecha_constitucion' => $owner->fecha_constitucion,
-                'notario_numero' => $owner->notario_numero,
-                'ciudad_registro' => $owner->ciudad_registro,
-                'estado_registro' => $owner->estado_registro,
-                'numero_registro_inscripcion' => $owner->numero_registro_inscripcion,
-                'giro_comercial' => $owner->giro_comercial,
-                'apoderado_nombres' => $owner->apoderado_nombres,
-                'apoderado_primer_apellido' => $owner->apoderado_primer_apellido,
-                'apoderado_segundo_apellido' => $owner->apoderado_segundo_apellido,
-                'apoderado_sexo' => $owner->apoderado_sexo,
-                'apoderado_curp' => $owner->apoderado_curp,
-                'apoderado_email' => $owner->apoderado_email,
-                'apoderado_telefono' => $owner->apoderado_telefono,
-                'apoderado_calle' => $owner->apoderado_calle,
-                'apoderado_numero_exterior' => $owner->apoderado_numero_exterior,
-                'apoderado_numero_interior' => $owner->apoderado_numero_interior,
-                'apoderado_cp' => $owner->apoderado_cp,
-                'apoderado_colonia' => $owner->apoderado_colonia,
-                'apoderado_municipio' => $owner->apoderado_municipio,
-                'apoderado_estado' => $owner->apoderado_estado,
-                'facultades_en_acta' => $owner->facultades_en_acta,
-                'escritura_publica_numero' => $owner->escritura_publica_numero,
-                'notario_numero_facultades' => $owner->notario_numero_facultades,
-                'fecha_escritura_facultades' => $owner->fecha_escritura_facultades,
-                'numero_inscripcion_registro_publico' => $owner->numero_inscripcion_registro_publico,
-                'ciudad_registro_facultades' => $owner->ciudad_registro_facultades,
-                'estado_registro_facultades' => $owner->estado_registro_facultades,
-                'tipo_representacion_moral' => $owner->tipo_representacion_moral,
-            ]);
-        }
+        return $data;
     }
 
     protected function getHeaderActions(): array
@@ -118,6 +51,32 @@ class EditOwnerRequest extends EditRecord
 
     protected function mutateFormDataBeforeSave(array $data): array
     {
+        $selectedPropertyId = $data['selected_property_id'] ?? null;
+        unset($data['selected_property_id']);
+
+        if ($this->record->rent) {
+            $rentUpdate = ['property_id' => $selectedPropertyId ?: null];
+
+            if ($selectedPropertyId) {
+                $property = Property::query()->find($selectedPropertyId);
+                if ($property) {
+                    $rentUpdate = array_merge($rentUpdate, [
+                        'tipo_propiedad' => $property->tipo_inmueble,
+                        'calle' => $property->calle,
+                        'numero_exterior' => $property->numero_exterior,
+                        'numero_interior' => $property->numero_interior,
+                        'codigo_postal' => $property->codigo_postal,
+                        'colonia' => $property->colonia,
+                        'municipio' => $property->delegacion_municipio,
+                        'estado' => $property->estado,
+                        'referencias_ubicacion' => $property->referencias_ubicacion,
+                    ]);
+                }
+            }
+
+            $this->record->rent->update($rentUpdate);
+        }
+
         // Sincronizar datos con la tabla owners
         if ($this->record->owner) {
             $ownerData = [
@@ -190,5 +149,61 @@ class EditOwnerRequest extends EditRecord
         }
 
         return $data;
+    }
+
+    public function deleteOwnerRequestPropertyImage(int $id): void
+    {
+        $propertyId = $this->data['selected_property_id'] ?? null;
+        if (! $propertyId) {
+            return;
+        }
+
+        $image = PropertyImage::query()->find($id);
+        if (! $image || (int) $image->property_id !== (int) $propertyId) {
+            return;
+        }
+
+        if ($image->is_portada) {
+            $otherImage = PropertyImage::query()
+                ->where('property_id', $propertyId)
+                ->where('id', '!=', $id)
+                ->first();
+
+            if ($otherImage) {
+                $otherImage->update(['is_portada' => true]);
+            }
+        }
+
+        $image->delete();
+
+        \Filament\Notifications\Notification::make()
+            ->success()
+            ->title('Imagen eliminada')
+            ->send();
+    }
+
+    public function setOwnerRequestPropertyPortada(int $id): void
+    {
+        $propertyId = $this->data['selected_property_id'] ?? null;
+        if (! $propertyId) {
+            return;
+        }
+
+        $property = Property::query()->find($propertyId);
+        $image = PropertyImage::query()->find($id);
+        if (! $property || ! $image || (int) $image->property_id !== (int) $property->id) {
+            return;
+        }
+
+        PropertyImage::query()
+            ->where('property_id', $property->id)
+            ->update(['is_portada' => false]);
+
+        $image->update(['is_portada' => true]);
+
+        \Filament\Notifications\Notification::make()
+            ->success()
+            ->title('Imagen marcada como portada')
+            ->send();
     }
 }

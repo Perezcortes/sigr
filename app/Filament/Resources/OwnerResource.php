@@ -13,9 +13,11 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\TenantCredentialsMail; // Reutilizamos el correo
+use App\Support\Filament\ScopesByOfficeAndAdvisor;
 use Filament\Forms\Components\Actions\Action;
 use Filament\Forms\Components\Actions;
 use Filament\Notifications\Notification;
@@ -26,11 +28,11 @@ class OwnerResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-user-circle';
 
-    protected static ?string $navigationLabel = 'Propietarios';
+    protected static ?string $navigationLabel = 'Arrendadores';
 
-    protected static ?string $modelLabel = 'Propietario';
+    protected static ?string $modelLabel = 'Arrendador';
 
-    protected static ?string $pluralModelLabel = 'Propietarios';
+    protected static ?string $pluralModelLabel = 'Arrendadores';
 
     protected static ?string $navigationGroup = 'Rentas';
 
@@ -41,96 +43,198 @@ class OwnerResource extends Resource
         return null;
     }
 
+    public static function canViewAny(): bool
+    {
+        return auth()->user()->hasAnyRole(['Administrador', 'Gerente', 'Agente']);
+    }
+
+    public static function canCreate(): bool
+    {
+        // Administradores y Asesores pueden crear propietarios
+        return auth()->user()->hasAnyRole(['Administrador', 'Agente']);
+    }
+
+    public static function canEdit(Model $record): bool
+    {
+        $user = auth()->user();
+
+        if ($user->hasRole('Administrador')) {
+            return true;
+        }
+
+        if ($user->hasRole('Agente')) {
+            // El asesor solo edita si él es el titular asignado a este propietario
+            return $record->asesor_id === $user->id;
+        }
+
+        // El Gerente solo lee, no edita
+        return false;
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        return auth()->user()->hasRole('Administrador');
+    }
+
+    // --- FORMULARIO REDISEÑADO A 2 COLUMNAS ---
     public static function form(Form $form): Form
     {
         return $form
             ->schema([
-                Forms\Components\Section::make('Tipo de Persona')
-                    ->schema([
-                        Forms\Components\Radio::make('tipo_persona')
-                            ->options([
-                                'fisica' => 'Persona Física',
-                                'moral' => 'Persona Moral',
-                            ])
-                            ->required()
-                            ->live()
-                            ->columnSpanFull(),
+                Forms\Components\Grid::make(3)->schema([
+                    
+                    // COLUMNA IZQUIERDA (Datos Generales)
+                    Forms\Components\Group::make()->columnSpan(2)->schema([
+                        
+                        Forms\Components\Section::make('Tipo de Persona')
+                            ->schema([
+                                Forms\Components\Radio::make('tipo_persona')
+                                    ->options([
+                                        'fisica' => 'Persona Física',
+                                        'moral' => 'Persona Moral',
+                                    ])
+                                    ->required()
+                                    ->live()
+                                    ->columnSpanFull(),
+                            ]),
+
+                        Forms\Components\Section::make('Información Personal')
+                            ->schema(self::getPersonaFisicaSchema())
+                            ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica')
+                            ->columns(2),
+
+                        Forms\Components\Section::make('Domicilio Actual')
+                            ->schema(self::getDomicilioSchema())
+                            ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica')
+                            ->columns(2),
+
+                        Forms\Components\Section::make('Información de la Empresa')
+                            ->schema(self::getPersonaMoralSchema())
+                            ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
+                            ->columns(2),
+
+                        Forms\Components\Section::make('Domicilio de la Empresa')
+                            ->schema(self::getDomicilioMoralSchema())
+                            ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
+                            ->columns(2),
+
+                        Forms\Components\Section::make('Datos del Acta Constitutiva')
+                            ->schema(self::getActaConstitutivaSchema())
+                            ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
+                            ->columns(2),
+
+                        Forms\Components\Section::make('Apoderado Legal y/o Representante')
+                            ->schema(self::getApoderadoSchema())
+                            ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
+                            ->columns(2),
+
+                        Forms\Components\Section::make('Facultades en Acta')
+                            ->schema(self::getFacultadesActaSchema())
+                            ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'moral' && $get('facultades_en_acta') === true)
+                            ->columns(2),
+                        
+                        Forms\Components\Section::make('Credenciales de Acceso')
+                            ->description('Zona exclusiva. Genera usuario y envía accesos al Arrendador.')
+                            ->icon('heroicon-o-key')
+                            ->schema(self::getCredencialesSchema()) // Usaremos el nuevo método
+                            ->columns(2)
+                            ->visible(fn ($record) => $record !== null)
+                            ->hidden(fn () => !auth()->user()->hasRole(['Administrador', 'Gerente', 'Asesor'])),
                     ]),
 
-                // Formulario Persona Física
-                Forms\Components\Section::make('Información Personal')
-                    ->schema(self::getPersonaFisicaSchema())
-                    ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica')
-                    ->columns(2),
+                    // COLUMNA DERECHA (Acciones y Seguimiento)
+                    Forms\Components\Group::make()->columnSpan(1)->schema([
+                        Forms\Components\Tabs::make('CRM Tabs')
+                            ->tabs([
+                                // --- NOTAS Y ACCIONES ---
+                                Forms\Components\Tabs\Tab::make('Notas y Seguimiento')
+                                    ->icon('heroicon-m-document-text')
+                                    ->schema([
+                                        
+                                        // Botonera de acciones
+                                        Forms\Components\Actions::make([
+                                            
+                                            Forms\Components\Actions\Action::make('agregar_nota')
+                                                ->label('Agregar Nota')
+                                                ->icon('heroicon-m-pencil-square')
+                                                ->color('warning')
+                                                ->form([
+                                                    Forms\Components\Textarea::make('nota')
+                                                        ->label('Escribe aquí tu nota')
+                                                        ->required()
+                                                        ->rows(3),
+                                                ])
+                                                ->action(function (array $data, ?Owner $record) {
+                                                    if($record) {
+                                                        $hist = $record->historial_acciones ?? [];
+                                                        $hist[] = ['fecha' => now()->format('d/m/Y H:i'), 'accion' => 'Nota: ' . $data['nota']];
+                                                        $record->update(['historial_acciones' => $hist]);
+                                                    }
+                                                })->visible(fn (?Owner $record) => $record !== null),
 
-                Forms\Components\Section::make('Domicilio Actual')
-                    ->schema(self::getDomicilioSchema())
-                    ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica')
-                    ->columns(2),
+                                            Forms\Components\Actions\Action::make('crear_cita')
+                                                ->label('Cita')
+                                                ->icon('heroicon-m-calendar')
+                                                ->color('primary')
+                                                ->form([
+                                                    Forms\Components\DatePicker::make('fecha')->required(),
+                                                    Forms\Components\TimePicker::make('hora')->required(),
+                                                    Forms\Components\Textarea::make('observaciones'),
+                                                ])
+                                                ->action(function (array $data, ?Owner $record) {
+                                                    if($record) {
+                                                        $hist = $record->historial_acciones ?? [];
+                                                        $hist[] = ['fecha' => now()->format('d/m/Y H:i'), 'accion' => "Cita: {$data['fecha']} a las {$data['hora']} - " . ($data['observaciones'] ?? '')];
+                                                        $record->update(['historial_acciones' => $hist]);
+                                                    }
+                                                })->visible(fn (?Owner $record) => $record !== null),
 
-                Forms\Components\Section::make('Forma de Pago')
-                    ->schema(self::getFormaPagoSchema())
-                    ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica')
-                    ->columns(2),
+                                            Forms\Components\Actions\Action::make('whatsapp')
+                                                ->label('WhatsApp')
+                                                ->icon('heroicon-m-chat-bubble-left-ellipsis')
+                                                ->color('success')
+                                                ->action(function (?Owner $record) {
+                                                    if($record) {
+                                                        $hist = $record->historial_acciones ?? [];
+                                                        $hist[] = ['fecha' => now()->format('d/m/Y H:i'), 'accion' => 'WhatsApp iniciado'];
+                                                        $record->update(['historial_acciones' => $hist]);
+                                                        return redirect()->away("https://wa.me/52" . $record->telefono);
+                                                    }
+                                                })->visible(fn (?Owner $record) => $record !== null),
 
-                Forms\Components\Section::make('Datos de Transferencia')
-                    ->schema(self::getDatosTransferenciaSchema())
-                    ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica' && $get('forma_pago') === 'Transferencia')
-                    ->columns(2),
+                                            Forms\Components\Actions\Action::make('registrar_llamada')
+                                                ->label('Llamada')
+                                                ->icon('heroicon-m-phone')
+                                                ->color('gray')
+                                                ->requiresConfirmation()
+                                                ->action(function (?Owner $record) {
+                                                    if($record) {
+                                                        $hist = $record->historial_acciones ?? [];
+                                                        $hist[] = ['fecha' => now()->format('d/m/Y H:i'), 'accion' => 'Llamada telefónica registrada'];
+                                                        $record->update(['historial_acciones' => $hist]);
+                                                    }
+                                                })->visible(fn (?Owner $record) => $record !== null),
+                                        ]),
 
-                Forms\Components\Section::make('Representación')
-                    ->schema(self::getRepresentacionSchema())
-                    ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica')
-                    ->columns(2),
+                                        // Muro de historial (usa el mismo archivo blade que Inquilinos)
+                                        Forms\Components\ViewField::make('historial_acciones')
+                                            ->view('filament.forms.components.lead-history')
+                                            ->label('')
+                                            ->visible(fn (?Owner $record) => $record !== null && !empty($record->historial_acciones)),
+                                    ]),
 
-                Forms\Components\Section::make('Información del Representante')
-                    ->schema(self::getRepresentanteSchema())
-                    ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'fisica' && $get('sera_representado') === 'Si')
-                    ->columns(2),
-
-                // Formulario Persona Moral
-                Forms\Components\Section::make('Información de la Empresa')
-                    ->schema(self::getPersonaMoralSchema())
-                    ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
-                    ->columns(2),
-
-                Forms\Components\Section::make('Domicilio de la Empresa')
-                    ->schema(self::getDomicilioMoralSchema())
-                    ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
-                    ->columns(2),
-
-                Forms\Components\Section::make('Forma de Pago')
-                    ->schema(self::getFormaPagoSchema())
-                    ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
-                    ->columns(2),
-
-                Forms\Components\Section::make('Datos de Transferencia')
-                    ->schema(self::getDatosTransferenciaSchema())
-                    ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'moral' && $get('forma_pago') === 'Transferencia')
-                    ->columns(2),
-
-                Forms\Components\Section::make('Datos del Acta Constitutiva')
-                    ->schema(self::getActaConstitutivaSchema())
-                    ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
-                    ->columns(2),
-
-                Forms\Components\Section::make('Apoderado Legal y/o Representante')
-                    ->schema(self::getApoderadoSchema())
-                    ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'moral')
-                    ->columns(2),
-
-                Forms\Components\Section::make('Facultades en Acta')
-                    ->schema(self::getFacultadesActaSchema())
-                    ->visible(fn (Forms\Get $get) => $get('tipo_persona') === 'moral' && $get('facultades_en_acta') === true)
-                    ->columns(2),
-
-                Forms\Components\Section::make('Credenciales de Acceso')
-                    ->description('Zona exclusiva. Genera usuario y envía accesos al Propietario.')
-                    ->icon('heroicon-o-key')
-                    ->schema(self::getCredencialesSchema())
-                    ->columns(2)
-                    ->visible(fn ($record) => $record !== null) // Solo en Editar
-                    ->hidden(fn () => !auth()->user()->hasRole(['Administrador', 'Gerente', 'Asesor'])),
+                                // --- MENSAJES / WHATSAPP ---
+                                Forms\Components\Tabs\Tab::make('WhatsApp')
+                                    ->icon('heroicon-m-chat-bubble-bottom-center-text')
+                                    ->schema([
+                                        Forms\Components\Placeholder::make('info_whatsapp')
+                                            ->label('Chat de WhatsApp')
+                                            ->content('En la siguiente fase, conectaremos este panel con la Evolution API para ver los mensajes en vivo aquí mismo.'),
+                                    ]),
+                            ])
+                            ->columnSpanFull(),
+                    ]),
+                ]),
             ]);
     }
 
@@ -686,6 +790,19 @@ class OwnerResource extends Resource
         ];
     }
 
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+        $user = auth()->user();
+
+        $query->where(function (Builder $q): void {
+            $q->whereNull($q->qualifyColumn('user_id'))
+                ->orWhereHas('user', fn (Builder $u) => $u->where('is_owner', true));
+        });
+
+        return ScopesByOfficeAndAdvisor::scopeTenantOwnerIndexForFilament($query, $user);
+    }
+
     public static function table(Table $table): Table
     {
         return $table
@@ -720,9 +837,9 @@ class OwnerResource extends Resource
                     }),
 
                 Tables\Columns\TextColumn::make('asesor.name') 
-                    ->label('Asesor Asignado')
+                    ->label('Agente')
                     ->icon('heroicon-o-user-circle')
-                    ->placeholder('Sin Asesor')      
+                    ->placeholder('Sin agente')      
                     ->description(fn ($record) => $record->asesor?->email) 
                     ->searchable() 
                     ->sortable()
@@ -763,22 +880,29 @@ class OwnerResource extends Resource
                     ]),
             ])
             ->actions([
+                // (Mantenemos tu botón personalizado de verPropiedades)
                 Tables\Actions\Action::make('verPropiedades')
                     ->icon('heroicon-o-building-library')
-                    ->iconButton() // Convierte el botón a solo icono
+                    ->iconButton() 
                     ->tooltip('Ver propiedades')
                     ->url(fn ($record) => PropertyResource::getUrl('index', [
                         'tableFilters' => [
                             'user_id' => [
-                                'value' => $record->user_id, // Filtramos por el ID del Usuario vinculado al Owner
+                                'value' => $record->user_id, 
                             ],
                         ],
                     ])),
+                    
+                Tables\Actions\ViewAction::make()
+                    ->iconButton()
+                    ->tooltip('Ver detalles'),
+                    
                 Tables\Actions\EditAction::make()
-                    ->iconButton() // Convierte el botón a solo icono
+                    ->iconButton() 
                     ->tooltip('Editar'),
+                    
                 Tables\Actions\DeleteAction::make()
-                    ->iconButton() // Convierte el botón a solo icono
+                    ->iconButton() 
                     ->tooltip('Eliminar'),
             ])
             ->actionsColumnLabel('ACCIONES')
@@ -792,79 +916,78 @@ class OwnerResource extends Resource
     public static function getCredencialesSchema(): array
     {
         return [
+            Forms\Components\Placeholder::make('estatus_acceso')
+                ->label('Estatus de la cuenta')
+                ->content(function (?Owner $record) {
+                    if (!$record || !$record->user_id) {
+                        return new \Illuminate\Support\HtmlString('<span style="color: gray; font-weight: bold;">Sin generar</span>');
+                    }
+                    return $record->user->is_active 
+                        ? new \Illuminate\Support\HtmlString('<span style="color: green; font-weight: bold;">Activo</span>') 
+                        : new \Illuminate\Support\HtmlString('<span style="color: red; font-weight: bold;">Inactivo</span>');
+                }),
+
             Forms\Components\TextInput::make('login_email')
-                ->label('Correo de Acceso (Usuario)')
+                ->label('Correo de Acceso')
                 ->email()
-                ->required()
-                ->dehydrated(false)
-                // Carga el correo del propietario al editar
-                ->formatStateUsing(fn ($record) => $record->email),
+                ->default(fn ($record) => $record?->email)
+                ->disabled(fn ($record) => $record && $record->user_id)
+                ->dehydrated(false),
 
-            Forms\Components\TextInput::make('login_password')
-                ->label('Contraseña')
-                ->password()
-                ->revealable()
-                ->dehydrated(false)
-                ->default(fn () => \Illuminate\Support\Str::random(10))
-                ->helperText('Esta contraseña se encriptará. El usuario la recibirá por correo.'),
-
-            // BOTÓN DE ACCIÓN
             Forms\Components\Actions::make([
-                Action::make('enviar_accesos_owner') // ID único para evitar conflictos
+                
+                // Generar (Visible si no tiene usuario)
+                Action::make('enviar_accesos_owner')
                     ->label('Generar Usuario y Enviar Correo')
                     ->icon('heroicon-m-envelope')
                     ->color('primary')
-                    ->requiresConfirmation()
-                    ->modalHeading('Confirmar envío a Propietario')
-                    ->modalDescription('Se creará/actualizará el usuario y se enviarán las credenciales.')
-                    ->action(function (Forms\Set $set, Forms\Get $get, $record) {
-                        
+                    ->visible(fn ($record) => $record && !$record->user_id)
+                    ->action(function (Forms\Get $get, $record) {
                         $email = $get('login_email');
-                        $password = $get('login_password');
+                        if (!$email) return;
 
-                        if (!$email || !$password) {
-                            Notification::make()->danger()->title('Error')->body('Faltan datos.')->send();
-                            return;
-                        }
+                        $password = \Illuminate\Support\Str::random(10);
 
-                        // CREAR / ACTUALIZAR USUARIO (Marcándolo como OWNER)
-                        $user = User::updateOrCreate(
+                        $user = User::firstOrCreate(
                             ['email' => $email],
                             [
-                                'name'      => $record->nombre_completo ?? $record->nombres,
+                                'name'      => $record->nombre_completo ?? 'Arrendador',
                                 'password'  => Hash::make($password),
-                                'is_owner'  => true,  
-                                // 'is_tenant' => false, // Opcional: si un usuario puede ser ambos
+                                'is_owner'  => true,
                                 'is_active' => true,
                             ]
                         );
 
-                        // VINCULAR CON EL PROPIETARIO
-                        if ($record->user_id !== $user->id) {
-                            $record->update(['user_id' => $user->id]);
-                        }
+                        $record->update(['user_id' => $user->id]);
 
-                        // ENVIAR CORREO
                         try {
-                            // Reutilizamos el mismo diseño de correo
                             Mail::to($user->email)->send(new TenantCredentialsMail($user, $password));
-                            
-                            Notification::make()
-                                ->success()
-                                ->title('Propietario Configurado')
-                                ->body("Credenciales enviadas a {$email}")
-                                ->send();
-                                
+                            Notification::make()->success()->title('Credenciales enviadas')->send();
                         } catch (\Exception $e) {
-                            Notification::make()
-                                ->warning()
-                                ->title('Error de envío')
-                                ->body('Usuario guardado, pero falló el correo: ' . $e->getMessage())
-                                ->send();
+                            Notification::make()->warning()->title('Usuario creado, falló el correo')->send();
                         }
-                        
-                        // Limpiar password visualmente
-                        $set('login_password', \Illuminate\Support\Str::random(10));
+                    }),
+
+                // Desactivar (Visible si está Activo)
+                Action::make('desactivar_usuario')
+                    ->label('Desactivar Usuario')
+                    ->icon('heroicon-m-no-symbol')
+                    ->color('danger')
+                    ->visible(fn ($record) => $record && $record->user_id && $record->user->is_active)
+                    ->action(function ($record) {
+                        $record->user->update(['is_active' => false]);
+                        Notification::make()->success()->title('Arrendador desactivado')->send();
+                    }),
+
+                // Reactivar (Visible si está Inactivo)
+                Action::make('activar_usuario')
+                    ->label('Reactivar Usuario')
+                    ->icon('heroicon-m-check-circle')
+                    ->color('success')
+                    ->visible(fn ($record) => $record && $record->user_id && !$record->user->is_active)
+                    ->action(function ($record) {
+                        $record->user->update(['is_active' => true]);
+                        Notification::make()->success()->title('Arrendador reactivado')->send();
                     }),
             ])->columnSpanFull(),
         ];

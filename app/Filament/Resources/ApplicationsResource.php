@@ -286,7 +286,7 @@ class ApplicationsResource extends Resource
                     ->color('success'),
 
                 Tables\Columns\TextColumn::make('user.name')
-                    ->label('Tenant')
+                    ->label('Inquilino')
                     ->searchable()
                     ->sortable(),
 
@@ -319,7 +319,7 @@ class ApplicationsResource extends Resource
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('user_id')
-                    ->label('Tenant')
+                    ->label('Inquilino')
                     ->relationship('user', 'name')
                     ->searchable()
                     ->preload(),

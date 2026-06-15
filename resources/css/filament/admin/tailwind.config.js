@@ -5,6 +5,11 @@ export default {
     content: [
         './app/Filament/**/*.php',
         './resources/views/filament/**/*.blade.php',
+        
+        './app/Livewire/**/*.php',
+        './resources/views/livewire/**/*.blade.php',
+        './resources/views/components/layouts/**/*.blade.php',
+        
         './vendor/filament/**/*.blade.php',
         './vendor/cwsps154/users-roles-permissions/src/**/*.blade.php', 
     ],
