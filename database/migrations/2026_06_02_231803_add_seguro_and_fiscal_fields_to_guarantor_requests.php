@@ -44,17 +44,13 @@ return new class extends Migration
 
     public function up(): void
     {
-        try {
-            if (DB::getDriverName() === 'mysql') {
-                DB::statement('ALTER TABLE guarantor_requests ROW_FORMAT=DYNAMIC;');
-            }
-        } catch (\Throwable $e) {
-        }
-
         if (DB::getDriverName() !== 'mysql') {
             $this->upWithSchemaBuilder();
             return;
         }
+
+        DB::statement('SET SESSION innodb_strict_mode = 0;');
+        DB::statement('ALTER TABLE guarantor_requests ROW_FORMAT=DYNAMIC;');
 
         foreach ($this->wideVarcharToText as $column) {
             $this->ensureTextColumn('guarantor_requests', $column);
@@ -81,6 +77,8 @@ return new class extends Migration
         } else {
             DB::statement("ALTER TABLE guarantor_requests MODIFY fiscal_codigo_postal VARCHAR(10) NULL;");
         }
+
+        DB::statement('SET SESSION innodb_strict_mode = 1;');
     }
 
     private function upWithSchemaBuilder(): void
