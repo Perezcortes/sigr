@@ -108,4 +108,11 @@ class EditTenantRequest extends EditRecord
 
         return $data;
     }
+
+    protected function getRedirectUrl(): string
+    {
+        return \App\Filament\Resources\RentResource::getUrl('view', [
+          'record' => $this->record->rent->hash_id ?? $this->record->rent_id,
+        ]) . '?tab=-solicitudes-tab&solicitud=-inquilino-tab';
+    }
 }
