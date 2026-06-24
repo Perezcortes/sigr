@@ -275,10 +275,12 @@ class ViewRent extends EditRecord
         return $form
             ->schema([
                 Forms\Components\Tabs::make('Tabs')
+                    ->persistTabInQueryString('tab')
                     ->columnSpanFull()
                     ->tabs([
                         // ========== TAB: INFORMACIÓN ==========
                         Forms\Components\Tabs\Tab::make('Información')
+                            ->id('informacion')
                             ->icon('heroicon-o-information-circle')
                             ->schema([
 
@@ -726,14 +728,17 @@ class ViewRent extends EditRecord
 
                         // ========== TAB: SOLICITUDES ==========
                         Forms\Components\Tabs\Tab::make('Solicitudes')
+                            ->id('solicitudes')
                             ->icon('heroicon-o-clipboard-document-list')
                             ->visible(fn (): bool => $this->record->estatus !== 'nueva')
                             ->schema([
                                 Forms\Components\Tabs::make('SolicitudesTabs')
+                                    ->persistTabInQueryString('solicitud')
                                     ->columnSpanFull()
                                     ->tabs([
                                         // Sub-tab: Inquilino
                                         Forms\Components\Tabs\Tab::make('Inquilino')
+                                            ->id('inquilino')
                                             ->icon('heroicon-o-user')
                                             ->schema([
                                                 Forms\Components\Section::make('Datos del inquilino')
@@ -865,24 +870,28 @@ class ViewRent extends EditRecord
                                                         ->icon('heroicon-o-check')
                                                         ->action(function () {
                                                             if ($this->record->tenant) {
+
+                                                                $cleanedData = collect($this->data)->map(fn($val) => $val === '' ? null : $val)->toArray();
+
                                                                 $updateData = [
-                                                                    'tipo_persona' => $this->data['tenant_tipo_persona'] ?? 'fisica',
-                                                                    'email' => $this->data['tenant_email'] ?? '',
+                                                                    'tipo_persona' => $cleanedData['tenant_tipo_persona'] ?? 'fisica',
+                                                                    'email' => $cleanedData['tenant_email'] ?? null, 
                                                                 ];
-                                                                if ($this->data['tenant_tipo_persona'] === 'fisica') {
-                                                                    $updateData['nombres'] = $this->data['tenant_nombres'] ?? '';
-                                                                    $updateData['primer_apellido'] = $this->data['tenant_primer_apellido'] ?? '';
-                                                                    $updateData['segundo_apellido'] = $this->data['tenant_segundo_apellido'] ?? '';
-                                                                    $updateData['sexo'] = $this->data['tenant_sexo'] ?? '';
-                                                                    $updateData['razon_social'] = null;
-                                                                    $updateData['rfc'] = null;
+
+                                                                if (($cleanedData['tenant_tipo_persona'] ?? 'fisica') === 'fisica') {
+                                                                    $updateData['nombres']          = $cleanedData['tenant_nombres'] ?? null;
+                                                                    $updateData['primer_apellido']  = $cleanedData['tenant_primer_apellido'] ?? null;
+                                                                    $updateData['segundo_apellido'] = $cleanedData['tenant_segundo_apellido'] ?? null;
+                                                                    $updateData['sexo']             = $cleanedData['tenant_sexo'] ?? null; 
+                                                                    $updateData['razon_social']     = null;
+                                                                    $updateData['rfc']              = null;
                                                                 } else {
-                                                                    $updateData['razon_social'] = $this->data['tenant_razon_social'] ?? '';
-                                                                    $updateData['rfc'] = $this->data['tenant_rfc'] ?? '';
-                                                                    $updateData['nombres'] = null;
-                                                                    $updateData['primer_apellido'] = null;
+                                                                    $updateData['razon_social']     = $cleanedData['tenant_razon_social'] ?? null;
+                                                                    $updateData['rfc']              = $cleanedData['tenant_rfc'] ?? null;
+                                                                    $updateData['nombres']          = null;
+                                                                    $updateData['primer_apellido']  = null;
                                                                     $updateData['segundo_apellido'] = null;
-                                                                    $updateData['sexo'] = null;
+                                                                    $updateData['sexo']             = null;
                                                                 }
 
                                                                 $this->record->tenant->update($updateData);
@@ -897,20 +906,20 @@ class ViewRent extends EditRecord
                                                                 }
 
                                                                 // Persistir application_id y actualizar tenant_id si está presente
-                                                                if (isset($this->data['application_id'])) {
-                                                                    $application = Application::with('user.tenant')->find($this->data['application_id']);
+                                                                if (isset($cleanedData['application_id'])) {
+                                                                    $application = Application::with('user.tenant')->find($cleanedData['application_id']);
                                                                     if ($application && $application->user && $application->user->tenant) {
                                                                         $this->record->update([
-                                                                            'application_id' => $this->data['application_id'],
+                                                                            'application_id' => $cleanedData['application_id'],
                                                                             'tenant_id' => $application->user->tenant->id,
                                                                         ]);
                                                                     } else {
-                                                                        $this->record->update(['application_id' => $this->data['application_id']]);
+                                                                        $this->record->update(['application_id' => $cleanedData['application_id']]);
                                                                     }
                                                                 }
 
                                                                 Notification::make()->success()->title('Inquilino actualizado')->send();
-                                                                $this->redirect(RentResource::getUrl('view', ['record' => $this->record]));
+                                                                $this->redirect(RentResource::getUrl('view', ['record' => $this->record]) . '?tab=-solicitudes-tab&solicitud=-inquilino-tab');
                                                             }
                                                         }),
                                                     Action::make('edit_tenant')
@@ -1011,6 +1020,7 @@ class ViewRent extends EditRecord
 
                                         // Sub-tab: Fiador
                                         Forms\Components\Tabs\Tab::make('Fiador')
+                                            ->id('fiador')
                                             ->icon('heroicon-o-hand-raised')
                                             ->schema([
                                                 Forms\Components\Section::make('Datos del Obligado solidario / Fiador')
@@ -1181,12 +1191,14 @@ class ViewRent extends EditRecord
                                                             ");
 
                                                             Notification::make()->success()->title('¡Link copiado!')->body('El enlace del fiador está listo para enviarse.')->send();
+                                                            $this->redirect(RentResource::getUrl('view', ['record' => $this->record]) . '?tab=solicitudes&solicitud=fiador');
                                                         }),
                                                 ]),
                                             ]),
 
                                         // Sub-tab: Propietario
                                         Forms\Components\Tabs\Tab::make('Propietario')
+                                            ->id('propietario')
                                             ->icon('heroicon-o-home')
                                             ->schema([
                                                 Forms\Components\Section::make('Datos del propietario')
@@ -1265,6 +1277,8 @@ class ViewRent extends EditRecord
                                                                             ->title('Propietario vinculado')
                                                                             ->body('Los datos del propietario se han actualizado.')
                                                                             ->send();
+                                                                            $this->redirect(RentResource::getUrl('view', ['record' => $this->record]) . '?tab=-solicitudes-tab&solicitud=-propietario-tab');
+
                                                                     }
                                                                 }
                                                             }),
@@ -1451,6 +1465,7 @@ class ViewRent extends EditRecord
 
                                         // Sub-tab: Propiedad
                                         Forms\Components\Tabs\Tab::make('Propiedad')
+                                            ->id('propiedad')
                                             ->icon('heroicon-o-building-office')
                                             ->schema([
                                                 Forms\Components\Section::make('Datos de la propiedad')
