@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Property;
+use App\Models\PropertyImage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -58,6 +59,7 @@ class PropertyController extends Controller
             abort(403, 'Solo los propietarios pueden crear propiedades.');
         }
 
+        // Los campos numéricos opcionales llegan como '' si el usuario los deja vacíos; se convierten a null para que pasen la validación 'numeric'.
         $payload = $request->all();
         foreach (['m2Terreno', 'm2Construccion', 'numeroCuartos', 'numeroOficinas', 'rentaMensual', 'mantenimiento'] as $k) {
             if (array_key_exists($k, $payload) && $payload[$k] === '') {
@@ -86,6 +88,11 @@ class PropertyController extends Controller
             'mantenimiento' => ['nullable', 'numeric', 'min:0'],
             'aceptaMascotas' => ['nullable', 'string', Rule::in(['si', 'no'])],
             'inventario' => ['nullable', 'string', 'max:65535'],
+            'fotografias' => ['nullable', 'array'],
+            'fotografias.*.base64' => ['nullable', 'string'],
+            'fotografias.*.nombre' => ['nullable', 'string', 'max:255'],
+            'fotografias.*.mime' => ['nullable', 'string', 'max:64'],
+            'portada' => ['nullable', 'integer', 'min:0'],
         ]);
 
         $usoSuelo = $this->mapUsoSueloEnum($data['segmento'], $data['usoSuelo'] ?? null);
@@ -94,11 +101,11 @@ class PropertyController extends Controller
 
         $m2Terreno = isset($data['m2Terreno']) ? (float) $data['m2Terreno'] : null;
         $m2Constr = isset($data['m2Construccion']) ? (float) $data['m2Construccion'] : null;
-        $metros = $m2Constr ?: $m2Terreno;
+        $metros = $m2Constr ?: $m2Terreno; // construcción tiene prioridad sobre terreno
 
         $cuartos = isset($data['numeroCuartos']) ? (int) $data['numeroCuartos'] : null;
         $oficinas = isset($data['numeroOficinas']) ? (int) $data['numeroOficinas'] : null;
-        $recamaras = $cuartos ?? $oficinas ?? null;
+        $recamaras = $cuartos ?? $oficinas ?? null; // residencial usa cuartos, comercial usa oficinas, mismo campo en BD
 
         $refCiudad = trim((string) ($dir['ciudad'] ?? ''));
         $referencias = $refCiudad !== '' ? 'Ciudad: '.$refCiudad : null;
@@ -122,6 +129,32 @@ class PropertyController extends Controller
             'metros_cuadrados' => $metros,
             'recamaras' => $recamaras,
         ]);
+
+        // Las imágenes llegan como strings base64 en JSON porque NativePHP no puede
+        // reenviar binarios desde el WebView a PHP. Se decodifican aquí y se suben a MinIO.
+        $fotografias = $data['fotografias'] ?? [];
+        if (!empty($fotografias)) {
+            $portadaIndex = (int) ($data['portada'] ?? 0);
+            foreach ($fotografias as $index => $foto) {
+                $content = base64_decode($foto['base64'] ?? '');
+                if (empty($content)) {
+                    continue;
+                }
+                $nombre = $foto['nombre'] ?? "imagen_{$index}.jpg";
+                $ext = pathinfo($nombre, PATHINFO_EXTENSION) ?: 'jpg';
+                // Se usa uniqid() para evitar colisiones si se sube el mismo archivo dos veces.
+                $path = "properties/{$property->id}/images/" . uniqid() . ".{$ext}";
+                Storage::disk('spaces')->put($path, $content);
+                PropertyImage::create([
+                    'property_id' => $property->id,
+                    'path_file'   => $path,
+                    'is_portada'  => $index === $portadaIndex,
+                    'order'       => $index,
+                    'user_id'     => $user->id,
+                    'user_name'   => $user->name,
+                ]);
+            }
+        }
 
         $property->load(['images' => fn ($q) => $q->orderByDesc('is_portada')->orderBy('order')]);
 
@@ -158,6 +191,7 @@ class PropertyController extends Controller
 
     private function mapUsoSueloEnum(string $segmento, ?string $usoSelect): string
     {
+        // 'mixto' siempre resulta en 'Comercial' porque la BD no tiene un valor mixto propio.
         return match ($segmento) {
             'residencial' => 'Habitacional',
             'comercial' => match ($usoSelect) {
@@ -230,7 +264,7 @@ class PropertyController extends Controller
                 return null;
             }
 
-            return url(Storage::disk('public')->url($img->path_file));
+            return Storage::disk('spaces')->url($img->path_file);
         })->filter()->values()->all();
 
         if ($imagenes === []) {
@@ -252,13 +286,14 @@ class PropertyController extends Controller
 
     private function coverImageUrl(Property $p): ?string
     {
+        // Reutiliza la relación ya cargada si existe; evita una query extra por propiedad en listados.
         $images = $p->relationLoaded('images') ? $p->images : $p->images()->orderByDesc('is_portada')->orderBy('order')->get();
         $first = $images->firstWhere('is_portada', true) ?? $images->first();
         if (! $first || ! $first->path_file) {
             return null;
         }
 
-        return url(Storage::disk('public')->url($first->path_file));
+        return Storage::disk('spaces')->url($first->path_file);
     }
 
     private function direccionLinea(Property $p): string
