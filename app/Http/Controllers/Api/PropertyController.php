@@ -283,11 +283,24 @@ class PropertyController extends Controller
         $tipoPropiedad = $uso.' | '.$tipo;
 
         return array_merge($item, [
-            'imagenes' => $imagenes,
+            'imagenes'      => $imagenes,
             'tipoPropiedad' => $tipoPropiedad,
             'precioMensual' => $item['renta'],
-            'uso_suelo' => $p->uso_suelo,
+            'uso_suelo'     => $p->uso_suelo,
             'tipo_inmueble' => $p->tipo_inmueble ?? $p->tipo,
+            // Campos editables en la pantalla de "editar más detalles"
+            'calle'           => $p->calle,
+            'numero_exterior' => $p->numero_exterior,
+            'colonia'         => $p->colonia,
+            'municipio'       => $p->delegacion_municipio,
+            'estado'          => $p->estado,
+            'codigo_postal'   => $p->codigo_postal,
+            'm2_terreno'      => $p->metros_cuadrados !== null ? (float) $p->metros_cuadrados : null,
+            'm2_construccion' => null,
+            'recamaras'       => $p->recamaras !== null ? (int) $p->recamaras : null,
+            'mantenimiento'   => $p->costo_mantenimiento_mensual !== null ? (float) $p->costo_mantenimiento_mensual : null,
+            'mascotas'        => $p->mascotas ?? 'no',
+            'inventario'      => $p->inventario,
         ]);
     }
 
@@ -386,23 +399,63 @@ class PropertyController extends Controller
         return response()->json(['deleted' => true]);
     }
 
-    // Solo tipo_inmueble y precio_renta son editables via PATCH desde la app
+    // Acepta edición de tipo/precio (desde detalle) y todos los campos adicionales (desde editar)
     public function update(Request $request, Property $property): JsonResponse
     {
         $this->ensureOwner($request, $property);
 
         $data = $request->validate([
-            'tipo_inmueble' => ['sometimes', 'string', 'max:64'],
-            'precio_renta'  => ['sometimes', 'numeric', 'min:1'],
+            'tipo_inmueble'   => ['sometimes', 'string', 'max:64'],
+            'precio_renta'    => ['sometimes', 'numeric', 'min:1'],
+            'calle'           => ['sometimes', 'nullable', 'string', 'max:255'],
+            'numero_exterior' => ['sometimes', 'nullable', 'string', 'max:32'],
+            'colonia'         => ['sometimes', 'nullable', 'string', 'max:255'],
+            'municipio'       => ['sometimes', 'nullable', 'string', 'max:255'],
+            'estado'          => ['sometimes', 'nullable', 'string', 'max:255'],
+            'codigo_postal'   => ['sometimes', 'nullable', 'string', 'max:16'],
+            'm2_terreno'      => ['sometimes', 'nullable', 'numeric', 'min:0'],
+            'm2_construccion' => ['sometimes', 'nullable', 'numeric', 'min:0'],
+            'recamaras'       => ['sometimes', 'nullable', 'integer', 'min:0'],
+            'mantenimiento'   => ['sometimes', 'nullable', 'numeric', 'min:0'],
+            'mascotas'        => ['sometimes', Rule::in(['si', 'no'])],
+            'inventario'      => ['sometimes', 'nullable', 'string', 'max:65535'],
         ]);
 
+        $updates = [];
+
         if (isset($data['tipo_inmueble'])) {
-            $data['tipo_inmueble'] = $this->mapTipoInmueble($data['tipo_inmueble']);
+            $updates['tipo_inmueble'] = $this->mapTipoInmueble($data['tipo_inmueble']);
+        }
+        if (array_key_exists('precio_renta', $data))    $updates['precio_renta'] = $data['precio_renta'];
+        if (array_key_exists('calle', $data))           $updates['calle'] = $data['calle'];
+        if (array_key_exists('numero_exterior', $data)) $updates['numero_exterior'] = $data['numero_exterior'];
+        if (array_key_exists('colonia', $data))         $updates['colonia'] = $data['colonia'];
+        if (array_key_exists('municipio', $data))       $updates['delegacion_municipio'] = $data['municipio'];
+        if (array_key_exists('estado', $data))          $updates['estado'] = $data['estado'];
+        if (array_key_exists('codigo_postal', $data))   $updates['codigo_postal'] = $data['codigo_postal'];
+        if (array_key_exists('recamaras', $data))       $updates['recamaras'] = $data['recamaras'];
+        if (array_key_exists('mantenimiento', $data))   $updates['costo_mantenimiento_mensual'] = $data['mantenimiento'];
+        if (array_key_exists('mascotas', $data))        $updates['mascotas'] = $data['mascotas'];
+        if (array_key_exists('inventario', $data))      $updates['inventario'] = $data['inventario'];
+
+        // Mismo criterio que store(): construcción tiene prioridad sobre terreno
+        if (array_key_exists('m2_terreno', $data) || array_key_exists('m2_construccion', $data)) {
+            $m2c = $data['m2_construccion'] ?? null;
+            $m2t = $data['m2_terreno'] ?? null;
+            $updates['metros_cuadrados'] = $m2c ?: $m2t;
         }
 
-        $property->update($data);
+        $property->update($updates);
 
         return response()->json($this->toDetail($property->fresh(['images'])));
+    }
+
+    // Soft-delete de la propiedad; las imágenes del bucket se conservan hasta limpieza manual
+    public function destroy(Request $request, Property $property): JsonResponse
+    {
+        $this->ensureOwner($request, $property);
+        $property->delete();
+        return response()->json(['deleted' => true]);
     }
 
     // Inverso de mapTipoInmueble: label guardado en BD → slug que espera el frontend

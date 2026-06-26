@@ -36,5 +36,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/properties/{property}', [PropertyController::class, 'update']);
     Route::post('/properties/{property}/images', [PropertyController::class, 'addImages']);
     Route::delete('/properties/{property}/images/{image}', [PropertyController::class, 'deleteImage']);
+    Route::delete('/properties/{property}', [PropertyController::class, 'destroy']);
 });
 
