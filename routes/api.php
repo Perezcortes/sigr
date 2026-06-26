@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\AdvisorSearchController;
+use App\Http\Controllers\Api\GeoController;
 use App\Http\Controllers\Api\LeadWebhookController;
 use App\Http\Controllers\Api\OwnerTenantProfileController;
 use App\Http\Controllers\Api\PropertyController;
@@ -10,6 +11,8 @@ use Illuminate\Support\Facades\Route;
 // Rutas públicas
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
+Route::get('/geo/estates', [GeoController::class, 'estates']);
+Route::get('/geo/municipalities', [GeoController::class, 'municipalities']);
 Route::post('/webhooks/leads/nocnok', [LeadWebhookController::class, 'handle']);
 Route::get('/advisors/suggestions', [AdvisorSearchController::class, 'suggestions']);
 Route::get('/advisors/search', [AdvisorSearchController::class, 'search']);
