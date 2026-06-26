@@ -5,9 +5,11 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Property extends Model
 {
+    use SoftDeletes;
     protected $fillable = [
         'user_id',
         'folio',
@@ -105,7 +107,8 @@ class Property extends Model
         $prefix = "PROP-{$year}-";
 
         // Obtener el último folio del año actual
-        $lastProperty = self::where('folio', 'like', "{$prefix}%")
+        $lastProperty = self::withTrashed()
+            ->where('folio', 'like', "{$prefix}%")
             ->orderBy('folio', 'desc')
             ->first();
 
