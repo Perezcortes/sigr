@@ -205,6 +205,7 @@ class PropertyController extends Controller
         };
     }
 
+    // Convierte el slug que manda el frontend al label exacto guardado en la BD (no hay enum nativo)
     private function mapTipoInmueble(string $slug): string
     {
         $slug = strtolower($slug);
@@ -229,6 +230,7 @@ class PropertyController extends Controller
         }
     }
 
+    // Forma mínima para el listado de inventario; toDetail() extiende este array
     private function toListItem(Property $p): array
     {
         $uso = $p->uso_suelo ?? 'Habitacional';
@@ -255,6 +257,7 @@ class PropertyController extends Controller
         ];
     }
 
+    // Extiende toListItem con imagenes como objetos {id,url,is_portada} y campos editables
     private function toDetail(Property $p): array
     {
         $item = $this->toListItem($p);
@@ -264,11 +267,15 @@ class PropertyController extends Controller
                 return null;
             }
 
-            return Storage::disk('spaces')->url($img->path_file);
+            return [
+                'id'         => $img->id,
+                'url'        => Storage::disk('spaces')->url($img->path_file),
+                'is_portada' => (bool) $img->is_portada,
+            ];
         })->filter()->values()->all();
 
         if ($imagenes === []) {
-            $imagenes = [$item['foto']];
+            $imagenes = [['id' => null, 'url' => $item['foto'], 'is_portada' => true]];
         }
 
         $uso = $p->uso_suelo ?? 'Habitacional';
@@ -296,6 +303,7 @@ class PropertyController extends Controller
         return Storage::disk('spaces')->url($first->path_file);
     }
 
+    // Usa el campo legado `direccion` si está relleno; si no, concatena los campos individuales
     private function direccionLinea(Property $p): string
     {
         if (filled($p->direccion)) {
@@ -313,8 +321,104 @@ class PropertyController extends Controller
         return $parts !== [] ? implode(', ', $parts) : ($p->nombre ?? 'Sin dirección');
     }
 
+    // Mismo flujo base64 que store(); el order incrementa desde el máximo existente
+    public function addImages(Request $request, Property $property): JsonResponse
+    {
+        $this->ensureOwner($request, $property);
+
+        $request->validate([
+            'fotografias'           => ['required', 'array', 'min:1'],
+            'fotografias.*.base64'  => ['required', 'string'],
+            'fotografias.*.nombre'  => ['required', 'string'],
+            'fotografias.*.mime'    => ['required', 'string'],
+        ]);
+
+        $nuevas = [];
+        $order = $property->images()->max('order') ?? 0;
+
+        foreach ($request->fotografias as $foto) {
+            $content = base64_decode(preg_replace('/^data:[^;]+;base64,/', '', $foto['base64']));
+            $ext = match (strtolower($foto['mime'])) {
+                'image/png'  => 'png',
+                'image/webp' => 'webp',
+                default      => 'jpg',
+            };
+            $path = 'properties/' . $property->id . '/' . uniqid() . '.' . $ext;
+            Storage::disk('spaces')->put($path, $content, 'public');
+
+            $img = PropertyImage::create([
+                'property_id' => $property->id,
+                'path_file'   => $path,
+                'is_portada'  => false,
+                'order'       => ++$order,
+                'user_id'     => $request->user()->id,
+                'user_name'   => $request->user()->name,
+            ]);
+
+            $nuevas[] = [
+                'id'         => $img->id,
+                'url'        => Storage::disk('spaces')->url($path),
+                'is_portada' => false,
+            ];
+        }
+
+        return response()->json($nuevas, 201);
+    }
+
+    // Si la imagen eliminada era portada, promueve automáticamente la siguiente en orden
+    public function deleteImage(Request $request, Property $property, PropertyImage $image): JsonResponse
+    {
+        $this->ensureOwner($request, $property);
+
+        if ((int) $image->property_id !== (int) $property->id) {
+            abort(404);
+        }
+
+        Storage::disk('spaces')->delete($image->path_file);
+
+        $wasPortada = $image->is_portada;
+        $image->delete();
+
+        if ($wasPortada) {
+            $property->images()->orderBy('order')->first()?->update(['is_portada' => true]);
+        }
+
+        return response()->json(['deleted' => true]);
+    }
+
+    // Solo tipo_inmueble y precio_renta son editables via PATCH desde la app
+    public function update(Request $request, Property $property): JsonResponse
+    {
+        $this->ensureOwner($request, $property);
+
+        $data = $request->validate([
+            'tipo_inmueble' => ['sometimes', 'string', 'max:64'],
+            'precio_renta'  => ['sometimes', 'numeric', 'min:1'],
+        ]);
+
+        if (isset($data['tipo_inmueble'])) {
+            $data['tipo_inmueble'] = $this->mapTipoInmueble($data['tipo_inmueble']);
+        }
+
+        $property->update($data);
+
+        return response()->json($this->toDetail($property->fresh(['images'])));
+    }
+
+    // Inverso de mapTipoInmueble: label guardado en BD → slug que espera el frontend
     private function tipoToSlug(string $tipo): string
     {
-        return Str::slug($tipo, '-') ?: 'inmueble';
+        return match (strtolower($tipo)) {
+            'casa'            => 'casa',
+            'departamento'    => 'departamento',
+            'terreno'         => 'terreno',
+            'villa'           => 'villa',
+            'oficina'         => 'oficina',
+            'local comercial' => 'local',
+            'edificio'        => 'edificio',
+            'nave industrial' => 'nave_industrial',
+            'consultorio'     => 'consultorio',
+            default           => Str::slug($tipo, '_') ?: 'casa',
+        };
     }
 }

@@ -8,8 +8,10 @@ use App\Models\Municipality;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
+// Endpoints públicos (sin auth) para poblar los selects de estado y municipio en la app
 class GeoController extends Controller
 {
+    // Devuelve los 32 estados ordenados alfabéticamente
     public function estates(): JsonResponse
     {
         $estates = Estate::orderBy('nombre')->get(['id', 'nombre']);
@@ -17,6 +19,7 @@ class GeoController extends Controller
         return response()->json($estates);
     }
 
+    // state_id en municipios.json usa orden alfabético de estados, no el orden INEGI
     public function municipalities(Request $request): JsonResponse
     {
         $request->validate([
