@@ -150,6 +150,14 @@ class Property extends Model
     }
 
     /**
+     * Documentos legales de la propiedad (sin renta asociada)
+     */
+    public function documents(): HasMany
+    {
+        return $this->hasMany(PropertyDocument::class)->whereNull('rent_id');
+    }
+
+    /**
      * Obtiene la imagen portada
      */
     public function getPortadaAttribute()
