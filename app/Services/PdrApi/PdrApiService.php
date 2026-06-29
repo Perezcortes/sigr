@@ -20,16 +20,18 @@ class PdrApiService
 
     public function __construct()
     {
-        $this->baseUrl = env('PDR_API_URL', 'https://pruebas.polizaderentas.com'); // Entorno de pruebas
-        $this->clientId = env('PDR_CLIENT_ID', '');
+        $this->baseUrl      = env('PDR_API_URL', 'http://localhost:8001'); 
+        $this->clientId     = env('PDR_CLIENT_ID', '');
         $this->clientSecret = env('PDR_CLIENT_SECRET', '');
-        $this->scope = env('PDR_SCOPE', 'poliza.crear');
+        $this->scope        = env('PDR_SCOPE', 'poliza.crear');
     }
 
     private function obtenerToken(): string
     {
         return Cache::remember('pdr_api_token', 1500, function () {
-            $response = Http::asForm()->post($this->baseUrl . '/oauth/token', [
+            $response = Http::asForm()
+            ->withoutVerifying()
+            ->post($this->baseUrl . '/oauth/token', [
                 'grant_type'    => 'client_credentials',
                 'client_id'     => $this->clientId,
                 'client_secret' => $this->clientSecret,
@@ -43,6 +45,44 @@ class PdrApiService
             Log::error('Fallo al obtener Token OAuth2 de PDR: ' . $response->body());
             throw new \Exception('No se pudo autenticar con la API de Póliza de Rentas.');
         });
+    }
+
+    // Obtener la lista de Sucursales (Equipos)
+    public function obtenerSucursales(): array
+    {
+        $token = $this->obtenerToken();
+
+        $response = Http::withToken($token)
+            ->withoutVerifying()
+            ->get($this->baseUrl . '/api/v1/sucursales/nombres');
+
+        if ($response->successful()) {
+            $sucursales = $response->json('data.sucursales', []);
+            
+            return collect($sucursales)->pluck('nombre', 'id')->toArray();
+        }
+
+        Log::error('Error al obtener sucursales PDR: ' . $response->body());
+        return [];
+    }
+
+    // Obtener la lista de Agentes (Asesores) por Sucursal
+    public function obtenerAgentesPorSucursal(string $idSucursalHasheado): array
+    {
+        $token = $this->obtenerToken();
+
+        $response = Http::withToken($token)
+            ->withoutVerifying()
+            ->get($this->baseUrl . '/api/v1/sucursal/' . $idSucursalHasheado . '/abogados');
+
+        if ($response->successful()) {
+            $agentes = $response->json('data.usuarios', []);
+            
+            return collect($agentes)->pluck('nombre', 'id')->toArray();
+        }
+
+        Log::error('Error al obtener agentes PDR: ' . $response->body());
+        return [];
     }
 
     public function enviarExpedienteYActualizar($rentaRecord, array $payloadValidacion): array
@@ -64,11 +104,13 @@ class PdrApiService
             $idempotencyKey = (string) Str::uuid(); 
 
             $response = Http::withToken($token)
+                ->withoutVerifying()
+                ->asForm()
                 ->withHeaders([
                     'Idempotency-Key' => $idempotencyKey,
-                    'Accept' => 'application/json'
+                    'Accept' => 'application/json',
                 ])
-                ->post($this->baseUrl . '/api/v1/solicitudes', $jsonPayload); 
+                ->post($this->baseUrl . '/api/v1/poliza/solicitud/crear', $jsonPayload);
 
             if (!$response->successful()) {
                 Log::error('Error de validación PDR API: ' . $response->body());
@@ -121,15 +163,19 @@ class PdrApiService
             'external_reference' => 'RENTA-' . $rentaRecord->id . '-' . time(), 
             'tipoInmueble'       => $rentaRecord->tipo_inmueble === 'residencial' ? 'Inmuebles Residenciales' : 'Inmuebles Comerciales',
             'tipoPoliza'         => $payloadValidacion['tipo_poliza'],
-            'idUser'             => (string) auth()->id(), 
-            'idSuc'              => 'SUC-DEFAULT',
-            'idInmo'             => 'INMO-DEFAULT', 
-            'renta'              => (float) $rentaRecord->precio_renta,
-            'callback_url'       => $callbackUrl,
+            
+            'idUser' => $rentaRecord->pdr_asesor_id,
+            'idSuc'  => $rentaRecord->pdr_office_id,
+            'idInmo' => 3071,
+            
+            'renta'  => (int) $rentaRecord->precio_renta,
+            'callback_url' => $callbackUrl,
 
             'inquilino'          => empty($inquilinoMapeado) ? null : $inquilinoMapeado,
             'propietario'        => empty($propietarioMapeado) ? null : $propietarioMapeado,
             'fiador'             => empty($fiadorMapeado) ? null : $fiadorMapeado,
         ];
     }
+
+
 }
