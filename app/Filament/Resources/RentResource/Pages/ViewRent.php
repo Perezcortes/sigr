@@ -7,6 +7,7 @@ use App\Filament\Resources\GuarantorRequestResource;
 use App\Filament\Resources\OwnerRequestResource;
 use App\Filament\Resources\RentResource;
 use App\Filament\Resources\TenantRequestResource;
+use App\Services\PdrApi\PdrApiService;
 use App\Models\Application;
 use App\Models\GuarantorDocument;
 use App\Models\GuarantorRequest;
@@ -286,62 +287,48 @@ class ViewRent extends EditRecord
 
                                 Forms\Components\Section::make('Datos de la renta')
                                     ->schema([
-                                        Forms\Components\TextInput::make('folio')->label('Folio')->disabled(),
-                                        Forms\Components\Select::make('office_id')
-                                            ->relationship('office', 'nombre')
-                                            ->label('Equipo')
-                                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->nombre)
+                                        Forms\Components\TextInput::make('folio')
+                                            ->label('Folio')
+                                            ->disabled(),
+                                        Forms\Components\Select::make('pdr_office_id')
+                                            ->label('Equipo (PDR)')
+                                            ->options(function (PdrApiService $api) {
+                                                return $api->obtenerSucursales();
+                                            })
                                             ->disabled(fn () => ! auth()->user()->hasRole('Administrador'))
-                                            ->dehydrated()
                                             ->searchable()
                                             ->preload()
                                             ->live()
                                             ->required(fn () => auth()->user()->hasRole('Administrador'))
                                             ->helperText(fn () => auth()->user()->hasRole('Administrador')
-                                                ? 'Elige el equipo para listar solo los agentes de esa oficina.'
+                                                ? 'Elige el equipo para cargar los agentes desde Póliza de Rentas.'
                                                 : null)
                                             ->afterStateUpdated(function (Forms\Set $set) {
                                                 if (! auth()->user()->hasRole('Administrador')) {
                                                     return;
                                                 }
-                                                $set('asesor_id', null);
+                                                $set('pdr_asesor_id', null); // Limpiamos el asesor si cambia el equipo
                                             }),
 
-                                        Forms\Components\Select::make('asesor_id')
-                                            ->relationship('asesor', 'name', function (Builder $query) {
-                                                $query->whereHas('roles', function ($q) {
-                                                    $q->whereIn('name', ['Agente', 'Gerente']);
-                                                });
+                                        Forms\Components\Select::make('pdr_asesor_id')
+                                            ->label('Agente (PDR)')
+                                            ->options(function (Forms\Get $get, PdrApiService $api) {
+                                                $officeHash = $get('pdr_office_id');
 
-                                                $user = auth()->user();
-
-                                                if ($user->hasRole('Administrador')) {
-                                                    $officeId = $this->data['office_id'] ?? null;
-
-                                                    if (filled($officeId)) {
-                                                        $query->where('office_id', $officeId);
-                                                    } else {
-                                                        $query->whereRaw('0 = 1');
-                                                    }
-
-                                                    return $query;
+                                                if (blank($officeHash)) {
+                                                    return [];
                                                 }
 
-                                                if (filled($user->office_id)) {
-                                                    $query->where('office_id', $user->office_id);
-                                                }
-
-                                                return $query;
+                                                $agentes = $api->obtenerAgentesPorSucursal($officeHash);
+                                                
+                                                return $agentes;
                                             })
-                                            ->label('Agente')
-                                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->name)
                                             ->disabled(fn () => ! auth()->user()->hasRole('Administrador'))
-                                            ->dehydrated()
                                             ->searchable()
                                             ->preload()
-                                            ->placeholder(fn (Forms\Get $get) => auth()->user()->hasRole('Administrador') && blank($get('office_id'))
+                                            ->placeholder(fn (Forms\Get $get) => auth()->user()->hasRole('Administrador') && blank($get('pdr_office_id'))
                                                 ? 'Primero selecciona un equipo'
-                                                : null)
+                                                : 'Selecciona un agente')
                                             ->required(),
 
                                         Forms\Components\Select::make('estatus')
