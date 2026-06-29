@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Property;
+use App\Models\PropertyDocument;
 use App\Models\PropertyImage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -93,6 +94,11 @@ class PropertyController extends Controller
             'fotografias.*.nombre' => ['nullable', 'string', 'max:255'],
             'fotografias.*.mime' => ['nullable', 'string', 'max:64'],
             'portada' => ['nullable', 'integer', 'min:0'],
+            'documentos' => ['nullable', 'array'],
+            'documentos.*.base64' => ['required_with:documentos', 'string'],
+            'documentos.*.nombre' => ['nullable', 'string', 'max:255'],
+            'documentos.*.mime'   => ['required_with:documentos', Rule::in(['image/jpeg', 'image/png', 'image/webp', 'application/pdf'])],
+            'documentos.*.type'   => ['required_with:documentos', Rule::in(['titulo', 'predial', 'agua'])],
         ]);
 
         $usoSuelo = $this->mapUsoSueloEnum($data['segmento'], $data['usoSuelo'] ?? null);
@@ -156,7 +162,38 @@ class PropertyController extends Controller
             }
         }
 
-        $property->load(['images' => fn ($q) => $q->orderByDesc('is_portada')->orderBy('order')]);
+        foreach ($data['documentos'] ?? [] as $doc) {
+            $content = base64_decode($doc['base64'], true);
+            if ($content === false || !$this->validateDocumentContent($content, $doc['mime'])) {
+                continue;
+            }
+            if (strlen($content) > 10 * 1024 * 1024) {
+                continue;
+            }
+            $tagMap = ['titulo' => 'escrituras', 'predial' => 'predial', 'agua' => 'recibo_agua'];
+            $tag = $tagMap[$doc['type']] ?? 'otro';
+            $ext = match ($doc['mime']) {
+                'application/pdf' => 'pdf',
+                'image/png'       => 'png',
+                'image/webp'      => 'webp',
+                default           => 'jpg',
+            };
+            $path = "properties/{$property->id}/documents/{$doc['type']}/" . uniqid() . ".{$ext}";
+            Storage::disk('spaces')->put($path, $content);
+            PropertyDocument::create([
+                'property_id' => $property->id,
+                'rent_id'     => null,
+                'user_id'     => $user->id,
+                'tag'         => $tag,
+                'path_file'   => $path,
+                'mime'        => $doc['mime'],
+            ]);
+        }
+
+        $property->load([
+            'images'    => fn ($q) => $q->orderByDesc('is_portada')->orderBy('order'),
+            'documents',
+        ]);
 
         return response()->json([
             'data' => $this->toDetail($property),
@@ -182,7 +219,10 @@ class PropertyController extends Controller
     {
         $this->ensureOwner($request, $property);
 
-        $property->load(['images' => fn ($q) => $q->orderByDesc('is_portada')->orderBy('order')]);
+        $property->load([
+            'images'    => fn ($q) => $q->orderByDesc('is_portada')->orderBy('order'),
+            'documents',
+        ]);
 
         return response()->json([
             'data' => $this->toDetail($property),
@@ -282,13 +322,26 @@ class PropertyController extends Controller
         $tipo = $p->tipo_inmueble ?? $p->tipo ?? 'Inmueble';
         $tipoPropiedad = $uso.' | '.$tipo;
 
+        $tagLabels = ['escrituras' => 'Título / Escrituras', 'predial' => 'Predial', 'recibo_agua' => 'Recibo de agua'];
+        $docs = $p->relationLoaded('documents')
+            ? $p->documents
+            : $p->documents()->get();
+
+        $documentos = $docs->map(fn ($d) => [
+            'id'     => $d->id,
+            'url'    => Storage::disk('spaces')->url($d->path_file),
+            'tag'    => $d->tag,
+            'label'  => $tagLabels[$d->tag] ?? $d->tag,
+            'mime'   => $d->mime,
+        ])->values()->all();
+
         return array_merge($item, [
             'imagenes'      => $imagenes,
+            'documentos'    => $documentos,
             'tipoPropiedad' => $tipoPropiedad,
             'precioMensual' => $item['renta'],
             'uso_suelo'     => $p->uso_suelo,
             'tipo_inmueble' => $p->tipo_inmueble ?? $p->tipo,
-            // Campos editables en la pantalla de "editar más detalles"
             'calle'           => $p->calle,
             'numero_exterior' => $p->numero_exterior,
             'colonia'         => $p->colonia,
@@ -447,7 +500,7 @@ class PropertyController extends Controller
 
         $property->update($updates);
 
-        return response()->json($this->toDetail($property->fresh(['images'])));
+        return response()->json($this->toDetail($property->fresh(['images', 'documents'])));
     }
 
     // Soft-delete de la propiedad; las imágenes del bucket se conservan hasta limpieza manual
@@ -456,6 +509,23 @@ class PropertyController extends Controller
         $this->ensureOwner($request, $property);
         $property->delete();
         return response()->json(['deleted' => true]);
+    }
+
+    // Verifica magic bytes para asegurar que el contenido coincide con el MIME declarado.
+    // Previene que un script disfrazado de imagen/PDF pase la validación.
+    private function validateDocumentContent(string $content, string $mime): bool
+    {
+        if (strlen($content) < 8) {
+            return false;
+        }
+        $header = substr($content, 0, 8);
+        return match ($mime) {
+            'image/jpeg'      => str_starts_with($header, "\xFF\xD8\xFF"),
+            'image/png'       => str_starts_with($header, "\x89PNG\r\n\x1a\n"),
+            'image/webp'      => str_starts_with($header, 'RIFF') && substr($content, 8, 4) === 'WEBP',
+            'application/pdf' => str_starts_with($header, '%PDF'),
+            default           => false,
+        };
     }
 
     // Inverso de mapTipoInmueble: label guardado en BD → slug que espera el frontend
