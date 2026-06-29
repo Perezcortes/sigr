@@ -49,15 +49,19 @@ return new class extends Migration
             return;
         }
 
-        DB::statement('SET SESSION innodb_strict_mode = 0;');
-        DB::statement('ALTER TABLE guarantor_requests ROW_FORMAT=DYNAMIC;');
+        $parts = [];
+        $columnsToCheck = array_unique(array_merge($this->wideVarcharToText, $this->newTextColumns));
 
-        foreach ($this->wideVarcharToText as $column) {
-            $this->ensureTextColumn('guarantor_requests', $column);
+        foreach ($columnsToCheck as $column) {
+            if (! Schema::hasColumn('guarantor_requests', $column)) {
+                $parts[] = "ADD `{$column}` TEXT NULL";
+            } else {
+                $parts[] = "MODIFY `{$column}` TEXT NULL";
+            }
         }
 
-        foreach ($this->newTextColumns as $column) {
-            $this->ensureTextColumn('guarantor_requests', $column);
+        if (! empty($parts)) {
+            DB::statement("ALTER TABLE guarantor_requests " . implode(', ', $parts));
         }
 
         if (!Schema::hasColumn('guarantor_requests', 'fecha_vencimiento_tarjeta')) {
