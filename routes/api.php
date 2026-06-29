@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\AdvisorSearchController;
+use App\Http\Controllers\Api\GeoController;
 use App\Http\Controllers\Api\LeadWebhookController;
 use App\Http\Controllers\Api\OwnerTenantProfileController;
 use App\Http\Controllers\Api\PropertyController;
@@ -10,6 +11,8 @@ use Illuminate\Support\Facades\Route;
 // Rutas públicas
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
+Route::get('/geo/estates', [GeoController::class, 'estates']);
+Route::get('/geo/municipalities', [GeoController::class, 'municipalities']);
 Route::post('/webhooks/leads/nocnok', [LeadWebhookController::class, 'handle']);
 // Ruta para recibir los webhooks de estado de póliza 
 Route::post('/webhooks/poliza-status', [\App\Http\Controllers\Api\PolizaWebhookController::class, 'handle']); 
@@ -32,5 +35,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/properties', [PropertyController::class, 'index']);
     Route::post('/properties', [PropertyController::class, 'store']);
     Route::get('/properties/{property}', [PropertyController::class, 'show']);
+    Route::patch('/properties/{property}', [PropertyController::class, 'update']);
+    Route::post('/properties/{property}/images', [PropertyController::class, 'addImages']);
+    Route::delete('/properties/{property}/images/{image}', [PropertyController::class, 'deleteImage']);
+    Route::delete('/properties/{property}', [PropertyController::class, 'destroy']);
 });
 

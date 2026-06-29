@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Property;
+use App\Models\PropertyDocument;
+use App\Models\PropertyImage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -58,6 +60,7 @@ class PropertyController extends Controller
             abort(403, 'Solo los propietarios pueden crear propiedades.');
         }
 
+        // Los campos numéricos opcionales llegan como '' si el usuario los deja vacíos; se convierten a null para que pasen la validación 'numeric'.
         $payload = $request->all();
         foreach (['m2Terreno', 'm2Construccion', 'numeroCuartos', 'numeroOficinas', 'rentaMensual', 'mantenimiento'] as $k) {
             if (array_key_exists($k, $payload) && $payload[$k] === '') {
@@ -76,16 +79,26 @@ class PropertyController extends Controller
             'direccion.colonia' => ['nullable', 'string', 'max:255'],
             'direccion.municipio' => ['nullable', 'string', 'max:255'],
             'direccion.ciudad' => ['nullable', 'string', 'max:255'],
-            'direccion.estado' => ['nullable', 'string', 'max:255'],
+            'direccion.estado' => ['required', 'string', 'max:255'],
             'direccion.cp' => ['nullable', 'string', 'max:16'],
             'm2Terreno' => ['nullable', 'numeric', 'min:0'],
             'm2Construccion' => ['nullable', 'numeric', 'min:0'],
-            'numeroCuartos' => ['nullable', 'numeric', 'min:0'],
+            'numeroCuartos' => ['required_if:segmento,residencial', 'nullable', 'numeric', 'min:1'],
             'numeroOficinas' => ['nullable', 'numeric', 'min:0'],
-            'rentaMensual' => ['nullable', 'numeric', 'min:0'],
+            'rentaMensual' => ['required', 'numeric', 'min:1'],
             'mantenimiento' => ['nullable', 'numeric', 'min:0'],
             'aceptaMascotas' => ['nullable', 'string', Rule::in(['si', 'no'])],
             'inventario' => ['nullable', 'string', 'max:65535'],
+            'fotografias' => ['required', 'array', 'min:1'],
+            'fotografias.*.base64' => ['required', 'string'],
+            'fotografias.*.nombre' => ['nullable', 'string', 'max:255'],
+            'fotografias.*.mime' => ['nullable', 'string', 'max:64'],
+            'portada' => ['nullable', 'integer', 'min:0'],
+            'documentos' => ['nullable', 'array'],
+            'documentos.*.base64' => ['required_with:documentos', 'string'],
+            'documentos.*.nombre' => ['nullable', 'string', 'max:255'],
+            'documentos.*.mime'   => ['required_with:documentos', Rule::in(['image/jpeg', 'image/png', 'image/webp', 'application/pdf'])],
+            'documentos.*.type'   => ['required_with:documentos', Rule::in(['titulo', 'predial', 'agua'])],
         ]);
 
         $usoSuelo = $this->mapUsoSueloEnum($data['segmento'], $data['usoSuelo'] ?? null);
@@ -94,11 +107,11 @@ class PropertyController extends Controller
 
         $m2Terreno = isset($data['m2Terreno']) ? (float) $data['m2Terreno'] : null;
         $m2Constr = isset($data['m2Construccion']) ? (float) $data['m2Construccion'] : null;
-        $metros = $m2Constr ?: $m2Terreno;
+        $metros = $m2Constr ?: $m2Terreno; // construcción tiene prioridad sobre terreno
 
         $cuartos = isset($data['numeroCuartos']) ? (int) $data['numeroCuartos'] : null;
         $oficinas = isset($data['numeroOficinas']) ? (int) $data['numeroOficinas'] : null;
-        $recamaras = $cuartos ?? $oficinas ?? null;
+        $recamaras = $cuartos ?? $oficinas ?? null; // residencial usa cuartos, comercial usa oficinas, mismo campo en BD
 
         $refCiudad = trim((string) ($dir['ciudad'] ?? ''));
         $referencias = $refCiudad !== '' ? 'Ciudad: '.$refCiudad : null;
@@ -123,7 +136,64 @@ class PropertyController extends Controller
             'recamaras' => $recamaras,
         ]);
 
-        $property->load(['images' => fn ($q) => $q->orderByDesc('is_portada')->orderBy('order')]);
+        // Las imágenes llegan como strings base64 en JSON porque NativePHP no puede
+        // reenviar binarios desde el WebView a PHP. Se decodifican aquí y se suben a MinIO.
+        $fotografias = $data['fotografias'] ?? [];
+        if (!empty($fotografias)) {
+            $portadaIndex = (int) ($data['portada'] ?? 0);
+            foreach ($fotografias as $index => $foto) {
+                $content = base64_decode($foto['base64'] ?? '');
+                if (empty($content)) {
+                    continue;
+                }
+                $nombre = $foto['nombre'] ?? "imagen_{$index}.jpg";
+                $ext = pathinfo($nombre, PATHINFO_EXTENSION) ?: 'jpg';
+                // Se usa uniqid() para evitar colisiones si se sube el mismo archivo dos veces.
+                $path = "properties/{$property->id}/images/" . uniqid() . ".{$ext}";
+                Storage::disk('spaces')->put($path, $content);
+                PropertyImage::create([
+                    'property_id' => $property->id,
+                    'path_file'   => $path,
+                    'is_portada'  => $index === $portadaIndex,
+                    'order'       => $index,
+                    'user_id'     => $user->id,
+                    'user_name'   => $user->name,
+                ]);
+            }
+        }
+
+        foreach ($data['documentos'] ?? [] as $doc) {
+            $content = base64_decode($doc['base64'], true);
+            if ($content === false || !$this->validateDocumentContent($content, $doc['mime'])) {
+                continue;
+            }
+            if (strlen($content) > 10 * 1024 * 1024) {
+                continue;
+            }
+            $tagMap = ['titulo' => 'escrituras', 'predial' => 'predial', 'agua' => 'recibo_agua'];
+            $tag = $tagMap[$doc['type']] ?? 'otro';
+            $ext = match ($doc['mime']) {
+                'application/pdf' => 'pdf',
+                'image/png'       => 'png',
+                'image/webp'      => 'webp',
+                default           => 'jpg',
+            };
+            $path = "properties/{$property->id}/documents/{$doc['type']}/" . uniqid() . ".{$ext}";
+            Storage::disk('spaces')->put($path, $content);
+            PropertyDocument::create([
+                'property_id' => $property->id,
+                'rent_id'     => null,
+                'user_id'     => $user->id,
+                'tag'         => $tag,
+                'path_file'   => $path,
+                'mime'        => $doc['mime'],
+            ]);
+        }
+
+        $property->load([
+            'images'    => fn ($q) => $q->orderByDesc('is_portada')->orderBy('order'),
+            'documents',
+        ]);
 
         return response()->json([
             'data' => $this->toDetail($property),
@@ -149,7 +219,10 @@ class PropertyController extends Controller
     {
         $this->ensureOwner($request, $property);
 
-        $property->load(['images' => fn ($q) => $q->orderByDesc('is_portada')->orderBy('order')]);
+        $property->load([
+            'images'    => fn ($q) => $q->orderByDesc('is_portada')->orderBy('order'),
+            'documents',
+        ]);
 
         return response()->json([
             'data' => $this->toDetail($property),
@@ -158,6 +231,7 @@ class PropertyController extends Controller
 
     private function mapUsoSueloEnum(string $segmento, ?string $usoSelect): string
     {
+        // 'mixto' siempre resulta en 'Comercial' porque la BD no tiene un valor mixto propio.
         return match ($segmento) {
             'residencial' => 'Habitacional',
             'comercial' => match ($usoSelect) {
@@ -171,6 +245,7 @@ class PropertyController extends Controller
         };
     }
 
+    // Convierte el slug que manda el frontend al label exacto guardado en la BD (no hay enum nativo)
     private function mapTipoInmueble(string $slug): string
     {
         $slug = strtolower($slug);
@@ -181,7 +256,7 @@ class PropertyController extends Controller
             'terreno' => 'Terreno',
             'oficina' => 'Oficina',
             'local' => 'Local comercial',
-            'edificio' => 'Oficina',
+            'edificio' => 'Edificio',
             'nave_industrial' => 'Nave industrial',
             'consultorio' => 'Consultorio',
             default => 'Casa',
@@ -195,6 +270,7 @@ class PropertyController extends Controller
         }
     }
 
+    // Forma mínima para el listado de inventario; toDetail() extiende este array
     private function toListItem(Property $p): array
     {
         $uso = $p->uso_suelo ?? 'Habitacional';
@@ -221,6 +297,7 @@ class PropertyController extends Controller
         ];
     }
 
+    // Extiende toListItem con imagenes como objetos {id,url,is_portada} y campos editables
     private function toDetail(Property $p): array
     {
         $item = $this->toListItem($p);
@@ -230,37 +307,69 @@ class PropertyController extends Controller
                 return null;
             }
 
-            return url(Storage::disk('public')->url($img->path_file));
+            return [
+                'id'         => $img->id,
+                'url'        => Storage::disk('spaces')->url($img->path_file),
+                'is_portada' => (bool) $img->is_portada,
+            ];
         })->filter()->values()->all();
 
         if ($imagenes === []) {
-            $imagenes = [$item['foto']];
+            $imagenes = [['id' => null, 'url' => $item['foto'], 'is_portada' => true]];
         }
 
         $uso = $p->uso_suelo ?? 'Habitacional';
         $tipo = $p->tipo_inmueble ?? $p->tipo ?? 'Inmueble';
         $tipoPropiedad = $uso.' | '.$tipo;
 
+        $tagLabels = ['escrituras' => 'Título / Escrituras', 'predial' => 'Predial', 'recibo_agua' => 'Recibo de agua'];
+        $docs = $p->relationLoaded('documents')
+            ? $p->documents
+            : $p->documents()->get();
+
+        $documentos = $docs->map(fn ($d) => [
+            'id'     => $d->id,
+            'url'    => Storage::disk('spaces')->url($d->path_file),
+            'tag'    => $d->tag,
+            'label'  => $tagLabels[$d->tag] ?? $d->tag,
+            'mime'   => $d->mime,
+        ])->values()->all();
+
         return array_merge($item, [
-            'imagenes' => $imagenes,
+            'imagenes'      => $imagenes,
+            'documentos'    => $documentos,
             'tipoPropiedad' => $tipoPropiedad,
             'precioMensual' => $item['renta'],
-            'uso_suelo' => $p->uso_suelo,
+            'uso_suelo'     => $p->uso_suelo,
             'tipo_inmueble' => $p->tipo_inmueble ?? $p->tipo,
+            'calle'           => $p->calle,
+            'numero_exterior' => $p->numero_exterior,
+            'colonia'         => $p->colonia,
+            'municipio'       => $p->delegacion_municipio,
+            'estado'          => $p->estado,
+            'codigo_postal'   => $p->codigo_postal,
+            'm2_terreno'      => $p->metros_cuadrados !== null ? (float) $p->metros_cuadrados : null,
+            'm2_construccion' => null,
+            'recamaras'       => $p->recamaras !== null ? (int) $p->recamaras : null,
+            'mantenimiento'   => $p->costo_mantenimiento_mensual !== null ? (float) $p->costo_mantenimiento_mensual : null,
+            'mascotas'        => $p->mascotas ?? 'no',
+            'inventario'      => $p->inventario,
         ]);
     }
 
     private function coverImageUrl(Property $p): ?string
     {
+        // Reutiliza la relación ya cargada si existe; evita una query extra por propiedad en listados.
         $images = $p->relationLoaded('images') ? $p->images : $p->images()->orderByDesc('is_portada')->orderBy('order')->get();
         $first = $images->firstWhere('is_portada', true) ?? $images->first();
         if (! $first || ! $first->path_file) {
             return null;
         }
 
-        return url(Storage::disk('public')->url($first->path_file));
+        return Storage::disk('spaces')->url($first->path_file);
     }
 
+    // Usa el campo legado `direccion` si está relleno; si no, concatena los campos individuales
     private function direccionLinea(Property $p): string
     {
         if (filled($p->direccion)) {
@@ -278,8 +387,161 @@ class PropertyController extends Controller
         return $parts !== [] ? implode(', ', $parts) : ($p->nombre ?? 'Sin dirección');
     }
 
+    // Mismo flujo base64 que store(); el order incrementa desde el máximo existente
+    public function addImages(Request $request, Property $property): JsonResponse
+    {
+        $this->ensureOwner($request, $property);
+
+        $request->validate([
+            'fotografias'           => ['required', 'array', 'min:1'],
+            'fotografias.*.base64'  => ['required', 'string'],
+            'fotografias.*.nombre'  => ['required', 'string'],
+            'fotografias.*.mime'    => ['required', 'string'],
+        ]);
+
+        $nuevas = [];
+        $order = $property->images()->max('order') ?? 0;
+
+        foreach ($request->fotografias as $foto) {
+            $content = base64_decode(preg_replace('/^data:[^;]+;base64,/', '', $foto['base64']));
+            $ext = match (strtolower($foto['mime'])) {
+                'image/png'  => 'png',
+                'image/webp' => 'webp',
+                default      => 'jpg',
+            };
+            $path = 'properties/' . $property->id . '/' . uniqid() . '.' . $ext;
+            Storage::disk('spaces')->put($path, $content, 'public');
+
+            $img = PropertyImage::create([
+                'property_id' => $property->id,
+                'path_file'   => $path,
+                'is_portada'  => false,
+                'order'       => ++$order,
+                'user_id'     => $request->user()->id,
+                'user_name'   => $request->user()->name,
+            ]);
+
+            $nuevas[] = [
+                'id'         => $img->id,
+                'url'        => Storage::disk('spaces')->url($path),
+                'is_portada' => false,
+            ];
+        }
+
+        return response()->json($nuevas, 201);
+    }
+
+    // Si la imagen eliminada era portada, promueve automáticamente la siguiente en orden
+    public function deleteImage(Request $request, Property $property, PropertyImage $image): JsonResponse
+    {
+        $this->ensureOwner($request, $property);
+
+        if ((int) $image->property_id !== (int) $property->id) {
+            abort(404);
+        }
+
+        Storage::disk('spaces')->delete($image->path_file);
+
+        $wasPortada = $image->is_portada;
+        $image->delete();
+
+        if ($wasPortada) {
+            $property->images()->orderBy('order')->first()?->update(['is_portada' => true]);
+        }
+
+        return response()->json(['deleted' => true]);
+    }
+
+    // Acepta edición de tipo/precio (desde detalle) y todos los campos adicionales (desde editar)
+    public function update(Request $request, Property $property): JsonResponse
+    {
+        $this->ensureOwner($request, $property);
+
+        $data = $request->validate([
+            'tipo_inmueble'   => ['sometimes', 'string', 'max:64'],
+            'precio_renta'    => ['sometimes', 'numeric', 'min:1'],
+            'calle'           => ['sometimes', 'nullable', 'string', 'max:255'],
+            'numero_exterior' => ['sometimes', 'nullable', 'string', 'max:32'],
+            'colonia'         => ['sometimes', 'nullable', 'string', 'max:255'],
+            'municipio'       => ['sometimes', 'nullable', 'string', 'max:255'],
+            'estado'          => ['sometimes', 'nullable', 'string', 'max:255'],
+            'codigo_postal'   => ['sometimes', 'nullable', 'string', 'max:16'],
+            'm2_terreno'      => ['sometimes', 'nullable', 'numeric', 'min:0'],
+            'm2_construccion' => ['sometimes', 'nullable', 'numeric', 'min:0'],
+            'recamaras'       => ['sometimes', 'nullable', 'integer', 'min:0'],
+            'mantenimiento'   => ['sometimes', 'nullable', 'numeric', 'min:0'],
+            'mascotas'        => ['sometimes', Rule::in(['si', 'no'])],
+            'inventario'      => ['sometimes', 'nullable', 'string', 'max:65535'],
+        ]);
+
+        $updates = [];
+
+        if (isset($data['tipo_inmueble'])) {
+            $updates['tipo_inmueble'] = $this->mapTipoInmueble($data['tipo_inmueble']);
+        }
+        if (array_key_exists('precio_renta', $data))    $updates['precio_renta'] = $data['precio_renta'];
+        if (array_key_exists('calle', $data))           $updates['calle'] = $data['calle'];
+        if (array_key_exists('numero_exterior', $data)) $updates['numero_exterior'] = $data['numero_exterior'];
+        if (array_key_exists('colonia', $data))         $updates['colonia'] = $data['colonia'];
+        if (array_key_exists('municipio', $data))       $updates['delegacion_municipio'] = $data['municipio'];
+        if (array_key_exists('estado', $data))          $updates['estado'] = $data['estado'];
+        if (array_key_exists('codigo_postal', $data))   $updates['codigo_postal'] = $data['codigo_postal'];
+        if (array_key_exists('recamaras', $data))       $updates['recamaras'] = $data['recamaras'];
+        if (array_key_exists('mantenimiento', $data))   $updates['costo_mantenimiento_mensual'] = $data['mantenimiento'];
+        if (array_key_exists('mascotas', $data))        $updates['mascotas'] = $data['mascotas'];
+        if (array_key_exists('inventario', $data))      $updates['inventario'] = $data['inventario'];
+
+        // Mismo criterio que store(): construcción tiene prioridad sobre terreno
+        if (array_key_exists('m2_terreno', $data) || array_key_exists('m2_construccion', $data)) {
+            $m2c = $data['m2_construccion'] ?? null;
+            $m2t = $data['m2_terreno'] ?? null;
+            $updates['metros_cuadrados'] = $m2c ?: $m2t;
+        }
+
+        $property->update($updates);
+
+        return response()->json($this->toDetail($property->fresh(['images', 'documents'])));
+    }
+
+    // Soft-delete de la propiedad; las imágenes del bucket se conservan hasta limpieza manual
+    public function destroy(Request $request, Property $property): JsonResponse
+    {
+        $this->ensureOwner($request, $property);
+        $property->delete();
+        return response()->json(['deleted' => true]);
+    }
+
+    // Verifica magic bytes para asegurar que el contenido coincide con el MIME declarado.
+    // Previene que un script disfrazado de imagen/PDF pase la validación.
+    private function validateDocumentContent(string $content, string $mime): bool
+    {
+        if (strlen($content) < 8) {
+            return false;
+        }
+        $header = substr($content, 0, 8);
+        return match ($mime) {
+            'image/jpeg'      => str_starts_with($header, "\xFF\xD8\xFF"),
+            'image/png'       => str_starts_with($header, "\x89PNG\r\n\x1a\n"),
+            'image/webp'      => str_starts_with($header, 'RIFF') && substr($content, 8, 4) === 'WEBP',
+            'application/pdf' => str_starts_with($header, '%PDF'),
+            default           => false,
+        };
+    }
+
+    // Inverso de mapTipoInmueble: label guardado en BD → slug que espera el frontend
     private function tipoToSlug(string $tipo): string
     {
-        return Str::slug($tipo, '-') ?: 'inmueble';
+        return match (strtolower($tipo)) {
+            'casa'            => 'casa',
+            'departamento'    => 'departamento',
+            'terreno'         => 'terreno',
+            'villa'           => 'villa',
+            'oficina'         => 'oficina',
+            'local comercial' => 'local',
+            'edificio'        => 'edificio',
+            'nave industrial' => 'nave_industrial',
+            'consultorio'     => 'consultorio',
+            default           => Str::slug($tipo, '_') ?: 'casa',
+        };
     }
 }
