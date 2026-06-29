@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\GeoController;
 use App\Http\Controllers\Api\LeadWebhookController;
 use App\Http\Controllers\Api\OwnerTenantProfileController;
 use App\Http\Controllers\Api\PropertyController;
+use App\Http\Controllers\Api\RentController;
 use Illuminate\Support\Facades\Route;
 
 // Rutas públicas
@@ -29,6 +30,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/profile/owner', [OwnerTenantProfileController::class, 'updateOwner']);
     Route::get('/profile/tenant', [OwnerTenantProfileController::class, 'showTenant']);
     Route::put('/profile/tenant', [OwnerTenantProfileController::class, 'updateTenant']);
+
+    Route::get('/rents', [RentController::class, 'index']);
 
     Route::get('/properties', [PropertyController::class, 'index']);
     Route::post('/properties', [PropertyController::class, 'store']);
