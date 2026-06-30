@@ -40,7 +40,7 @@ class RentController extends Controller
             return response()->json(['message' => 'No autorizado.'], 403);
         }
 
-        $rent = Rent::with(['property.images'])
+        $rent = Rent::with(['property.images', 'asesor'])
             ->where('id', $id)
             ->where('owner_id', $owner->id)
             ->first();
@@ -127,9 +127,15 @@ class RentController extends Controller
             'foto'             => $portada?->path_file ? \Storage::disk('spaces')->url($portada->path_file) : null,
             'recamaras'        => (int) ($rent->property?->recamaras ?? 0),
             'm2'               => (int) ($rent->property?->metros_cuadrados ?? 0),
-            'dia_cobro'        => $rent->dia_cobro_renta,
-            'plazo'            => $rent->plazo_arrendamiento,
-            'frecuencia_pago'  => $rent->payment_frequency,
+            'dia_cobro'                => $rent->dia_cobro_renta,
+            'plazo'                    => $rent->plazo_arrendamiento,
+            'frecuencia_pago'          => $rent->payment_frequency,
+            'is_administrada_por_agente' => (bool) $rent->is_administrada_por_agente,
+            'asesor'                   => $rent->asesor ? [
+                'nombre'   => $rent->asesor->name,
+                'telefono' => $rent->asesor->telefono,
+                'foto'     => 'https://ui-avatars.com/api/?name=' . urlencode($rent->asesor->name) . '&size=64&background=26CAD3&color=fff',
+            ] : null,
         ] + $this->notifFields($rent);
     }
 
