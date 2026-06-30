@@ -32,6 +32,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/profile/tenant', [OwnerTenantProfileController::class, 'updateTenant']);
 
     Route::get('/rents', [RentController::class, 'index']);
+    Route::get('/rents/{id}', [RentController::class, 'show']);
+    Route::post('/rents/{id}/finalizar', [RentController::class, 'finalizar']);
 
     Route::get('/properties', [PropertyController::class, 'index']);
     Route::post('/properties', [PropertyController::class, 'store']);
