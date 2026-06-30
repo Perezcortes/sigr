@@ -29,6 +29,7 @@ class PaymentSetting extends Model
         'recordatorio',
         'activo',
         'es_base_renta',
+        'icono',
     ];
 
     protected $casts = [
