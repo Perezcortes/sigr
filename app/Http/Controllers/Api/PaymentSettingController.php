@@ -54,7 +54,9 @@ class PaymentSettingController extends Controller
             'es_variable' => 'boolean',
             'dia_pago'    => 'nullable|integer|min:1|max:31',
             'dias_antes'  => 'nullable|integer|min:0',
+            'direccion'   => 'nullable|string|in:antes,despues',
             'icono'       => 'nullable|string|max:10',
+            'fecha_limite_pago' => 'nullable|date',
         ]);
 
         // Unicidad de ícono dentro de la misma renta
@@ -73,7 +75,7 @@ class PaymentSettingController extends Controller
             'frecuencia' => $data['frecuencia'],
             'dia_pago' => $esMensual ? ($data['dia_pago'] ?? 5) : null,
             'meses_intervalo' => PaymentSetting::intervalForFrequency($data['frecuencia']),
-            'fecha_limite_pago' => $esMensual ? null : now()->toDateString(),
+            'fecha_limite_pago' => $esMensual ? null : ($data['fecha_limite_pago'] ?? now()->toDateString()),
             'monto' => ($data['es_variable'] ?? false) ? null : ($data['monto'] ?? 0),
             'moneda' => $data['moneda'] ?? 'MXN',
             'es_variable' => $data['es_variable'] ?? false,
@@ -82,10 +84,10 @@ class PaymentSettingController extends Controller
             'icono' => $data['icono'] ?? null,
         ]);
 
-        // Recordatorio inicial con los días indicados (o 3 por defecto)
+        // Recordatorio inicial con los días y dirección indicados (o 3 días / antes por defecto)
         $setting->reminders()->create([
             'dias_antes' => $data['dias_antes'] ?? 3,
-            'direccion'  => 'antes',
+            'direccion'  => $data['direccion'] ?? 'antes',
             'activo'     => true,
         ]);
 
