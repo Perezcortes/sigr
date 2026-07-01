@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AdvisorSearchController;
 use App\Http\Controllers\Api\GeoController;
 use App\Http\Controllers\Api\LeadWebhookController;
 use App\Http\Controllers\Api\OwnerTenantProfileController;
+use App\Http\Controllers\Api\PaymentReportController;
 use App\Http\Controllers\Api\PaymentSettingController;
 use App\Http\Controllers\Api\PropertyController;
 use App\Http\Controllers\Api\RentController;
@@ -44,6 +45,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/payment-settings/{id}/reminders', [PaymentSettingController::class, 'addReminder']);
     Route::patch('/payment-settings/{id}/reminders/{reminderId}', [PaymentSettingController::class, 'updateReminder']);
     Route::delete('/payment-settings/{id}/reminders/{reminderId}', [PaymentSettingController::class, 'removeReminder']);
+
+    Route::get('/rents/{id}/payment-reports/types', [PaymentReportController::class, 'types']);
+    Route::get('/rents/{id}/payment-reports', [PaymentReportController::class, 'index']);
+    Route::post('/rents/{id}/payment-reports', [PaymentReportController::class, 'store']);
 
     Route::get('/properties', [PropertyController::class, 'index']);
     Route::post('/properties', [PropertyController::class, 'store']);
