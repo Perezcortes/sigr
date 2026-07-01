@@ -65,18 +65,21 @@ class PaymentSettingController extends Controller
             }
         }
 
+        $esMensual = $data['frecuencia'] === 'Mensual';
+
         $setting = PaymentSetting::create([
-            'rent_id'         => $rentId,
-            'tipo'            => $data['tipo'],
-            'frecuencia'      => $data['frecuencia'],
-            'dia_pago'        => $data['dia_pago'] ?? 5,
+            'rent_id' => $rentId,
+            'tipo' => $data['tipo'],
+            'frecuencia' => $data['frecuencia'],
+            'dia_pago' => $esMensual ? ($data['dia_pago'] ?? 5) : null,
             'meses_intervalo' => PaymentSetting::intervalForFrequency($data['frecuencia']),
-            'monto'           => ($data['es_variable'] ?? false) ? null : ($data['monto'] ?? 0),
-            'moneda'          => $data['moneda'] ?? 'MXN',
-            'es_variable'     => $data['es_variable'] ?? false,
-            'activo'          => true,
-            'es_base_renta'   => false,
-            'icono'           => $data['icono'] ?? null,
+            'fecha_limite_pago' => $esMensual ? null : now()->toDateString(),
+            'monto' => ($data['es_variable'] ?? false) ? null : ($data['monto'] ?? 0),
+            'moneda' => $data['moneda'] ?? 'MXN',
+            'es_variable' => $data['es_variable'] ?? false,
+            'activo' => true,
+            'es_base_renta' => false,
+            'icono' => $data['icono'] ?? null,
         ]);
 
         // Recordatorio inicial con los días indicados (o 3 por defecto)
@@ -132,6 +135,14 @@ class PaymentSettingController extends Controller
 
         if (isset($data['frecuencia'])) {
             $setting->meses_intervalo = PaymentSetting::intervalForFrequency($data['frecuencia']);
+
+            if ($data['frecuencia'] === 'Mensual') {
+                $setting->fecha_limite_pago = null;
+                $setting->dia_pago = $setting->dia_pago ?: 5;
+            } else {
+                $setting->dia_pago = null;
+                $setting->fecha_limite_pago = $setting->fecha_limite_pago ?? now()->toDateString();
+            }
         }
 
         if (isset($data['es_variable']) && $data['es_variable']) {
