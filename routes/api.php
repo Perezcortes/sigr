@@ -47,6 +47,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/payment-settings/{id}/reminders/{reminderId}', [PaymentSettingController::class, 'removeReminder']);
 
     Route::get('/rents/{id}/payment-reports/types', [PaymentReportController::class, 'types']);
+    Route::get('/rents/{id}/payment-reports/{serviceId}', [PaymentReportController::class, 'show']);
     Route::get('/rents/{id}/payment-reports', [PaymentReportController::class, 'index']);
     Route::post('/rents/{id}/payment-reports', [PaymentReportController::class, 'store']);
 
