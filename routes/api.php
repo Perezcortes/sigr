@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\AdvisorSearchController;
 use App\Http\Controllers\Api\GeoController;
 use App\Http\Controllers\Api\LeadWebhookController;
+use App\Http\Controllers\Api\MessageController;
 use App\Http\Controllers\Api\OwnerTenantProfileController;
 use App\Http\Controllers\Api\PaymentReportController;
 use App\Http\Controllers\Api\PaymentSettingController;
@@ -58,6 +59,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/rents/{id}/tickets', [TicketController::class, 'index']);
     Route::post('/rents/{id}/tickets', [TicketController::class, 'store']);
     Route::patch('/tickets/{id}', [TicketController::class, 'update']);
+
+    Route::get('/rents/{id}/messages', [MessageController::class, 'index']);
+    Route::post('/rents/{id}/messages', [MessageController::class, 'store']);
 
     Route::get('/properties', [PropertyController::class, 'index']);
     Route::post('/properties', [PropertyController::class, 'store']);
