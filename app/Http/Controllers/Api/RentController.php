@@ -20,7 +20,7 @@ class RentController extends Controller
         }
 
         // solo rentas activas; vencidas, canceladas y demás estatus no se muestran en la app
-        $rents = Rent::with(['property.images'])
+        $rents = Rent::with(['property.images', 'owner.user'])
             ->where('owner_id', $owner->id)
             ->where('estatus', 'activa')
             ->orderByDesc('created_at')
@@ -40,7 +40,7 @@ class RentController extends Controller
             return response()->json(['message' => 'No autorizado.'], 403);
         }
 
-        $rent = Rent::with(['property.images', 'asesor'])
+        $rent = Rent::with(['property.images', 'asesor', 'owner.user'])
             ->where('id', $id)
             ->where('owner_id', $owner->id)
             ->first();
@@ -73,7 +73,10 @@ class RentController extends Controller
         return response()->json(['message' => 'Renta finalizada.']);
     }
 
-    // Actualiza los 12 campos de preferencias de notificación de una renta
+    // Actualiza los 12 campos de preferencias de notificación del usuario autenticado.
+    // Sigue recibiendo {id} de renta (compatibilidad con la app actual, que todavía
+    // llama a este endpoint por-renta) solo para verificar que el usuario tenga acceso
+    // a esa renta; el guardado real ya no es por-renta, es sobre $user directamente.
     public function updateNotifications(Request $request, int $id)
     {
         $user  = $request->user();
@@ -104,7 +107,7 @@ class RentController extends Controller
             'notif_mantenimiento_whatsapp' => 'required|boolean',
         ]);
 
-        $rent->update($validated);
+        $user->update($validated);
 
         return response()->json(['message' => 'Preferencias actualizadas.']);
     }
@@ -160,22 +163,24 @@ class RentController extends Controller
         ] + $this->notifFields($rent);
     }
 
-    // Extrae los 12 booleans de notificación de una renta como array
+    // Extrae los 12 booleans de notificación del propietario de la renta (viven en User, no en Rent)
     private function notifFields($rent): array
     {
+        $user = $rent->owner?->user;
+
         return [
-            'notif_recordatorios_email'    => (bool) $rent->notif_recordatorios_email,
-            'notif_recordatorios_push'     => (bool) $rent->notif_recordatorios_push,
-            'notif_recordatorios_whatsapp' => (bool) $rent->notif_recordatorios_whatsapp,
-            'notif_reporte_pago_email'     => (bool) $rent->notif_reporte_pago_email,
-            'notif_reporte_pago_push'      => (bool) $rent->notif_reporte_pago_push,
-            'notif_reporte_pago_whatsapp'  => (bool) $rent->notif_reporte_pago_whatsapp,
-            'notif_mensajes_email'         => (bool) $rent->notif_mensajes_email,
-            'notif_mensajes_push'          => (bool) $rent->notif_mensajes_push,
-            'notif_mensajes_whatsapp'      => (bool) $rent->notif_mensajes_whatsapp,
-            'notif_mantenimiento_email'    => (bool) $rent->notif_mantenimiento_email,
-            'notif_mantenimiento_push'     => (bool) $rent->notif_mantenimiento_push,
-            'notif_mantenimiento_whatsapp' => (bool) $rent->notif_mantenimiento_whatsapp,
+            'notif_recordatorios_email'    => (bool) ($user->notif_recordatorios_email ?? true),
+            'notif_recordatorios_push'     => (bool) ($user->notif_recordatorios_push ?? true),
+            'notif_recordatorios_whatsapp' => (bool) ($user->notif_recordatorios_whatsapp ?? true),
+            'notif_reporte_pago_email'     => (bool) ($user->notif_reporte_pago_email ?? true),
+            'notif_reporte_pago_push'      => (bool) ($user->notif_reporte_pago_push ?? true),
+            'notif_reporte_pago_whatsapp'  => (bool) ($user->notif_reporte_pago_whatsapp ?? true),
+            'notif_mensajes_email'         => (bool) ($user->notif_mensajes_email ?? true),
+            'notif_mensajes_push'          => (bool) ($user->notif_mensajes_push ?? true),
+            'notif_mensajes_whatsapp'      => (bool) ($user->notif_mensajes_whatsapp ?? true),
+            'notif_mantenimiento_email'    => (bool) ($user->notif_mantenimiento_email ?? true),
+            'notif_mantenimiento_push'     => (bool) ($user->notif_mantenimiento_push ?? true),
+            'notif_mantenimiento_whatsapp' => (bool) ($user->notif_mantenimiento_whatsapp ?? true),
         ];
     }
 }
