@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\PaymentReportController;
 use App\Http\Controllers\Api\PaymentSettingController;
 use App\Http\Controllers\Api\PropertyController;
 use App\Http\Controllers\Api\RentController;
+use App\Http\Controllers\Api\TicketController;
 use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -53,6 +54,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/rents/{id}/payment-reports/{serviceId}', [PaymentReportController::class, 'show']);
     Route::get('/rents/{id}/payment-reports', [PaymentReportController::class, 'index']);
     Route::post('/rents/{id}/payment-reports', [PaymentReportController::class, 'store']);
+
+    Route::get('/rents/{id}/tickets', [TicketController::class, 'index']);
+    Route::post('/rents/{id}/tickets', [TicketController::class, 'store']);
+    Route::patch('/tickets/{id}', [TicketController::class, 'update']);
 
     Route::get('/properties', [PropertyController::class, 'index']);
     Route::post('/properties', [PropertyController::class, 'store']);
