@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\PaymentReportController;
 use App\Http\Controllers\Api\PaymentSettingController;
 use App\Http\Controllers\Api\PropertyController;
 use App\Http\Controllers\Api\RentController;
+use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
 
 // Rutas públicas
@@ -33,10 +34,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/profile/tenant', [OwnerTenantProfileController::class, 'showTenant']);
     Route::put('/profile/tenant', [OwnerTenantProfileController::class, 'updateTenant']);
 
+    Route::get('/user/notifications', [UserController::class, 'notifications']);
+    Route::put('/user/notifications', [UserController::class, 'updateNotifications']);
+
     Route::get('/rents', [RentController::class, 'index']);
     Route::get('/rents/{id}', [RentController::class, 'show']);
     Route::post('/rents/{id}/finalizar', [RentController::class, 'finalizar']);
-    Route::put('/rents/{id}/notifications', [RentController::class, 'updateNotifications']);
 
     Route::get('/rents/{id}/payment-settings', [PaymentSettingController::class, 'index']);
     Route::post('/rents/{id}/payment-settings', [PaymentSettingController::class, 'store']);

@@ -73,45 +73,6 @@ class RentController extends Controller
         return response()->json(['message' => 'Renta finalizada.']);
     }
 
-    // Actualiza los 12 campos de preferencias de notificación del usuario autenticado.
-    // Sigue recibiendo {id} de renta (compatibilidad con la app actual, que todavía
-    // llama a este endpoint por-renta) solo para verificar que el usuario tenga acceso
-    // a esa renta; el guardado real ya no es por-renta, es sobre $user directamente.
-    public function updateNotifications(Request $request, int $id)
-    {
-        $user  = $request->user();
-        $owner = $user->owner;
-
-        if (!$owner) {
-            return response()->json(['message' => 'No autorizado.'], 403);
-        }
-
-        $rent = Rent::where('id', $id)->where('owner_id', $owner->id)->first();
-
-        if (!$rent) {
-            return response()->json(['message' => 'Renta no encontrada.'], 404);
-        }
-
-        $validated = $request->validate([
-            'notif_recordatorios_email'    => 'required|boolean',
-            'notif_recordatorios_push'     => 'required|boolean',
-            'notif_recordatorios_whatsapp' => 'required|boolean',
-            'notif_reporte_pago_email'     => 'required|boolean',
-            'notif_reporte_pago_push'      => 'required|boolean',
-            'notif_reporte_pago_whatsapp'  => 'required|boolean',
-            'notif_mensajes_email'         => 'required|boolean',
-            'notif_mensajes_push'          => 'required|boolean',
-            'notif_mensajes_whatsapp'      => 'required|boolean',
-            'notif_mantenimiento_email'    => 'required|boolean',
-            'notif_mantenimiento_push'     => 'required|boolean',
-            'notif_mantenimiento_whatsapp' => 'required|boolean',
-        ]);
-
-        $user->update($validated);
-
-        return response()->json(['message' => 'Preferencias actualizadas.']);
-    }
-
     // Forma el payload completo para la vista de detalle de renta
     private function toDetail($rent): array
     {
@@ -139,11 +100,10 @@ class RentController extends Controller
                 'telefono' => $rent->asesor->telefono,
                 'foto'     => 'https://ui-avatars.com/api/?name=' . urlencode($rent->asesor->name) . '&size=64&background=26CAD3&color=fff',
             ] : null,
-        ] + $this->notifFields($rent);
+        ];
     }
 
     // Forma el payload resumido para la tarjeta en el listado de mis-rentas
-    // Incluye los campos notif_ para que perfil.blade.php pueda inicializar los toggles sin llamadas extra
     private function toList($rent): array
     {
         $portada = $rent->property?->images->firstWhere('is_portada', true)
@@ -160,27 +120,6 @@ class RentController extends Controller
             'recamaras'        => (int) ($rent->property?->recamaras ?? 0),
             'm2'               => (int) ($rent->property?->metros_cuadrados ?? 0),
             'mensajes_no_leidos' => 0,
-        ] + $this->notifFields($rent);
-    }
-
-    // Extrae los 12 booleans de notificación del propietario de la renta (viven en User, no en Rent)
-    private function notifFields($rent): array
-    {
-        $user = $rent->owner?->user;
-
-        return [
-            'notif_recordatorios_email'    => (bool) ($user->notif_recordatorios_email ?? true),
-            'notif_recordatorios_push'     => (bool) ($user->notif_recordatorios_push ?? true),
-            'notif_recordatorios_whatsapp' => (bool) ($user->notif_recordatorios_whatsapp ?? true),
-            'notif_reporte_pago_email'     => (bool) ($user->notif_reporte_pago_email ?? true),
-            'notif_reporte_pago_push'      => (bool) ($user->notif_reporte_pago_push ?? true),
-            'notif_reporte_pago_whatsapp'  => (bool) ($user->notif_reporte_pago_whatsapp ?? true),
-            'notif_mensajes_email'         => (bool) ($user->notif_mensajes_email ?? true),
-            'notif_mensajes_push'          => (bool) ($user->notif_mensajes_push ?? true),
-            'notif_mensajes_whatsapp'      => (bool) ($user->notif_mensajes_whatsapp ?? true),
-            'notif_mantenimiento_email'    => (bool) ($user->notif_mantenimiento_email ?? true),
-            'notif_mantenimiento_push'     => (bool) ($user->notif_mantenimiento_push ?? true),
-            'notif_mantenimiento_whatsapp' => (bool) ($user->notif_mantenimiento_whatsapp ?? true),
         ];
     }
 }

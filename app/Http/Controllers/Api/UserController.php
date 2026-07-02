@@ -1,0 +1,46 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+
+class UserController extends Controller
+{
+    private const NOTIFICATION_FIELDS = [
+        'notif_recordatorios_email',
+        'notif_recordatorios_push',
+        'notif_recordatorios_whatsapp',
+        'notif_reporte_pago_email',
+        'notif_reporte_pago_push',
+        'notif_reporte_pago_whatsapp',
+        'notif_mensajes_email',
+        'notif_mensajes_push',
+        'notif_mensajes_whatsapp',
+        'notif_mantenimiento_email',
+        'notif_mantenimiento_push',
+        'notif_mantenimiento_whatsapp',
+    ];
+
+    // Lee las 12 preferencias de notificación del usuario autenticado
+    public function notifications(Request $request)
+    {
+        $user = $request->user();
+
+        $data = collect(self::NOTIFICATION_FIELDS)
+            ->mapWithKeys(fn (string $field) => [$field => (bool) ($user->{$field} ?? true)])
+            ->toArray();
+
+        return response()->json(['data' => $data]);
+    }
+
+    // Actualiza las 12 preferencias de notificación del usuario autenticado
+    public function updateNotifications(Request $request)
+    {
+        $validated = $request->validate(array_fill_keys(self::NOTIFICATION_FIELDS, 'required|boolean'));
+
+        $request->user()->update($validated);
+
+        return response()->json(['message' => 'Preferencias actualizadas.']);
+    }
+}
