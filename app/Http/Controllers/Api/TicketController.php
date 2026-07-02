@@ -10,15 +10,10 @@ use Illuminate\Support\Facades\Storage;
 
 class TicketController extends Controller
 {
-    // Lista los reportes de mantenimiento de una renta
+    // Lista los reportes de mantenimiento de una renta (propietario o inquilino)
     public function index(Request $request, int $id)
     {
-        $owner = $request->user()->owner;
-        if (! $owner) {
-            return response()->json(['message' => 'No autorizado.'], 403);
-        }
-
-        $rent = Rent::where('id', $id)->where('owner_id', $owner->id)->first();
+        $rent = $this->viewableRent($request, $id);
         if (! $rent) {
             return response()->json(['message' => 'Renta no encontrada.'], 404);
         }
@@ -32,15 +27,10 @@ class TicketController extends Controller
         return response()->json(['data' => $tickets]);
     }
 
-    // Crea un nuevo reporte de mantenimiento
+    // Crea un nuevo reporte de mantenimiento (propietario o inquilino — tiene sentido que el inquilino reporte daños)
     public function store(Request $request, int $id)
     {
-        $owner = $request->user()->owner;
-        if (! $owner) {
-            return response()->json(['message' => 'No autorizado.'], 403);
-        }
-
-        $rent = Rent::where('id', $id)->where('owner_id', $owner->id)->first();
+        $rent = $this->viewableRent($request, $id);
         if (! $rent) {
             return response()->json(['message' => 'Renta no encontrada.'], 404);
         }
@@ -116,6 +106,27 @@ class TicketController extends Controller
         $ticket->update($data);
 
         return response()->json(['data' => $this->toArray($ticket)]);
+    }
+
+    // Resuelve la renta si el usuario autenticado es el propietario o el inquilino de esa renta
+    private function viewableRent(Request $request, int $id): ?Rent
+    {
+        $owner = $request->user()->owner;
+        $tenant = $request->user()->tenant;
+        if (! $owner && ! $tenant) {
+            return null;
+        }
+
+        return Rent::where('id', $id)
+            ->where(function ($q) use ($owner, $tenant) {
+                if ($owner) {
+                    $q->orWhere('owner_id', $owner->id);
+                }
+                if ($tenant) {
+                    $q->orWhere('tenant_id', $tenant->id);
+                }
+            })
+            ->first();
     }
 
     // Forma el payload que consume la app para cada reporte

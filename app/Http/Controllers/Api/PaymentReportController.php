@@ -17,7 +17,7 @@ class PaymentReportController extends Controller
     // Lista los servicios/pagos activos de la renta, para el selector del modal "Reportar Pago"
     public function types(Request $request, int $rentId)
     {
-        $rent = $this->ownedRent($request, $rentId);
+        $rent = $this->viewableRent($request, $rentId);
         if (! $rent) {
             return response()->json(['message' => 'Renta no encontrada.'], 404);
         }
@@ -44,7 +44,7 @@ class PaymentReportController extends Controller
     // Mismo cálculo de fecha límite que app/Livewire/PaymentManager.php (panel Filament),
     public function index(Request $request, int $rentId)
     {
-        $rent = $this->ownedRent($request, $rentId);
+        $rent = $this->viewableRent($request, $rentId);
         if (! $rent) {
             return response()->json(['message' => 'Renta no encontrada.'], 404);
         }
@@ -52,7 +52,7 @@ class PaymentReportController extends Controller
         $inicioRenta = $rent->start_date ?? $rent->fecha_firma ?? $rent->created_at;
         $mesInicio = Carbon::parse($inicioRenta)->startOfMonth();
         // Límite superior: mes de end_date si la renta lo tiene capturado (permite ver/adelantar meses
-        // futuros hasta el fin del contrato); si no, el mes actual (sin adelanto), como antes.
+        // futuros hasta el fin del contrato); si no, el mes actual (sin adelanto)
         $mesFin = $rent->end_date ? Carbon::parse($rent->end_date)->startOfMonth() : now()->startOfMonth();
         if ($mesFin->lt($mesInicio)) {
             $mesFin = $mesInicio->copy();
@@ -61,10 +61,7 @@ class PaymentReportController extends Controller
         $today = now()->startOfDay();
 
         // Orden de los meses: el mes actual primero (si cae dentro del rango), seguido de los meses
-        // futuros en orden ascendente (lo más accionable: pagar ahora o adelantar), y el historial pasado
-        // al final en orden descendente. Así el mes actual siempre es visible sin necesidad de scroll,
-        // sin importar qué tan lejos esté end_date. Si el mes actual queda fuera del rango (renta ya
-        // vencida o que empieza a futuro), se usa el orden descendente simple desde mesFin.
+        // futuros en orden ascendente (lo más accionable: pagar ahora o adelantar)
         $mesesOrdenados = [];
         $mesActual = now()->startOfMonth();
         if ($mesActual->betweenIncluded($mesInicio, $mesFin)) {
@@ -232,7 +229,7 @@ class PaymentReportController extends Controller
     // si formó parte de un pago de varios meses (lote_pago), los meses que se pagaron junto con este.
     public function show(Request $request, int $rentId, int $serviceId)
     {
-        $rent = $this->ownedRent($request, $rentId);
+        $rent = $this->viewableRent($request, $rentId);
         if (! $rent) {
             return response()->json(['message' => 'Renta no encontrada.'], 404);
         }
@@ -280,6 +277,27 @@ class PaymentReportController extends Controller
         }
 
         return Rent::where('id', $rentId)->where('owner_id', $owner->id)->first();
+    }
+
+    // Igual que ownedRent(), pero también permite al inquilino (solo lectura: types/index/show)
+    private function viewableRent(Request $request, int $rentId): ?Rent
+    {
+        $owner = $request->user()->owner;
+        $tenant = $request->user()->tenant;
+        if (! $owner && ! $tenant) {
+            return null;
+        }
+
+        return Rent::where('id', $rentId)
+            ->where(function ($q) use ($owner, $tenant) {
+                if ($owner) {
+                    $q->orWhere('owner_id', $owner->id);
+                }
+                if ($tenant) {
+                    $q->orWhere('tenant_id', $tenant->id);
+                }
+            })
+            ->first();
     }
 
     private function resolveDueDateForMonth(PaymentSetting $setting, Carbon $candidateDate): ?Carbon

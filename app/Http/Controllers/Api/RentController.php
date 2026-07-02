@@ -8,48 +8,64 @@ use Illuminate\Http\Request;
 
 class RentController extends Controller
 {
-    // Lista las rentas activas del propietario autenticado
+    // Lista las rentas activas del propietario o inquilino autenticado
     public function index(Request $request)
     {
         $user = $request->user();
 
         $owner = $user->owner;
+        $tenant = $user->tenant;
 
-        if (!$owner) {
+        if (!$owner && !$tenant) {
             return response()->json(['data' => []]);
         }
 
         // solo rentas activas; vencidas, canceladas y demás estatus no se muestran en la app
         $rents = Rent::with(['property.images', 'owner.user'])
-            ->where('owner_id', $owner->id)
+            ->where(function ($q) use ($owner, $tenant) {
+                if ($owner) {
+                    $q->orWhere('owner_id', $owner->id);
+                }
+                if ($tenant) {
+                    $q->orWhere('tenant_id', $tenant->id);
+                }
+            })
             ->where('estatus', 'activa')
             ->orderByDesc('created_at')
             ->get()
-            ->map(fn($rent) => $this->toList($rent));
+            ->map(fn($rent) => $this->toList($rent, $user));
 
         return response()->json(['data' => $rents]);
     }
 
-    // Retorna el detalle completo de una renta (solo si pertenece al propietario autenticado)
+    // Retorna el detalle completo de una renta (solo si pertenece al propietario o inquilino autenticado)
     public function show(Request $request, int $id)
     {
         $user = $request->user();
         $owner = $user->owner;
+        $tenant = $user->tenant;
 
-        if (!$owner) {
+        if (!$owner && !$tenant) {
             return response()->json(['message' => 'No autorizado.'], 403);
         }
 
         $rent = Rent::with(['property.images', 'asesor', 'owner.user'])
             ->where('id', $id)
-            ->where('owner_id', $owner->id)
+            ->where(function ($q) use ($owner, $tenant) {
+                if ($owner) {
+                    $q->orWhere('owner_id', $owner->id);
+                }
+                if ($tenant) {
+                    $q->orWhere('tenant_id', $tenant->id);
+                }
+            })
             ->first();
 
         if (!$rent) {
             return response()->json(['message' => 'Renta no encontrada.'], 404);
         }
 
-        return response()->json(['data' => $this->toDetail($rent)]);
+        return response()->json(['data' => $this->toDetail($rent, $user)]);
     }
 
     // Cambia el estatus de la renta a 'vencida' para quitarla de la vista del propietario
@@ -74,7 +90,7 @@ class RentController extends Controller
     }
 
     // Forma el payload completo para la vista de detalle de renta
-    private function toDetail($rent): array
+    private function toDetail($rent, $user): array
     {
         $portada = $rent->property?->images->firstWhere('is_portada', true)
             ?? $rent->property?->images->first();
@@ -100,11 +116,15 @@ class RentController extends Controller
                 'telefono' => $rent->asesor->telefono,
                 'foto'     => 'https://ui-avatars.com/api/?name=' . urlencode($rent->asesor->name) . '&size=64&background=26CAD3&color=fff',
             ] : null,
+            'mensajes_no_leidos' => \App\Models\Message::where('rent_id', $rent->id)
+                ->where('user_id', '!=', $user->id)
+                ->where('visto', false)
+                ->count(),
         ];
     }
 
     // Forma el payload resumido para la tarjeta en el listado de mis-rentas
-    private function toList($rent): array
+    private function toList($rent, $user): array
     {
         $portada = $rent->property?->images->firstWhere('is_portada', true)
             ?? $rent->property?->images->first();
@@ -119,7 +139,10 @@ class RentController extends Controller
             'foto'             => $portada?->path_file ? \Storage::disk('spaces')->url($portada->path_file) : null,
             'recamaras'        => (int) ($rent->property?->recamaras ?? 0),
             'm2'               => (int) ($rent->property?->metros_cuadrados ?? 0),
-            'mensajes_no_leidos' => 0,
+            'mensajes_no_leidos' => \App\Models\Message::where('rent_id', $rent->id)
+                ->where('user_id', '!=', $user->id)
+                ->where('visto', false)
+                ->count(),
         ];
     }
 }

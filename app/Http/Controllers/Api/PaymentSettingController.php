@@ -10,15 +10,25 @@ use Illuminate\Http\Request;
 
 class PaymentSettingController extends Controller
 {
-    // Devuelve todos los payment_settings de una renta con sus recordatorios
+    // Devuelve todos los payment_settings de una renta con sus recordatorios (propietario o inquilino, solo lectura)
     public function index(Request $request, int $rentId)
     {
         $owner = $request->user()->owner;
-        if (! $owner) {
+        $tenant = $request->user()->tenant;
+        if (! $owner && ! $tenant) {
             return response()->json(['message' => 'No autorizado.'], 403);
         }
 
-        $rent = Rent::where('id', $rentId)->where('owner_id', $owner->id)->first();
+        $rent = Rent::where('id', $rentId)
+            ->where(function ($q) use ($owner, $tenant) {
+                if ($owner) {
+                    $q->orWhere('owner_id', $owner->id);
+                }
+                if ($tenant) {
+                    $q->orWhere('tenant_id', $tenant->id);
+                }
+            })
+            ->first();
         if (! $rent) {
             return response()->json(['message' => 'Renta no encontrada.'], 404);
         }
