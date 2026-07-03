@@ -96,12 +96,22 @@ class PaymentReportController extends Controller
                 }
 
                 $service = $services->get($setting->id);
+                $estado = $service ? $service->estatus : ($dueDate->lt($today) ? 'vencido' : 'por_vencer');
+
+                // Días de retraso
+                $diasAtraso = match ($estado) {
+                    'atrasado' => $dueDate->diffInDays($service->fecha_pago),
+                    'vencido'  => $dueDate->diffInDays($today),
+                    default    => 0,
+                };
+
                 $pagos[] = [
                     'payment_setting_id' => $setting->id,
                     'service_id'         => $service?->id,
                     'tipo'               => $setting->tipo,
                     'icono'              => $setting->icono,
-                    'estado'             => $service ? $service->estatus : ($dueDate->lt($today) ? 'vencido' : 'por_vencer'),
+                    'estado'             => $estado,
+                    'dias_atraso'        => $diasAtraso,
                     'fecha'              => $service?->fecha_pago?->format('d/m/y') ?? $dueDate->format('d/m/y'),
                     'monto'              => $service ? (float) $service->monto : (float) ($setting->monto ?? 0),
                     'lote_pago'          => $service?->lote_pago,
