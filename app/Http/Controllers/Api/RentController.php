@@ -42,8 +42,17 @@ class RentController extends Controller
             })
             ->where('estatus', 'activa')
             ->orderByDesc('created_at')
-            ->get()
-            ->map(fn($rent) => $this->toList($rent, $user));
+            ->get();
+
+        // 1 sola consulta para todas las rentas, en vez de una por renta (N+1)
+        $unreadCounts = $rents->isEmpty() ? collect() : \App\Models\Message::whereIn('rent_id', $rents->pluck('id'))
+            ->where('user_id', '!=', $user->id)
+            ->where('visto', false)
+            ->selectRaw('rent_id, count(*) as total')
+            ->groupBy('rent_id')
+            ->pluck('total', 'rent_id');
+
+        $rents = $rents->map(fn($rent) => $this->toList($rent, $unreadCounts[$rent->id] ?? 0));
 
         return response()->json(['data' => $rents]);
     }
@@ -134,7 +143,7 @@ class RentController extends Controller
     }
 
     // Forma el payload resumido para la tarjeta en el listado de mis-rentas
-    private function toList($rent, $user): array
+    private function toList($rent, int $mensajesNoLeidos): array
     {
         $portada = $rent->property?->images->firstWhere('is_portada', true)
             ?? $rent->property?->images->first();
@@ -156,10 +165,7 @@ class RentController extends Controller
             'foto'             => $fotoPath ? \Storage::disk('spaces')->url($fotoPath) : null,
             'recamaras'        => (int) ($rent->property?->recamaras ?? 0),
             'm2'               => (int) ($rent->property?->metros_cuadrados ?? 0),
-            'mensajes_no_leidos' => \App\Models\Message::where('rent_id', $rent->id)
-                ->where('user_id', '!=', $user->id)
-                ->where('visto', false)
-                ->count(),
+            'mensajes_no_leidos' => $mensajesNoLeidos,
         ];
     }
 }

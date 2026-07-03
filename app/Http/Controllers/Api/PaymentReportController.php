@@ -77,16 +77,20 @@ class PaymentReportController extends Controller
             }
         }
 
+        // 1 sola consulta para todo el rango, en vez de una por mes (N+1)
+        $periodKeys = collect($mesesOrdenados)->map(fn ($m) => $m->format('Y-m'));
+        $serviciosPorPeriodo = Service::where('rent_id', $rentId)
+            ->whereIn('periodo_referencia', $periodKeys)
+            ->whereIn('payment_setting_id', $settings->pluck('id'))
+            ->get()
+            ->groupBy('periodo_referencia');
+
         $periodos = [];
 
         foreach ($mesesOrdenados as $monthStart) {
             $periodKey = $monthStart->format('Y-m');
 
-            $services = Service::where('rent_id', $rentId)
-                ->where('periodo_referencia', $periodKey)
-                ->whereIn('payment_setting_id', $settings->pluck('id'))
-                ->get()
-                ->keyBy('payment_setting_id');
+            $services = ($serviciosPorPeriodo->get($periodKey) ?? collect())->keyBy('payment_setting_id');
 
             $pagos = [];
             foreach ($settings as $setting) {
