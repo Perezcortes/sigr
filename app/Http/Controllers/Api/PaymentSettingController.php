@@ -38,7 +38,7 @@ class PaymentSettingController extends Controller
             ->orderByDesc('es_base_renta')
             ->orderBy('id')
             ->get()
-            ->map(fn ($s) => $this->toArray($s));
+            ->map(fn ($s) => $this->toArray($s, $request->user()->id));
 
         return response()->json(['data' => $settings]);
     }
@@ -96,6 +96,7 @@ class PaymentSettingController extends Controller
 
         // Recordatorio inicial con los días y dirección indicados (o 3 días / antes por defecto)
         $setting->reminders()->create([
+            'user_id'    => $request->user()->id,
             'dias_antes' => $data['dias_antes'] ?? 3,
             'direccion'  => $data['direccion'] ?? 'antes',
             'activo'     => true,
@@ -103,7 +104,7 @@ class PaymentSettingController extends Controller
 
         $setting->load('reminders');
 
-        return response()->json(['data' => $this->toArray($setting)], 201);
+        return response()->json(['data' => $this->toArray($setting, $request->user()->id)], 201);
     }
 
     // Actualiza un campo específico de un payment_setting
@@ -165,7 +166,7 @@ class PaymentSettingController extends Controller
 
         $setting->load('reminders');
 
-        return response()->json(['data' => $this->toArray($setting)]);
+        return response()->json(['data' => $this->toArray($setting, $request->user()->id)]);
     }
 
     // Elimina un tipo de pago (no se puede eliminar la renta base)
@@ -192,17 +193,10 @@ class PaymentSettingController extends Controller
         return response()->json(['message' => 'Eliminado.']);
     }
 
-    // Agrega un recordatorio a un payment_setting
+    // Agrega un recordatorio propio a un payment_setting (propietario o inquilino, cada quien el suyo)
     public function addReminder(Request $request, int $id)
     {
-        $owner = $request->user()->owner;
-        if (! $owner) {
-            return response()->json(['message' => 'No autorizado.'], 403);
-        }
-
-        $setting = PaymentSetting::whereHas('rent', fn ($q) => $q->where('owner_id', $owner->id))
-            ->find($id);
-
+        $setting = $this->viewableSetting($request, $id);
         if (! $setting) {
             return response()->json(['message' => 'Configuración no encontrada.'], 404);
         }
@@ -212,9 +206,10 @@ class PaymentSettingController extends Controller
             'direccion'  => 'nullable|string|in:antes,despues',
         ]);
 
-        $nextDays = (int) ($setting->reminders()->max('dias_antes') ?? 0) + 1;
+        $nextDays = (int) ($setting->reminders()->where('user_id', $request->user()->id)->max('dias_antes') ?? 0) + 1;
 
         $reminder = $setting->reminders()->create([
+            'user_id'    => $request->user()->id,
             'dias_antes' => $data['dias_antes'] ?? $nextDays,
             'direccion'  => $data['direccion'] ?? 'antes',
             'activo'     => true,
@@ -223,19 +218,10 @@ class PaymentSettingController extends Controller
         return response()->json(['data' => $this->reminderToArray($reminder)], 201);
     }
 
-    // Actualiza los días de un recordatorio
+    // Actualiza los días/dirección de un recordatorio propio (nunca el de otro usuario)
     public function updateReminder(Request $request, int $settingId, int $reminderId)
     {
-        $owner = $request->user()->owner;
-        if (! $owner) {
-            return response()->json(['message' => 'No autorizado.'], 403);
-        }
-
-        $reminder = PaymentReminder::whereHas(
-            'paymentSetting.rent',
-            fn ($q) => $q->where('owner_id', $owner->id)
-        )->where('payment_setting_id', $settingId)->find($reminderId);
-
+        $reminder = $this->viewableReminder($request, $settingId, $reminderId);
         if (! $reminder) {
             return response()->json(['message' => 'Recordatorio no encontrado.'], 404);
         }
@@ -254,19 +240,10 @@ class PaymentSettingController extends Controller
         return response()->json(['data' => $this->reminderToArray($reminder)]);
     }
 
-    // Elimina un recordatorio
+    // Elimina un recordatorio propio (nunca el de otro usuario)
     public function removeReminder(Request $request, int $settingId, int $reminderId)
     {
-        $owner = $request->user()->owner;
-        if (! $owner) {
-            return response()->json(['message' => 'No autorizado.'], 403);
-        }
-
-        $reminder = PaymentReminder::whereHas(
-            'paymentSetting.rent',
-            fn ($q) => $q->where('owner_id', $owner->id)
-        )->where('payment_setting_id', $settingId)->find($reminderId);
-
+        $reminder = $this->viewableReminder($request, $settingId, $reminderId);
         if (! $reminder) {
             return response()->json(['message' => 'Recordatorio no encontrado.'], 404);
         }
@@ -276,7 +253,43 @@ class PaymentSettingController extends Controller
         return response()->json(['message' => 'Recordatorio eliminado.']);
     }
 
-    private function toArray(PaymentSetting $s): array
+    // Resuelve el payment_setting si el usuario autenticado es propietario o inquilino de esa renta
+    private function viewableSetting(Request $request, int $settingId): ?PaymentSetting
+    {
+        $owner = $request->user()->owner;
+        $tenant = $request->user()->tenant;
+        if (! $owner && ! $tenant) {
+            return null;
+        }
+
+        return PaymentSetting::whereHas('rent', function ($q) use ($owner, $tenant) {
+            $q->where(function ($q2) use ($owner, $tenant) {
+                if ($owner) {
+                    $q2->orWhere('owner_id', $owner->id);
+                }
+                if ($tenant) {
+                    $q2->orWhere('tenant_id', $tenant->id);
+                }
+            });
+        })->find($settingId);
+    }
+
+    // Resuelve un recordatorio solo si pertenece al usuario autenticado (y a una renta que puede ver)
+    private function viewableReminder(Request $request, int $settingId, int $reminderId): ?PaymentReminder
+    {
+        $setting = $this->viewableSetting($request, $settingId);
+        if (! $setting) {
+            return null;
+        }
+
+        return $setting->reminders()
+            ->where('user_id', $request->user()->id)
+            ->find($reminderId);
+    }
+
+    // $userId: cada usuario (propietario o inquilino) solo ve sus propios recordatorios,
+    // aunque ambos compartan el mismo payment_setting.
+    private function toArray(PaymentSetting $s, int $userId): array
     {
         return [
             'id'            => $s->id,
@@ -289,7 +302,7 @@ class PaymentSettingController extends Controller
             'activo'        => (bool) $s->activo,
             'es_base_renta' => (bool) $s->es_base_renta,
             'icono'         => $s->icono,
-            'recordatorios' => $s->reminders->map(fn ($r) => $this->reminderToArray($r))->values()->all(),
+            'recordatorios' => $s->reminders->where('user_id', $userId)->map(fn ($r) => $this->reminderToArray($r))->values()->all(),
         ];
     }
 

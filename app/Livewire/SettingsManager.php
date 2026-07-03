@@ -91,6 +91,7 @@ class SettingsManager extends Component implements HasForms
 
         PaymentReminder::create([
             'payment_setting_id' => $setting->id,
+            'user_id' => Rent::find($this->rentId)->owner->user_id,
             'dias_antes' => 3,
             'direccion' => 'antes',
             'activo' => true,
@@ -166,9 +167,11 @@ class SettingsManager extends Component implements HasForms
             return;
         }
 
-        $nextDays = (int) ($payment->reminders()->max('dias_antes') ?? 0) + 1;
+        $ownerUserId = $payment->rent->owner->user_id;
+        $nextDays = (int) ($payment->reminders()->where('user_id', $ownerUserId)->max('dias_antes') ?? 0) + 1;
 
         $payment->reminders()->create([
+            'user_id' => $ownerUserId,
             'dias_antes' => $nextDays,
             'direccion' => 'antes',
             'activo' => true,
@@ -180,6 +183,7 @@ class SettingsManager extends Component implements HasForms
     public function removeReminder(int $reminderId): void
     {
         $reminder = PaymentReminder::whereHas('paymentSetting', fn ($query) => $query->where('rent_id', $this->rentId))
+            ->where('user_id', Rent::find($this->rentId)->owner->user_id)
             ->find($reminderId);
 
         if (! $reminder) {
@@ -193,6 +197,7 @@ class SettingsManager extends Component implements HasForms
     public function updateReminderDays(int $reminderId, mixed $days): void
     {
         $reminder = PaymentReminder::whereHas('paymentSetting', fn ($query) => $query->where('rent_id', $this->rentId))
+            ->where('user_id', Rent::find($this->rentId)->owner->user_id)
             ->find($reminderId);
 
         if (! $reminder) {
@@ -208,6 +213,7 @@ class SettingsManager extends Component implements HasForms
     public function updateReminderDirection(int $reminderId, string $direction): void
     {
         $reminder = PaymentReminder::whereHas('paymentSetting', fn ($query) => $query->where('rent_id', $this->rentId))
+            ->where('user_id', Rent::find($this->rentId)->owner->user_id)
             ->find($reminderId);
 
         if (! $reminder) {
@@ -244,6 +250,7 @@ class SettingsManager extends Component implements HasForms
         ]);
 
         $base->reminders()->create([
+            'user_id' => $rent->owner->user_id,
             'dias_antes' => 3,
             'direccion' => 'antes',
             'activo' => true,
@@ -296,8 +303,11 @@ class SettingsManager extends Component implements HasForms
 
     public function render()
     {
+        // Panel de staff: solo administra los recordatorios del propietario
+        $ownerUserId = Rent::find($this->rentId)->owner->user_id;
+
         $paymentSettings = PaymentSetting::where('rent_id', $this->rentId)
-            ->with('reminders')
+            ->with(['reminders' => fn ($q) => $q->where('user_id', $ownerUserId)])
             ->orderByRaw("
                 CASE
                     WHEN es_base_renta = 1 THEN 0
