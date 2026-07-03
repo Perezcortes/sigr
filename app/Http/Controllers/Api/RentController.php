@@ -8,7 +8,9 @@ use Illuminate\Http\Request;
 
 class RentController extends Controller
 {
-    // Lista las rentas activas del propietario o inquilino autenticado
+    // Lista las rentas activas del propietario o inquilino autenticado.
+    // Si el usuario tiene ambos roles, "perfil_activo" (mandado por apprentas desde la
+    // sesión del switch de perfil) filtra a una sola lista; sin ese dato, se listan ambas.
     public function index(Request $request)
     {
         $user = $request->user();
@@ -20,14 +22,24 @@ class RentController extends Controller
             return response()->json(['data' => []]);
         }
 
+        $perfilActivo = $request->query('perfil_activo');
+
         // solo rentas activas; vencidas, canceladas y demás estatus no se muestran en la app
         $rents = Rent::with(['property.images', 'owner.user'])
-            ->where(function ($q) use ($owner, $tenant) {
-                if ($owner) {
-                    $q->orWhere('owner_id', $owner->id);
-                }
-                if ($tenant) {
-                    $q->orWhere('tenant_id', $tenant->id);
+            ->where(function ($q) use ($owner, $tenant, $perfilActivo) {
+                if ($perfilActivo === 'propietario' && $owner) {
+                    $q->where('owner_id', $owner->id);
+                } elseif ($perfilActivo === 'inquilino' && $tenant) {
+                    $q->where('tenant_id', $tenant->id);
+                } else {
+                    $q->where(function ($q2) use ($owner, $tenant) {
+                        if ($owner) {
+                            $q2->orWhere('owner_id', $owner->id);
+                        }
+                        if ($tenant) {
+                            $q2->orWhere('tenant_id', $tenant->id);
+                        }
+                    });
                 }
             })
             ->where('estatus', 'activa')
