@@ -8,9 +8,7 @@ use Illuminate\Http\Request;
 
 class RentController extends Controller
 {
-    // Lista las rentas activas del propietario o inquilino autenticado.
-    // Si el usuario tiene ambos roles, "perfil_activo" (mandado por apprentas desde la
-    // sesión del switch de perfil) filtra a una sola lista; sin ese dato, se listan ambas.
+    // Lista las rentas del usuario; "perfil_activo" filtra a una sola lista si tiene ambos roles
     public function index(Request $request)
     {
         $user = $request->user();
@@ -141,6 +139,13 @@ class RentController extends Controller
         $portada = $rent->property?->images->firstWhere('is_portada', true)
             ?? $rent->property?->images->first();
 
+        // Miniatura para la tarjeta de la lista
+        $fotoPath = null;
+        if ($portada?->path_file) {
+            $thumb = preg_replace('/\.\w+$/', '_thumb.jpg', $portada->path_file);
+            $fotoPath = \Storage::disk('spaces')->exists($thumb) ? $thumb : $portada->path_file;
+        }
+
         return [
             'id'               => $rent->id,
             'folio'            => $rent->folio,
@@ -148,7 +153,7 @@ class RentController extends Controller
             'renta'            => (float) $rent->renta,
             'fecha_fin'        => $rent->end_date ? \Carbon\Carbon::parse($rent->end_date)->locale('es')->isoFormat('D [de] MMMM [del] Y') : null,
             'direccion'        => collect([$rent->calle, $rent->colonia, $rent->municipio, $rent->estado])->filter()->implode(', '),
-            'foto'             => $portada?->path_file ? \Storage::disk('spaces')->url($portada->path_file) : null,
+            'foto'             => $fotoPath ? \Storage::disk('spaces')->url($fotoPath) : null,
             'recamaras'        => (int) ($rent->property?->recamaras ?? 0),
             'm2'               => (int) ($rent->property?->metros_cuadrados ?? 0),
             'mensajes_no_leidos' => \App\Models\Message::where('rent_id', $rent->id)
