@@ -43,4 +43,29 @@ class UserController extends Controller
 
         return response()->json(['message' => 'Preferencias actualizadas.']);
     }
+
+    // Activa/desactiva los roles propietario/inquilino del usuario autenticado
+    public function updateTipoPerfil(Request $request)
+    {
+        $validated = $request->validate([
+            'is_owner' => 'required|boolean',
+            'is_tenant' => 'required|boolean',
+        ]);
+
+        if (! $validated['is_owner'] && ! $validated['is_tenant']) {
+            return response()->json([
+                'message' => 'Debes mantener al menos un perfil activo (propietario o inquilino).',
+            ], 422);
+        }
+
+        $request->user()->update($validated);
+
+        return response()->json([
+            'message' => 'Perfil actualizado.',
+            'data' => [
+                'is_owner' => $request->user()->is_owner,
+                'is_tenant' => $request->user()->is_tenant,
+            ],
+        ]);
+    }
 }
