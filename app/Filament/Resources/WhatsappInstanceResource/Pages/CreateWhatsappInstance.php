@@ -6,8 +6,6 @@ use App\Filament\Resources\WhatsappInstanceResource;
 use App\Services\EvolutionInstanceBootstrapper;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
-use WallaceMartinss\FilamentEvolution\Enums\StatusConnectionEnum;
-use WallaceMartinss\FilamentEvolution\Exceptions\EvolutionApiException;
 
 class CreateWhatsappInstance extends CreateRecord
 {
@@ -28,13 +26,13 @@ class CreateWhatsappInstance extends CreateRecord
             Notification::make()
                 ->success()
                 ->title(__('filament-evolution::resource.messages.created'))
-                ->body('Instancia creada en Evolution API')
+                ->body('Instancia creada en OpenWA')
                 ->send();
-        } catch (EvolutionApiException $e) {
+        } catch (\Throwable $e) {
             Notification::make()
                 ->warning()
                 ->title(__('filament-evolution::resource.messages.created'))
-                ->body('Guardado local. Error al sincronizar con la API: '.$e->getMessage())
+                ->body('Guardado local. Error al sincronizar con la API de OpenWA: '.$e->getMessage())
                 ->send();
         }
     }

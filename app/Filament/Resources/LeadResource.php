@@ -23,7 +23,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\HtmlString;
 use Maatwebsite\Excel\Facades\Excel;
 use WallaceMartinss\FilamentEvolution\Enums\StatusConnectionEnum;
-use WallaceMartinss\FilamentEvolution\Services\WhatsappService;
+use App\Services\OpenWaService;
 
 class LeadResource extends Resource
 {
@@ -274,9 +274,9 @@ class LeadResource extends Resource
                                                     }
 
                                                     try {
-                                                        $service = app(WhatsappService::class);
+                                                        $openWa = app(OpenWaService::class);
                                                         $instance = static::resolveWhatsappInstance($data['instance_id'] ?? null);
-                                                        if (! $instance) {
+                                                        if (! $instance || ! $instance->instance_id) {
                                                             Notification::make()->danger()->title('Instancia inválida')->body('Selecciona una instancia conectada válida.')->send();
 
                                                             return;
@@ -284,12 +284,10 @@ class LeadResource extends Resource
                                                         $type = (string) ($data['type'] ?? 'text');
                                                         $caption = $data['caption'] ?? null;
 
-                                                        if ($type === 'image') {
-                                                            $service->sendImage($instance->id, $number, (string) $data['media'], $caption, 'public');
-                                                        } elseif ($type === 'document') {
-                                                            $service->sendDocument($instance->id, $number, (string) $data['media'], basename((string) $data['media']), $caption, 'public');
+                                                        if ($type === 'image' || $type === 'document') {
+                                                            $openWa->sendMedia($instance->instance_id, $number, (string) $data['media'], $caption, 'public');
                                                         } else {
-                                                            $service->sendText($instance->id, $number, (string) $data['message']);
+                                                            $openWa->sendText($instance->instance_id, $number, (string) $data['message']);
                                                         }
 
                                                         $bodyText = $data['message'] ?? $caption ?? basename((string) ($data['media'] ?? ''));
