@@ -8,6 +8,7 @@ use App\Models\PropertyDocument;
 use App\Models\PropertyImage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -58,6 +59,16 @@ class PropertyController extends Controller
         $user = $request->user();
         if (! $user->is_owner) {
             abort(403, 'Solo los propietarios pueden crear propiedades.');
+        }
+
+        // Idempotencia: si ya se procesó este key en los últimos 60 s, rechazar el duplicado
+        $idemKey = $request->input('idempotency_key');
+        if ($idemKey) {
+            $cacheKey = 'prop_idem_' . $user->id . '_' . $idemKey;
+            if (Cache::has($cacheKey)) {
+                return response()->json(['message' => 'Esta propiedad ya fue registrada.'], 409);
+            }
+            Cache::put($cacheKey, true, 60);
         }
 
         // Los campos numéricos opcionales llegan como '' si el usuario los deja vacíos; se convierten a null para que pasen la validación 'numeric'.
