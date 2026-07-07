@@ -158,4 +158,15 @@ class OpenWaService
 
         return $this->request('POST', "/api/sessions/{$uuid}/messages/{$endpoint}", $payload);
     }
+
+    /**
+     * Register a webhook for a session.
+     */
+    public function registerWebhook(string $uuid, string $webhookUrl): array
+    {
+        return $this->request('POST', "/api/sessions/{$uuid}/webhooks", [
+            'url' => $webhookUrl,
+            'events' => ['message.received'],
+        ]);
+    }
 }

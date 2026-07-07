@@ -124,6 +124,12 @@ class AdvisorWhatsappEvolutionPanel extends Component
                 ]);
 
                 $openWa->startSession($uuid);
+
+                try {
+                    $openWa->registerWebhook($uuid, url('/api/webhooks/openwa'));
+                } catch (\Throwable $webhookEx) {
+                    \Log::warning("Failed to register webhook for legacy session: " . $webhookEx->getMessage());
+                }
             } catch (\Throwable $e) {
                 \Log::error("Failed to auto-create OpenWA session for legacy instance: " . $e->getMessage());
                 return;

@@ -33,6 +33,12 @@ class EvolutionInstanceBootstrapper
 
         $this->openWa->startSession($uuid);
 
+        try {
+            $this->openWa->registerWebhook($uuid, url('/api/webhooks/openwa'));
+        } catch (\Throwable $e) {
+            \Log::warning("Failed to register webhook in syncInstanceToEvolutionApi: " . $e->getMessage());
+        }
+
         $record->update([
             'instance_id' => $uuid,
             'status' => StatusConnectionEnum::CONNECTING,
@@ -52,6 +58,13 @@ class EvolutionInstanceBootstrapper
 
         // Arrancar la sesión
         $this->openWa->startSession($uuid);
+
+        // Registrar webhook
+        try {
+            $this->openWa->registerWebhook($uuid, url('/api/webhooks/openwa'));
+        } catch (\Throwable $e) {
+            \Log::warning("Failed to register webhook in createAdvisorInstance: " . $e->getMessage());
+        }
 
         $instance = WhatsappInstance::create([
             'name' => $name,
