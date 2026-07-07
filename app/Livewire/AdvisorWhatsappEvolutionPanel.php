@@ -106,11 +106,30 @@ class AdvisorWhatsappEvolutionPanel extends Component
 
     public function checkStatus(): void
     {
-        if (! $this->whatsappInstance || ! $this->whatsappInstance->instance_id) {
+        if (! $this->whatsappInstance) {
             return;
         }
 
         $openWa = app(OpenWaService::class);
+
+        // Si es una instancia legacy sin instance_id, crearla y arrancarla automáticamente
+        if (! $this->whatsappInstance->instance_id) {
+            try {
+                $session = $openWa->createSession($this->whatsappInstance->name);
+                $uuid = $session['id'];
+
+                $this->whatsappInstance->update([
+                    'instance_id' => $uuid,
+                    'status' => StatusConnectionEnum::CONNECTING,
+                ]);
+
+                $openWa->startSession($uuid);
+            } catch (\Throwable $e) {
+                \Log::error("Failed to auto-create OpenWA session for legacy instance: " . $e->getMessage());
+                return;
+            }
+        }
+
         try {
             $statusData = $openWa->getSessionStatus($this->whatsappInstance->instance_id);
             $openWaStatus = $statusData['status'] ?? 'disconnected';
