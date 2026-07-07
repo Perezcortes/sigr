@@ -291,14 +291,19 @@ class LeadResource extends Resource
                                                         }
 
                                                         $bodyText = $data['message'] ?? $caption ?? basename((string) ($data['media'] ?? ''));
+                                                        $msgId = 'local-'.uniqid();
                                                         WhatsappMessage::create([
-                                                            'wa_message_id' => 'local-'.uniqid(),
-                                                            'phone' => $number,
-                                                            'direction' => 'out',
-                                                            'body' => $bodyText,
-                                                            'lead_id' => $record->id,
-                                                            'user_id' => auth()->id(),
-                                                            'sent_at' => now(),
+                                                            'instance_id'   => $instance->id,
+                                                            'message_id'    => $msgId,
+                                                            'remote_jid'    => $number . '@c.us',
+                                                            'wa_message_id' => $msgId,
+                                                            'phone'         => $number,
+                                                            'direction'     => 'out',
+                                                            'body'          => $bodyText,
+                                                            'content'       => $bodyText,
+                                                            'lead_id'       => $record->id,
+                                                            'user_id'       => auth()->id(),
+                                                            'sent_at'       => now(),
                                                         ]);
 
                                                         Notification::make()
