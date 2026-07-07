@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Application extends Model
 {
@@ -143,5 +144,21 @@ class Application extends Model
     public function documents(): HasMany
     {
         return $this->hasMany(ApplicationDocument::class);
+    }
+
+    /**
+     * Relación con TenantRequest (antes de que exista un Rent)
+     */
+    public function tenantRequest(): HasOne
+    {
+        return $this->hasOne(TenantRequest::class);
+    }
+
+    /**
+     * Relación con GuarantorRequest (antes de que exista un Rent)
+     */
+    public function guarantorRequest(): HasOne
+    {
+        return $this->hasOne(GuarantorRequest::class);
     }
 }
