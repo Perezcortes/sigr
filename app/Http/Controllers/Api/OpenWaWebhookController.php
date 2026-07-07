@@ -16,13 +16,15 @@ class OpenWaWebhookController extends Controller
 {
     public function handle(Request $request): Response
     {
-        $data = $request->all();
+        $raw = $request->getContent();
+        Log::info('OpenWA Webhook Raw Body: ' . $raw);
+        Log::info('OpenWA Webhook Content-Type: ' . $request->header('Content-Type'));
 
-        Log::info('OpenWA Webhook Received', $data);
+        $data = json_decode($raw, true) ?: $request->all();
 
         $event = $data['event'] ?? null;
         $sessionId = $data['sessionId'] ?? null;
-        $payload = $data['payload'] ?? null;
+        $payload = $data['data'] ?? $data['payload'] ?? null;
 
         if ($event !== 'message.received' || !$sessionId || !$payload) {
             return response('Ignored event', 200);
@@ -35,12 +37,12 @@ class OpenWaWebhookController extends Controller
             return response('No instance found', 200);
         }
 
-        $rawPhone = preg_replace('/\D/', '', (string) ($payload['from'] ?? ''));
+        $rawPhone = preg_replace('/\D/', '', (string) ($payload['from'] ?? $payload['sender']['id'] ?? ''));
         if (!$rawPhone) {
             return response('No phone found', 200);
         }
 
-        $messageId = $payload['id'] ?? null;
+        $messageId = $payload['id'] ?? $payload['messageId'] ?? null;
         if (!$messageId) {
             return response('No message ID found', 200);
         }
@@ -51,16 +53,17 @@ class OpenWaWebhookController extends Controller
         }
 
         $leadId = $this->resolveLeadId($rawPhone);
+        $body = (string) ($payload['body'] ?? $payload['text'] ?? $payload['content'] ?? '');
 
         WhatsappMessage::create([
             'instance_id'   => $instance->id,
             'message_id'    => $messageId,
-            'remote_jid'    => ($payload['from'] ?? $rawPhone . '@c.us'),
+            'remote_jid'    => ($payload['from'] ?? $payload['chatId'] ?? ($rawPhone . '@c.us')),
             'wa_message_id' => $messageId,
             'phone'         => $rawPhone,
             'direction'     => 'in',
-            'body'          => $payload['body'] ?? '',
-            'content'       => $payload['body'] ?? '',
+            'body'          => $body,
+            'content'       => $body,
             'lead_id'       => $leadId,
             'user_id'       => null,
             'sent_at'       => now(),
