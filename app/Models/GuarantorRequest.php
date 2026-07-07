@@ -18,10 +18,4 @@ class GuarantorRequest extends Model
     {
         return $this->belongsTo(Rent::class);
     }
-
-    // Relación con Application (etapa previa a que exista un Rent)
-    public function application(): BelongsTo
-    {
-        return $this->belongsTo(Application::class);
-    }
 }
