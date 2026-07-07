@@ -4,7 +4,6 @@ use App\Http\Controllers\Api\ApplicationController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\AdvisorSearchController;
 use App\Http\Controllers\Api\GeoController;
-use App\Http\Controllers\Api\GuarantorRequestController;
 use App\Http\Controllers\Api\LeadWebhookController;
 use App\Http\Controllers\Api\MessageController;
 use App\Http\Controllers\Api\OwnerTenantProfileController;
@@ -12,7 +11,6 @@ use App\Http\Controllers\Api\PaymentReportController;
 use App\Http\Controllers\Api\PaymentSettingController;
 use App\Http\Controllers\Api\PropertyController;
 use App\Http\Controllers\Api\RentController;
-use App\Http\Controllers\Api\TenantRequestController;
 use App\Http\Controllers\Api\TicketController;
 use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
@@ -67,16 +65,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/rents/{id}/messages', [MessageController::class, 'index']);
     Route::post('/rents/{id}/messages', [MessageController::class, 'store']);
 
+    Route::get('/applications', [ApplicationController::class, 'index']);
     Route::post('/applications', [ApplicationController::class, 'store']);
     Route::get('/applications/{id}', [ApplicationController::class, 'show']);
     Route::patch('/applications/{id}', [ApplicationController::class, 'update']);
-
-    Route::get('/applications/{id}/tenant-request', [TenantRequestController::class, 'show']);
-    Route::patch('/applications/{id}/tenant-request', [TenantRequestController::class, 'update']);
-
-    Route::get('/applications/{id}/guarantor-request', [GuarantorRequestController::class, 'show']);
-    Route::patch('/applications/{id}/guarantor-request', [GuarantorRequestController::class, 'update']);
-    Route::delete('/applications/{id}/guarantor-request', [GuarantorRequestController::class, 'destroy']);
 
     Route::get('/properties', [PropertyController::class, 'index']);
     Route::post('/properties', [PropertyController::class, 'store']);

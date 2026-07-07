@@ -10,6 +10,20 @@ use Illuminate\Support\Facades\Storage;
 
 class ApplicationController extends Controller
 {
+    // Lista las solicitudes del inquilino autenticado, para "Listado de Solicitudes"
+    public function index(Request $request)
+    {
+        if (! $request->user()->is_tenant) {
+            return response()->json(['message' => 'Solo los inquilinos pueden ver solicitudes.'], 403);
+        }
+
+        $applications = Application::where('user_id', $request->user()->id)
+            ->orderByDesc('created_at')
+            ->get();
+
+        return response()->json(['data' => $applications->map(fn (Application $a) => $this->toListItem($a))->values()]);
+    }
+
     // Crea la solicitud con lo mínimo
     public function store(Request $request)
     {
@@ -19,11 +33,12 @@ class ApplicationController extends Controller
 
         $data = $request->validate([
             'tipo_inmueble' => 'required|string|in:residencial,comercial',
+            'tipo_persona' => 'required|string|in:fisica,moral',
         ]);
 
         $application = Application::create([
             'user_id' => $request->user()->id,
-            'tipo_persona' => 'fisica',
+            'tipo_persona' => $data['tipo_persona'],
             'tipo_inmueble' => $data['tipo_inmueble'],
             'estatus' => 'pendiente',
         ]);
@@ -42,7 +57,7 @@ class ApplicationController extends Controller
         return response()->json(['data' => $this->toDetail($application)]);
     }
 
-    // Guarda datos de Empleo e Ingresos
+    // Guarda Empleo e Ingresos (física), Uso de Propiedad (comercial) y Referencias (según tipo de persona)
     public function update(Request $request, int $id)
     {
         $application = $this->viewableApplication($request, $id);
@@ -50,40 +65,91 @@ class ApplicationController extends Controller
             return response()->json(['message' => 'Solicitud no encontrada.'], 404);
         }
 
-        $data = $request->validate([
-            'profesion_oficio_puesto' => 'required|string|max:255',
-            'tipo_empleo' => 'required|string|in:Dueño de negocio,Empresario,Independiente,Empleado,Comisionista,Jubilado',
-            'telefono_empleo' => 'required|string|max:20',
-            'extension_empleo' => 'nullable|string|max:20',
-            'empresa_trabaja' => 'required|string|max:255',
-            'calle_empleo' => 'required|string|max:255',
-            'numero_exterior_empleo' => 'required|string|max:50',
-            'numero_interior_empleo' => 'nullable|string|max:50',
-            'codigo_postal_empleo' => 'required|string|max:5',
-            'colonia_empleo' => 'required|string|max:255',
-            'delegacion_municipio_empleo' => 'required|string|max:255',
-            'estado_empleo' => 'required|string|max:255',
-            'fecha_ingreso' => 'required|date',
+        $rules = [];
 
-            'jefe_nombres' => 'required|string|max:255',
-            'jefe_primer_apellido' => 'required|string|max:255',
-            'jefe_segundo_apellido' => 'nullable|string|max:255',
-            'jefe_telefono' => 'required|string|max:20',
-            'jefe_extension' => 'nullable|string|max:20',
+        if ($application->tipo_persona === 'fisica') {
+            $rules = array_merge($rules, [
+                'profesion_oficio_puesto' => 'required|string|max:255',
+                'tipo_empleo' => 'required|string|in:Dueño de negocio,Empresario,Independiente,Empleado,Comisionista,Jubilado',
+                'telefono_empleo' => 'required|string|max:20',
+                'extension_empleo' => 'nullable|string|max:20',
+                'empresa_trabaja' => 'required|string|max:255',
+                'calle_empleo' => 'required|string|max:255',
+                'numero_exterior_empleo' => 'required|string|max:50',
+                'numero_interior_empleo' => 'nullable|string|max:50',
+                'codigo_postal_empleo' => 'required|string|max:5',
+                'colonia_empleo' => 'required|string|max:255',
+                'delegacion_municipio_empleo' => 'required|string|max:255',
+                'estado_empleo' => 'required|string|max:255',
+                'fecha_ingreso' => 'required|date',
 
-            'ingreso_mensual_comprobable' => 'required|numeric|min:0',
-            'ingreso_mensual_no_comprobable' => 'nullable|numeric|min:0',
-            'numero_personas_dependen' => 'required|integer|min:0',
-            'otra_persona_aporta' => 'required|boolean',
-            'numero_personas_aportan' => 'required_if:otra_persona_aporta,1|nullable|integer|min:1',
-            'persona_aporta_nombres' => 'required_if:otra_persona_aporta,1|nullable|string|max:255',
-            'persona_aporta_primer_apellido' => 'required_if:otra_persona_aporta,1|nullable|string|max:255',
-            'persona_aporta_segundo_apellido' => 'nullable|string|max:255',
-            'persona_aporta_parentesco' => 'required_if:otra_persona_aporta,1|nullable|string|max:255',
-            'persona_aporta_telefono' => 'required_if:otra_persona_aporta,1|nullable|string|max:20',
-            'persona_aporta_empresa' => 'required_if:otra_persona_aporta,1|nullable|string|max:255',
-            'persona_aporta_ingreso_comprobable' => 'required_if:otra_persona_aporta,1|nullable|numeric|min:0',
-        ]);
+                'jefe_nombres' => 'required|string|max:255',
+                'jefe_primer_apellido' => 'required|string|max:255',
+                'jefe_segundo_apellido' => 'nullable|string|max:255',
+                'jefe_telefono' => 'required|string|max:20',
+                'jefe_extension' => 'nullable|string|max:20',
+
+                'ingreso_mensual_comprobable' => 'required|numeric|min:0',
+                'ingreso_mensual_no_comprobable' => 'nullable|numeric|min:0',
+                'numero_personas_dependen' => 'required|integer|min:0',
+                'otra_persona_aporta' => 'required|boolean',
+                'numero_personas_aportan' => 'required_if:otra_persona_aporta,1|nullable|integer|min:1',
+                'persona_aporta_nombres' => 'required_if:otra_persona_aporta,1|nullable|string|max:255',
+                'persona_aporta_primer_apellido' => 'required_if:otra_persona_aporta,1|nullable|string|max:255',
+                'persona_aporta_segundo_apellido' => 'nullable|string|max:255',
+                'persona_aporta_parentesco' => 'required_if:otra_persona_aporta,1|nullable|string|max:255',
+                'persona_aporta_telefono' => 'required_if:otra_persona_aporta,1|nullable|string|max:20',
+                'persona_aporta_empresa' => 'required_if:otra_persona_aporta,1|nullable|string|max:255',
+                'persona_aporta_ingreso_comprobable' => 'required_if:otra_persona_aporta,1|nullable|numeric|min:0',
+
+                // Referencias Personales (extra: no existe en /admin/applications, se agregó a pedido del negocio)
+                'referencia_personal1_nombres' => 'required|string|max:255',
+                'referencia_personal1_telefono' => 'required|string|max:20',
+                'referencia_personal1_relacion' => 'required|string|max:255',
+                'referencia_personal1_correo' => 'nullable|email|max:255',
+                'referencia_personal2_nombres' => 'required|string|max:255',
+                'referencia_personal2_telefono' => 'required|string|max:20',
+                'referencia_personal2_relacion' => 'required|string|max:255',
+                'referencia_personal2_correo' => 'nullable|email|max:255',
+            ]);
+        }
+
+        if ($application->tipo_persona === 'moral') {
+            $rules = array_merge($rules, [
+                'referencia_comercial1_empresa' => 'required|string|max:255',
+                'referencia_comercial1_contacto' => 'required|string|max:255',
+                'referencia_comercial1_telefono' => 'required|string|max:20',
+                'referencia_comercial1_correo' => 'nullable|email|max:255',
+                'referencia_comercial2_empresa' => 'required|string|max:255',
+                'referencia_comercial2_contacto' => 'required|string|max:255',
+                'referencia_comercial2_telefono' => 'required|string|max:20',
+                'referencia_comercial2_correo' => 'nullable|email|max:255',
+                'referencia_comercial3_empresa' => 'required|string|max:255',
+                'referencia_comercial3_contacto' => 'required|string|max:255',
+                'referencia_comercial3_telefono' => 'required|string|max:20',
+                'referencia_comercial3_correo' => 'nullable|email|max:255',
+            ]);
+        }
+
+        if ($application->tipo_inmueble === 'comercial') {
+            $rules = array_merge($rules, [
+                'tipo_inmueble_desea' => 'required|string|in:Local,Oficina,Consultorio,Bodega,Nave Industrial',
+                'giro_negocio' => 'required|string|max:255',
+                'experiencia_giro' => 'required|string',
+                'propositos_arrendamiento' => 'required|string',
+                'sustituye_otro_domicilio' => 'required|boolean',
+                'domicilio_anterior_calle' => 'required_if:sustituye_otro_domicilio,1|nullable|string|max:255',
+                'domicilio_anterior_numero_exterior' => 'required_if:sustituye_otro_domicilio,1|nullable|string|max:50',
+                'domicilio_anterior_numero_interior' => 'nullable|string|max:50',
+                'domicilio_anterior_codigo_postal' => 'required_if:sustituye_otro_domicilio,1|nullable|string|max:5',
+                'domicilio_anterior_colonia' => 'required_if:sustituye_otro_domicilio,1|nullable|string|max:255',
+                'domicilio_anterior_delegacion_municipio' => 'required_if:sustituye_otro_domicilio,1|nullable|string|max:255',
+                'domicilio_anterior_estado' => 'required_if:sustituye_otro_domicilio,1|nullable|string|max:255',
+                'motivo_cambio_domicilio' => 'required_if:sustituye_otro_domicilio,1|nullable|string',
+            ]);
+        }
+
+        $data = $request->validate($rules);
 
         $application->update($data);
 
@@ -98,10 +164,9 @@ class ApplicationController extends Controller
     // Guarda los documentos embebidos en update()
     private function procesarDocumentos(Application $application, array $documentos, $user): void
     {
-        $tagsValidos = array_merge(
-            array_keys(ApplicationDocument::tiposPersonaFisica()),
-            array_keys(ApplicationDocument::tiposComercial())
-        );
+        $tagsValidos = array_keys($application->tipo_persona === 'moral'
+            ? ApplicationDocument::tiposPersonaMoral()
+            : ApplicationDocument::tiposPersonaFisica());
 
         foreach ($documentos as $doc) {
             $tag = $doc['tag'] ?? null;
@@ -169,6 +234,29 @@ class ApplicationController extends Controller
             ->first();
     }
 
+    // Datos mínimos para una tarjeta del listado (no el detalle completo del formulario)
+    private function toListItem(Application $application): array
+    {
+        return [
+            'id' => $application->id,
+            'tipo_inmueble' => $application->tipo_inmueble,
+            'estatus' => $application->estatus,
+            'avance' => $this->avancePorEstatus($application->estatus),
+            'activa' => ! in_array($application->estatus, ['rechazada', 'vencida']),
+            'fecha' => $application->created_at->format('d/m/Y'),
+        ];
+    }
+
+    // No hay un % real de avance en el negocio: se mapea por etapa del estatus
+    private function avancePorEstatus(string $estatus): int
+    {
+        return match ($estatus) {
+            'pendiente' => 25,
+            'en_revision' => 50,
+            default => 100, // activa, aprobada, rechazada, vencida
+        };
+    }
+
     private function toDetail(Application $application): array
     {
         $documents = $application->relationLoaded('documents') ? $application->documents : $application->documents()->get();
@@ -183,6 +271,15 @@ class ApplicationController extends Controller
             'otra_persona_aporta', 'numero_personas_aportan', 'persona_aporta_nombres',
             'persona_aporta_primer_apellido', 'persona_aporta_segundo_apellido', 'persona_aporta_parentesco',
             'persona_aporta_telefono', 'persona_aporta_empresa', 'persona_aporta_ingreso_comprobable',
+            'tipo_inmueble_desea', 'giro_negocio', 'experiencia_giro', 'propositos_arrendamiento',
+            'sustituye_otro_domicilio', 'domicilio_anterior_calle', 'domicilio_anterior_numero_exterior',
+            'domicilio_anterior_numero_interior', 'domicilio_anterior_codigo_postal', 'domicilio_anterior_colonia',
+            'domicilio_anterior_delegacion_municipio', 'domicilio_anterior_estado', 'motivo_cambio_domicilio',
+            'referencia_comercial1_empresa', 'referencia_comercial1_contacto', 'referencia_comercial1_telefono', 'referencia_comercial1_correo',
+            'referencia_comercial2_empresa', 'referencia_comercial2_contacto', 'referencia_comercial2_telefono', 'referencia_comercial2_correo',
+            'referencia_comercial3_empresa', 'referencia_comercial3_contacto', 'referencia_comercial3_telefono', 'referencia_comercial3_correo',
+            'referencia_personal1_nombres', 'referencia_personal1_telefono', 'referencia_personal1_relacion', 'referencia_personal1_correo',
+            'referencia_personal2_nombres', 'referencia_personal2_telefono', 'referencia_personal2_relacion', 'referencia_personal2_correo',
         ]), [
             'documents' => $documents->map(fn ($doc) => [
                 'id' => $doc->id,

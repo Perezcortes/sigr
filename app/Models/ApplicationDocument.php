@@ -56,28 +56,4 @@ class ApplicationDocument extends Model
             'otro' => 'Otro',
         ];
     }
-
-    /**
-     * Tipos de documentos del Fiador (tag 'fiador_...', separado de los del inquilino)
-     */
-    public static function tiposFiador(): array
-    {
-        return [
-            'fiador_ine_frente' => 'INE del Fiador (Frente)',
-            'fiador_ine_reverso' => 'INE del Fiador (Reverso)',
-            'fiador_comprobante_domicilio' => 'Comprobante de Domicilio del Fiador',
-            'fiador_comprobante_ingresos' => 'Comprobante de Ingresos del Fiador',
-            'fiador_titulo_propiedad' => 'Título de Propiedad (Garantía)',
-        ];
-    }
-
-    /**
-     * Documento extra de la solicitud comercial (tag separado, no afecta el selector de Filament)
-     */
-    public static function tiposComercial(): array
-    {
-        return [
-            'acta_constitutiva_comercial' => 'Acta Constitutiva',
-        ];
-    }
 }

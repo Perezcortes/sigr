@@ -5,7 +5,6 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Application extends Model
 {
@@ -65,12 +64,24 @@ class Application extends Model
         'referencia_comercial1_empresa',
         'referencia_comercial1_contacto',
         'referencia_comercial1_telefono',
+        'referencia_comercial1_correo',
         'referencia_comercial2_empresa',
         'referencia_comercial2_contacto',
         'referencia_comercial2_telefono',
+        'referencia_comercial2_correo',
         'referencia_comercial3_empresa',
         'referencia_comercial3_contacto',
         'referencia_comercial3_telefono',
+        'referencia_comercial3_correo',
+        // Referencias Personales (para persona física)
+        'referencia_personal1_nombres',
+        'referencia_personal1_telefono',
+        'referencia_personal1_relacion',
+        'referencia_personal1_correo',
+        'referencia_personal2_nombres',
+        'referencia_personal2_telefono',
+        'referencia_personal2_relacion',
+        'referencia_personal2_correo',
     ];
 
     protected $casts = [
@@ -144,21 +155,5 @@ class Application extends Model
     public function documents(): HasMany
     {
         return $this->hasMany(ApplicationDocument::class);
-    }
-
-    /**
-     * Relación con TenantRequest (antes de que exista un Rent)
-     */
-    public function tenantRequest(): HasOne
-    {
-        return $this->hasOne(TenantRequest::class);
-    }
-
-    /**
-     * Relación con GuarantorRequest (antes de que exista un Rent)
-     */
-    public function guarantorRequest(): HasOne
-    {
-        return $this->hasOne(GuarantorRequest::class);
     }
 }
