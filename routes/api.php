@@ -40,6 +40,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user/notifications', [UserController::class, 'notifications']);
     Route::put('/user/notifications', [UserController::class, 'updateNotifications']);
     Route::put('/user/tipo-perfil', [UserController::class, 'updateTipoPerfil']);
+    Route::put('/user/avatar', [UserController::class, 'updateAvatar']);
 
     Route::get('/rents', [RentController::class, 'index']);
     Route::get('/rents/{id}', [RentController::class, 'show']);

@@ -86,6 +86,13 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, HasMedia
     ];
 
     /**
+     * @var list<string>
+     */
+    protected $appends = [
+        'foto',
+    ];
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>
@@ -156,6 +163,12 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, HasMedia
             // Si hay cualquier error, usar imagen por defecto
             return self::DEFAULT_AVATAR_URL;
         }
+    }
+
+    // A diferencia de getFilamentAvatarUrl(), regresa null si no hay foto (sin placeholder)
+    public function getFotoAttribute(): ?string
+    {
+        return $this->getFirstMediaUrl('profile-images') ?: null;
     }
 
     /**

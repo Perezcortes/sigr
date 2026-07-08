@@ -68,4 +68,42 @@ class UserController extends Controller
             ],
         ]);
     }
+
+    private const AVATAR_MIME_EXTENSIONS = [
+        'jpeg' => 'jpg',
+        'jpg' => 'jpg',
+        'png' => 'png',
+        'webp' => 'webp',
+        'heic' => 'heic',
+    ];
+
+    // Reemplaza la foto de perfil del usuario autenticado (colección 'profile-images',
+    // misma que usa Filament en EditProfile.php para el staff)
+    public function updateAvatar(Request $request)
+    {
+        $request->validate([
+            'foto_base64' => ['required', 'string'],
+        ]);
+
+        $base64 = $request->input('foto_base64');
+
+        // addMediaFromBase64() sin nombre explícito guarda sin extensión (bug de Spatie)
+        $extension = 'jpg';
+        if (preg_match('#^data:image/(\w+);base64,#i', $base64, $matches)) {
+            $extension = self::AVATAR_MIME_EXTENSIONS[strtolower($matches[1])] ?? 'jpg';
+        }
+
+        $user = $request->user();
+        $user->clearMediaCollection('profile-images');
+        $user->addMediaFromBase64($base64)
+            ->usingFileName("avatar-{$user->id}.{$extension}")
+            ->toMediaCollection('profile-images');
+
+        return response()->json([
+            'message' => 'Foto de perfil actualizada.',
+            'data' => [
+                'foto' => $user->fresh()->foto,
+            ],
+        ]);
+    }
 }
