@@ -11,11 +11,16 @@
     ></div>
 
     {{-- Tarjeta --}}
-    <div class="relative px-4 pt-20 md:absolute md:left-32 md:top-1/2 md:w-auto md:px-0 md:pt-0 md:-translate-y-1/2">
-        <div class="mx-auto w-full max-w-2xl rounded-2xl bg-white p-8 shadow-xl">
-            <div class="mx-auto max-w-xs">
-                <img src="{{ asset('images/logo-rentas-w.png') }}" alt="Rentas.com" class="mb-4 h-8 w-auto">
+    {{-- md:w-full + md:max-w-2xl (no md:w-auto): con w-auto el ancho se calcula por shrink-to-fit,
+         y un hijo con width en % (w-full) contra un contenedor de ancho "auto" es undefined behavior
+         según CSS 2.2 §10.2 — por eso max-w-2xl nunca se reflejaba visualmente. --}}
+    <div class="relative px-4 pt-20 md:absolute md:left-48 md:top-1/2 md:w-full md:max-w-lg md:px-0 md:pt-0 md:-translate-y-1/2">
+        <div class="rounded-2xl bg-white p-10 shadow-xl">
+            <div class="text-center">
+                <img src="{{ asset('images/logo-rentas-w.png') }}" alt="Rentas.com" class="mb-4 h-8 w-auto mx-auto">
                 <h2 class="mb-6 text-lg font-bold text-[#161848]">Accede a tu cuenta</h2>
+            </div>
+            <div>
 
                 @if (filament()->hasRegistration())
                     <p class="mb-4 text-sm text-gray-600">
