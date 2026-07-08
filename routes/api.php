@@ -43,6 +43,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/user/avatar', [UserController::class, 'updateAvatar']);
     Route::post('/user/delete-account/request', [UserController::class, 'requestAccountDeletion']);
     Route::post('/user/delete-account/confirm', [UserController::class, 'confirmAccountDeletion'])->middleware('throttle:5,1');
+    Route::put('/user/password', [UserController::class, 'updatePassword'])->middleware('throttle:5,1');
 
     Route::get('/rents', [RentController::class, 'index']);
     Route::get('/rents/{id}', [RentController::class, 'show']);

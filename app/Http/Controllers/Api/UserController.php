@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Mail\DeleteAccountCodeMail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 
 class UserController extends Controller
@@ -151,5 +152,22 @@ class UserController extends Controller
         $user->delete();
 
         return response()->json(['message' => 'Cuenta eliminada.']);
+    }
+
+    // Cambia la contraseña del usuario autenticado
+    public function updatePassword(Request $request)
+    {
+        $validated = $request->validate([
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        $user = $request->user();
+
+        $user->update(['password' => Hash::make($validated['password'])]);
+
+        // Revoca el resto de sesiones activas por seguridad, sin cerrar la actual.
+        $user->tokens()->where('id', '!=', $request->user()->currentAccessToken()->id)->delete();
+
+        return response()->json(['message' => 'Contraseña actualizada.']);
     }
 }
