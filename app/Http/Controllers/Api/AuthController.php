@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Mail\NoAsesorAssignedMail;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 use OpenApi\Attributes as OA;
 
@@ -46,6 +48,11 @@ class AuthController extends Controller
             'email' => $request->email,
             'password' => Hash::make($request->password),
         ]);
+
+        // Quien se registra desde la app todavía no pasó por el flujo de asignación de asesor (staff/Filament).
+        if (is_null($user->asesor_id)) {
+            Mail::to($user->email)->send(new NoAsesorAssignedMail($user));
+        }
 
         $token = $user->createToken('auth_token')->plainTextToken;
 
