@@ -3,7 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Mail\DeleteAccountCodeMail;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Mail;
 
 class UserController extends Controller
 {
@@ -105,5 +108,48 @@ class UserController extends Controller
                 'foto' => $user->fresh()->foto,
             ],
         ]);
+    }
+
+    private const DELETE_ACCOUNT_CODE_TTL_MINUTES = 15;
+
+    private function deleteAccountCacheKey(int $userId): string
+    {
+        return "delete_account_code_{$userId}";
+    }
+
+    // Genera un código de 5 dígitos, lo guarda temporalmente y lo manda por correo
+    public function requestAccountDeletion(Request $request)
+    {
+        $user = $request->user();
+
+        $code = str_pad((string) random_int(0, 99999), 5, '0', STR_PAD_LEFT);
+
+        Cache::put($this->deleteAccountCacheKey($user->id), $code, now()->addMinutes(self::DELETE_ACCOUNT_CODE_TTL_MINUTES));
+
+        Mail::to($user->email)->send(new DeleteAccountCodeMail($user, $code));
+
+        return response()->json(['message' => 'Código enviado a tu correo.']);
+    }
+
+    // Valida el código enviado por correo y, si coincide, elimina (soft delete) la cuenta
+    public function confirmAccountDeletion(Request $request)
+    {
+        $validated = $request->validate([
+            'codigo' => ['required', 'string'],
+        ]);
+
+        $user = $request->user();
+        $cacheKey = $this->deleteAccountCacheKey($user->id);
+        $storedCode = Cache::get($cacheKey);
+
+        if (! $storedCode || $storedCode !== $validated['codigo']) {
+            return response()->json(['message' => 'El código no es válido o expiró.'], 422);
+        }
+
+        Cache::forget($cacheKey);
+        $user->tokens()->delete();
+        $user->delete();
+
+        return response()->json(['message' => 'Cuenta eliminada.']);
     }
 }
