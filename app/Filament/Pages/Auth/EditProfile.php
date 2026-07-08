@@ -210,15 +210,15 @@ class EditProfile extends \Filament\Pages\Auth\EditProfile
                             ->content(new HtmlString('<span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Tipo de notificación</span>')),
                         Placeholder::make('notif_header_email')
                             ->hiddenLabel()
-                            ->extraAttributes(['class' => 'flex min-h-6 items-left justify-left text-left'])
+                            ->extraAttributes(['class' => 'flex min-h-6 items-center justify-center text-center'])
                             ->content(new HtmlString('<span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Email</span>')),
                         Placeholder::make('notif_header_push')
                             ->hiddenLabel()
-                            ->extraAttributes(['class' => 'flex min-h-6 items-left justify-left text-left'])
+                            ->extraAttributes(['class' => 'flex min-h-6 items-center justify-center text-center'])
                             ->content(new HtmlString('<span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Push</span>')),
                         Placeholder::make('notif_header_whatsapp')
                             ->hiddenLabel()
-                            ->extraAttributes(['class' => 'flex min-h-6 items-left justify-left text-left'])
+                            ->extraAttributes(['class' => 'flex min-h-6 items-center justify-center text-center'])
                             ->content(new HtmlString('<span class="text-xs font-semibold uppercase tracking-wide text-gray-500">WhatsApp</span>')),
 
                         Placeholder::make('notif_row_recordatorios')
