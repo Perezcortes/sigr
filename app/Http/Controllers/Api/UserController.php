@@ -96,7 +96,7 @@ class UserController extends Controller
         $user = $request->user();
         $user->clearMediaCollection('profile-images');
         $user->addMediaFromBase64($base64)
-            ->usingFileName("avatar-{$user->id}.{$extension}")
+            ->usingFileName("avatar.{$extension}")
             ->toMediaCollection('profile-images');
 
         return response()->json([
