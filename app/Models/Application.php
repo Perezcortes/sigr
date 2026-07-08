@@ -85,7 +85,7 @@ class Application extends Model
     ];
 
     protected $casts = [
-        'fecha_ingreso' => 'date',
+        'fecha_ingreso' => 'date:Y-m-d',
         'ingreso_mensual_comprobable' => 'decimal:2',
         'ingreso_mensual_no_comprobable' => 'decimal:2',
         'otra_persona_aporta' => 'boolean',

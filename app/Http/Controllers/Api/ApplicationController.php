@@ -18,6 +18,7 @@ class ApplicationController extends Controller
         }
 
         $applications = Application::where('user_id', $request->user()->id)
+            ->with('documents')
             ->orderByDesc('created_at')
             ->get();
 
@@ -103,13 +104,14 @@ class ApplicationController extends Controller
                 'persona_aporta_ingreso_comprobable' => 'required_if:otra_persona_aporta,1|nullable|numeric|min:0',
 
                 // Referencias Personales (extra: no existe en /admin/applications, se agregó a pedido del negocio)
-                'referencia_personal1_nombres' => 'required|string|max:255',
-                'referencia_personal1_telefono' => 'required|string|max:20',
-                'referencia_personal1_relacion' => 'required|string|max:255',
+                // Opcionales a propósito (2026-07-07): no bloquean el guardado, el usuario las va llenando poco a poco
+                'referencia_personal1_nombres' => 'nullable|string|max:255',
+                'referencia_personal1_telefono' => 'nullable|string|max:20',
+                'referencia_personal1_relacion' => 'nullable|string|max:255',
                 'referencia_personal1_correo' => 'nullable|email|max:255',
-                'referencia_personal2_nombres' => 'required|string|max:255',
-                'referencia_personal2_telefono' => 'required|string|max:20',
-                'referencia_personal2_relacion' => 'required|string|max:255',
+                'referencia_personal2_nombres' => 'nullable|string|max:255',
+                'referencia_personal2_telefono' => 'nullable|string|max:20',
+                'referencia_personal2_relacion' => 'nullable|string|max:255',
                 'referencia_personal2_correo' => 'nullable|email|max:255',
             ]);
         }
@@ -241,20 +243,108 @@ class ApplicationController extends Controller
             'id' => $application->id,
             'tipo_inmueble' => $application->tipo_inmueble,
             'estatus' => $application->estatus,
-            'avance' => $this->avancePorEstatus($application->estatus),
+            'avance' => $this->avancePorCompletitud($application),
             'activa' => ! in_array($application->estatus, ['rechazada', 'vencida']),
             'fecha' => $application->created_at->format('d/m/Y'),
         ];
     }
 
-    // No hay un % real de avance en el negocio: se mapea por etapa del estatus
-    private function avancePorEstatus(string $estatus): int
+    // % de campos + documentos requeridos ya llenados, sobre el total que aplica según tipo_persona/tipo_inmueble
+    private function avancePorCompletitud(Application $application): int
     {
-        return match ($estatus) {
-            'pendiente' => 25,
-            'en_revision' => 50,
-            default => 100, // activa, aprobada, rechazada, vencida
-        };
+        if (in_array($application->estatus, ['aprobada', 'rechazada', 'vencida'], true)) {
+            return 100;
+        }
+
+        $campos = $this->camposAplicables($application);
+        $tagsDocumentos = $this->tagsDocumentosRequeridos($application);
+
+        $total = count($campos) + count($tagsDocumentos);
+        if ($total === 0) {
+            return 100;
+        }
+
+        $completados = 0;
+        foreach ($campos as $campo) {
+            if (! is_null($application->{$campo}) && $application->{$campo} !== '') {
+                $completados++;
+            }
+        }
+
+        $tagsSubidos = $application->documents->pluck('tag')->all();
+        foreach ($tagsDocumentos as $tag) {
+            if (in_array($tag, $tagsSubidos, true)) {
+                $completados++;
+            }
+        }
+
+        return (int) round($completados / $total * 100);
+    }
+
+    // Campos obligatorios que aplican a esta solicitud, espejo de las reglas condicionales de update()
+    private function camposAplicables(Application $application): array
+    {
+        $campos = [];
+
+        if ($application->tipo_persona === 'fisica') {
+            $campos = array_merge($campos, [
+                'profesion_oficio_puesto', 'tipo_empleo', 'telefono_empleo', 'empresa_trabaja',
+                'calle_empleo', 'numero_exterior_empleo', 'codigo_postal_empleo', 'colonia_empleo',
+                'delegacion_municipio_empleo', 'estado_empleo', 'fecha_ingreso',
+                'jefe_nombres', 'jefe_primer_apellido', 'jefe_telefono',
+                'ingreso_mensual_comprobable', 'numero_personas_dependen', 'otra_persona_aporta',
+            ]);
+
+            if ($application->otra_persona_aporta) {
+                $campos = array_merge($campos, [
+                    'numero_personas_aportan', 'persona_aporta_nombres', 'persona_aporta_primer_apellido',
+                    'persona_aporta_parentesco', 'persona_aporta_telefono', 'persona_aporta_empresa',
+                    'persona_aporta_ingreso_comprobable',
+                ]);
+            }
+
+            foreach ([1, 2] as $n) {
+                $campos = array_merge($campos, [
+                    "referencia_personal{$n}_nombres", "referencia_personal{$n}_telefono", "referencia_personal{$n}_relacion",
+                ]);
+            }
+        }
+
+        if ($application->tipo_persona === 'moral') {
+            foreach ([1, 2, 3] as $n) {
+                $campos = array_merge($campos, [
+                    "referencia_comercial{$n}_empresa", "referencia_comercial{$n}_contacto", "referencia_comercial{$n}_telefono",
+                ]);
+            }
+        }
+
+        if ($application->tipo_inmueble === 'comercial') {
+            $campos = array_merge($campos, [
+                'tipo_inmueble_desea', 'giro_negocio', 'experiencia_giro', 'propositos_arrendamiento', 'sustituye_otro_domicilio',
+            ]);
+
+            if ($application->sustituye_otro_domicilio) {
+                $campos = array_merge($campos, [
+                    'domicilio_anterior_calle', 'domicilio_anterior_numero_exterior', 'domicilio_anterior_codigo_postal',
+                    'domicilio_anterior_colonia', 'domicilio_anterior_delegacion_municipio', 'domicilio_anterior_estado',
+                    'motivo_cambio_domicilio',
+                ]);
+            }
+        }
+
+        return $campos;
+    }
+
+    // Tags de documentos requeridos según tipo_persona (excluye "otro", que es libre/opcional)
+    private function tagsDocumentosRequeridos(Application $application): array
+    {
+        $tipos = $application->tipo_persona === 'moral'
+            ? ApplicationDocument::tiposPersonaMoral()
+            : ApplicationDocument::tiposPersonaFisica();
+
+        unset($tipos['otro']);
+
+        return array_keys($tipos);
     }
 
     private function toDetail(Application $application): array
@@ -281,6 +371,9 @@ class ApplicationController extends Controller
             'referencia_personal1_nombres', 'referencia_personal1_telefono', 'referencia_personal1_relacion', 'referencia_personal1_correo',
             'referencia_personal2_nombres', 'referencia_personal2_telefono', 'referencia_personal2_relacion', 'referencia_personal2_correo',
         ]), [
+            // only() no respeta el formato del cast ('date:Y-m-d'), solo toArray() lo hace — se fuerza aquí
+            // para que <input type="date"> del frontend reciba "Y-m-d" y no el ISO8601 con hora que da Carbon por default
+            'fecha_ingreso' => $application->fecha_ingreso?->format('Y-m-d'),
             'documents' => $documents->map(fn ($doc) => [
                 'id' => $doc->id,
                 'tag' => $doc->tag,
