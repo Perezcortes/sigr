@@ -107,43 +107,43 @@ class InquilinoMapper
             // DATOS DE EMPLEO BASE
             'regimenFiscalPf' => $req->regimen_fiscal ?? 'Asalariado',
             // Jona pide fecha obligatoria en formato Y-m-d
-            'fechaIng'        => $rent->fecha_ingreso ? \Carbon\Carbon::parse($rent->fecha_ingreso)->format('Y-m-d') : null,
-            'tipoEmp'         => $rent->tipo_empleo ?? 'Empleado',
-            'profesion'       => $rent->profesion_oficio_puesto,
+            'fechaIng'        => $req->fecha_ingreso ? \Carbon\Carbon::parse($req->fecha_ingreso)->format('Y-m-d') : null,
+            'tipoEmp'         => $req->tipo_empleo ?? 'Empleado',
+            'profesion'       => $req->profesion_oficio_puesto,
 
             // DOMICILIO DE EMPLEO / CONTACTO
-            'tel'             => $rent->telefono_empleo,
-            'ext'             => $rent->extension_empleo,
-            'empresa'         => $rent->empresa_trabaja,
-            'calle'           => $rent->calle_empleo, 
-            'numExt'          => $rent->numero_exterior_empleo,
-            'numInt'          => $rent->numero_interior_empleo,
-            'colonia'         => $rent->colonia_empleo,
-            'mun'             => $rent->delegacion_municipio_empleo,
-            'estado'          => $rent->estado_empleo,
-            'cp'              => $rent->codigo_postal_empleo,
+            'tel'             => $req->telefono_empleo,
+            'ext'             => $req->extension_empleo,
+            'empresa'         => $req->empresa_trabaja,
+            'calle'           => $req->calle_empleo, 
+            'numExt'          => $req->numero_exterior_empleo,
+            'numInt'          => $req->numero_interior_empleo,
+            'colonia'         => $req->colonia_empleo,
+            'mun'             => $req->delegacion_municipio_empleo,
+            'estado'          => $req->estado_empleo,
+            'cp'              => $req->codigo_postal_empleo,
 
             // JEFE INMEDIATO
-            'nombrej'         => $rent->jefe_nombres,
-            'apellidoPj'      => $rent->jefe_primer_apellido,
-            'apellidoMj'      => $rent->jefe_segundo_apellido,
-            'telefonoj'       => $rent->jefe_telefono,
-            'extj'            => $rent->jefe_extension,
+            'nombrej'         => $req->jefe_nombres,
+            'apellidoPj'      => $req->jefe_primer_apellido,
+            'apellidoMj'      => $req->jefe_segundo_apellido,
+            'telefonoj'       => $req->jefe_telefono,
+            'extj'            => $req->jefe_extension,
 
             // INGRESOS
-            'ingresos'        => $rent->ingreso_mensual_comprobable ? (float) $rent->ingreso_mensual_comprobable : 0,
-            'ingresoFam'      => $rent->ingreso_mensual_no_comprobable ? (float) $rent->ingreso_mensual_no_comprobable : 0,
+            'ingresos'        => $req->ingreso_mensual_comprobable ? (float) $req->ingreso_mensual_comprobable : 0,
+            'ingresoFam'      => $req->ingreso_mensual_no_comprobable ? (float) $req->ingreso_mensual_no_comprobable : 0,
             'numPerDep'       => $req->numero_personas_dependen ? (int) $req->numero_personas_dependen : 0,
 
             // OTRA PERSONA QUE APORTA
-            'numPerIngre'     => $rent->numero_personas_aportan ? (int) $rent->numero_personas_aportan : 0,
-            'nombrea'         => $rent->persona_aporta_nombres,
-            'apellidoPa'      => $rent->persona_aporta_primer_apellido,
-            'apellidoMa'      => $rent->persona_aporta_segundo_apellido,
-            'parentesco'      => $rent->persona_aporta_parentesco,
-            'telefonoA'       => $rent->persona_aporta_telefono,
-            'empresaA'        => $rent->persona_aporta_empresa,
-            'ingresoA'        => $rent->persona_aporta_ingreso_comprobable ? (float) $rent->persona_aporta_ingreso_comprobable : 0,
+            'numPerIngre'     => $req->numero_personas_aportan ? (int) $req->numero_personas_aportan : 0,
+            'nombrea'         => $req->persona_aporta_nombres,
+            'apellidoPa'      => $req->persona_aporta_primer_apellido,
+            'apellidoMa'      => $req->persona_aporta_segundo_apellido,
+            'parentesco'      => $req->persona_aporta_parentesco,
+            'telefonoA'       => $req->persona_aporta_telefono,
+            'empresaA'        => $req->persona_aporta_empresa,
+            'ingresoA'        => $req->persona_aporta_ingreso_comprobable ? (float) $req->persona_aporta_ingreso_comprobable : 0,
         ];
     }
 

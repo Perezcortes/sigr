@@ -89,6 +89,7 @@ class FiadorMapper
             'coloniaFiscal'          => (int)$req->es_domicilio_fiscal === 0 ? $req->fiscal_colonia : null,
             'munFiscal'              => (int)$req->es_domicilio_fiscal === 0 ? $req->fiscal_municipio : null,
             'estadoFiscal'           => (int)$req->es_domicilio_fiscal === 0 ? $req->fiscal_estado : null,
+            'especifiquef'           => $req->nacionalidad_especifica ?? 'N/A',
         ];
 
         if ($nacionalidadf === 1) { 
