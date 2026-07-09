@@ -40,4 +40,10 @@ return [
         'webhook_log' => env('NOCNOK_WEBHOOK_LOG', true),
     ],
 
+    'openwa' => [
+        'url' => env('OPENWA_URL'),
+        'api_key' => env('OPENWA_API_KEY'),
+        'session' => env('OPENWA_SESSION', 'default'),
+    ],
+
 ];

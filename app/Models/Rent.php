@@ -25,6 +25,8 @@ class Rent extends Model
         'payment_frequency',
         // Datos de la renta
         'folio',
+        'pdr_office_id',
+        'pdr_asesor_id',
         'sucursal',
         'inmobiliaria',
         'estatus',

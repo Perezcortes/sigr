@@ -319,9 +319,9 @@ class EditProfile extends \Filament\Pages\Auth\EditProfile
                 $this->getZoneEstateFormComponent(),
                 $this->getZoneCitiesFormComponent(),
                 $this->getNotificacionesFormComponent(),
-                Section::make('WhatsApp Evolution')
+                Section::make('WhatsApp')
                     ->description('Crea tu instancia y escanea el código QR para vincular tu línea con el panel (leads, envíos, etc.).')
-                    ->visible(fn (): bool => $this->isAsesor())
+                    ->visible(fn (): bool => $this->isAsesor() || (auth()->check() && auth()->user()->hasRole('Administrador')))
                     ->schema([
                         ViewField::make('advisor_whatsapp_evolution')
                             ->view('filament.forms.components.advisor-whatsapp-evolution-panel')

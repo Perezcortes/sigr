@@ -1,4 +1,4 @@
-<div class="space-y-4">
+<div class="space-y-4" @if($showQr || ($whatsappInstance && $whatsappInstance->isConnecting())) wire:poll.5s="checkStatus" @endif>
     <div class="text-sm text-gray-600 dark:text-gray-400">
         @if ($whatsappInstance)
             <p>
@@ -60,10 +60,17 @@
 
     @if ($showQr && $whatsappInstance)
         <div class="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-white/10 dark:bg-white/5">
-            <livewire:filament-evolution::qr-code-display
-                :instance="$whatsappInstance"
-                :key="'advisor-qr-'.$whatsappInstance->id.'-'.($showQr ? '1' : '0')"
-            />
+            @if ($qrCode)
+                <div class="flex flex-col items-center justify-center p-4 bg-white rounded-lg shadow-sm border dark:bg-gray-800 dark:border-gray-700 max-w-[320px] mx-auto">
+                    <img src="{{ $qrCode }}" alt="Scan QR Code" class="w-64 h-64 border border-gray-200 rounded dark:border-gray-700" />
+                    <p class="mt-2 text-xs text-gray-500 dark:text-gray-400 text-center">Escanea este código con tu aplicación de WhatsApp</p>
+                </div>
+            @else
+                <div class="flex flex-col items-center justify-center p-4">
+                    <x-filament::loading-indicator class="w-8 h-8 text-primary-600" />
+                    <p class="mt-2 text-xs text-gray-500">Generando código QR...</p>
+                </div>
+            @endif
         </div>
     @endif
 </div>

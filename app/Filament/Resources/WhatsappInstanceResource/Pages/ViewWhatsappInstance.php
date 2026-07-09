@@ -3,12 +3,11 @@
 namespace App\Filament\Resources\WhatsappInstanceResource\Pages;
 
 use App\Filament\Resources\WhatsappInstanceResource;
+use App\Services\OpenWaService;
 use Filament\Actions;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
 use WallaceMartinss\FilamentEvolution\Enums\StatusConnectionEnum;
-use WallaceMartinss\FilamentEvolution\Exceptions\EvolutionApiException;
-use WallaceMartinss\FilamentEvolution\Services\EvolutionClient;
 
 class ViewWhatsappInstance extends ViewRecord
 {
@@ -23,9 +22,24 @@ class ViewWhatsappInstance extends ViewRecord
                 ->color('success')
                 ->visible(fn () => $this->record->status !== StatusConnectionEnum::OPEN)
                 ->modalHeading(__('filament-evolution::resource.actions.view_qrcode'))
-                ->modalContent(fn () => view('filament-evolution::components.qr-code-modal', [
-                    'instance' => $this->record,
-                ]))
+                ->modalContent(function () {
+                    $openWa = app(OpenWaService::class);
+                    $qrCode = null;
+                    if ($this->record->instance_id) {
+                        try {
+                            $openWa->startSession($this->record->instance_id);
+                            usleep(1000000); // Esperar 1 segundo para inicializar
+                            $statusData = $openWa->getSessionStatus($this->record->instance_id);
+                            if (($statusData['status'] ?? '') === 'qr_ready') {
+                                $qrCode = $openWa->getQrCode($this->record->instance_id);
+                            }
+                        } catch (\Throwable $e) {}
+                    }
+                    return view('components.openwa-qr-modal', [
+                        'qrCode' => $qrCode,
+                        'instance' => $this->record,
+                    ]);
+                })
                 ->modalWidth('md')
                 ->modalSubmitAction(false)
                 ->modalCancelActionLabel(__('filament-evolution::resource.actions.close')),
@@ -38,8 +52,10 @@ class ViewWhatsappInstance extends ViewRecord
                 ->requiresConfirmation()
                 ->action(function () {
                     try {
-                        $client = app(EvolutionClient::class);
-                        $client->logoutInstance($this->record->name);
+                        if ($this->record->instance_id) {
+                            $openWa = app(OpenWaService::class);
+                            $openWa->stopSession($this->record->instance_id);
+                        }
 
                         $this->record->update([
                             'status' => StatusConnectionEnum::CLOSE,
@@ -49,7 +65,7 @@ class ViewWhatsappInstance extends ViewRecord
                             ->success()
                             ->title(__('filament-evolution::resource.messages.disconnected'))
                             ->send();
-                    } catch (EvolutionApiException $e) {
+                    } catch (\Throwable $e) {
                         Notification::make()
                             ->danger()
                             ->title(__('filament-evolution::resource.messages.connection_failed'))
@@ -64,73 +80,40 @@ class ViewWhatsappInstance extends ViewRecord
                 ->color('gray')
                 ->action(function () {
                     try {
-                        $client = app(EvolutionClient::class);
-                        $instances = $client->fetchInstance($this->record->name);
-
-                        if (empty($instances)) {
-                            $client->createInstance(
-                                instanceName: $this->record->name,
-                                number: $this->record->number,
-                                qrcode: false
-                            );
-
+                        $openWa = app(OpenWaService::class);
+                        if (!$this->record->instance_id) {
+                            $session = $openWa->createSession($this->record->name);
+                            $this->record->update([
+                                'instance_id' => $session['id'],
+                                'status' => StatusConnectionEnum::CONNECTING,
+                            ]);
+                            $openWa->startSession($session['id']);
+                            
                             Notification::make()
                                 ->success()
-                                ->title('Instancia creada en Evolution API')
+                                ->title('Instancia iniciada en OpenWA')
                                 ->send();
-
                             return;
                         }
 
-                        $instanceData = is_array($instances) ? ($instances[0] ?? $instances) : $instances;
-                        $profilePictureUrl = $instanceData['profilePicUrl']
-                            ?? $instanceData['instance']['profilePicUrl']
-                            ?? null;
+                        $statusData = $openWa->getSessionStatus($this->record->instance_id);
+                        $openWaStatus = $statusData['status'] ?? 'disconnected';
 
-                        $state = $client->getConnectionState($this->record->name);
-                        $connectionState = $state['state'] ?? $state['instance']['state'] ?? 'close';
-                        $status = match (strtolower((string) $connectionState)) {
-                            'open', 'connected' => StatusConnectionEnum::OPEN,
-                            'connecting' => StatusConnectionEnum::CONNECTING,
+                        $status = match ($openWaStatus) {
+                            'ready' => StatusConnectionEnum::OPEN,
+                            'initializing', 'authenticating' => StatusConnectionEnum::CONNECTING,
                             default => StatusConnectionEnum::CLOSE,
                         };
 
                         $this->record->update([
                             'status' => $status,
-                            'profile_picture_url' => $profilePictureUrl,
                         ]);
 
                         Notification::make()
                             ->success()
                             ->title(__('filament-evolution::resource.fields.status').': '.$status->getLabel())
                             ->send();
-                    } catch (EvolutionApiException $e) {
-                        if (str_contains($e->getMessage(), 'Not Found') || $e->getCode() === 404) {
-                            try {
-                                $client = app(EvolutionClient::class);
-                                $client->createInstance(
-                                    instanceName: $this->record->name,
-                                    number: $this->record->number,
-                                    qrcode: false
-                                );
-
-                                Notification::make()
-                                    ->success()
-                                    ->title('Instancia creada en Evolution API')
-                                    ->send();
-
-                                return;
-                            } catch (EvolutionApiException $createError) {
-                                Notification::make()
-                                    ->danger()
-                                    ->title('No se pudo crear la instancia')
-                                    ->body($createError->getMessage())
-                                    ->send();
-
-                                return;
-                            }
-                        }
-
+                    } catch (\Throwable $e) {
                         Notification::make()
                             ->danger()
                             ->title(__('filament-evolution::resource.messages.connection_failed'))
@@ -140,7 +123,14 @@ class ViewWhatsappInstance extends ViewRecord
                 }),
 
             Actions\EditAction::make(),
-            Actions\DeleteAction::make(),
+            Actions\DeleteAction::make()
+                ->after(function () {
+                    try {
+                        if ($this->record->instance_id) {
+                            app(OpenWaService::class)->deleteSession($this->record->instance_id);
+                        }
+                    } catch (\Throwable $e) {}
+                }),
         ];
     }
 }

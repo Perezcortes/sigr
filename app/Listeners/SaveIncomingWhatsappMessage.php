@@ -30,10 +30,14 @@ class SaveIncomingWhatsappMessage
         $leadId = $this->resolveLeadId($rawPhone);
 
         WhatsappMessage::create([
+            'instance_id'   => $event->instance->id,
+            'message_id'    => $msg->messageId,
+            'remote_jid'    => $msg->phone . '@c.us',
             'wa_message_id' => $msg->messageId,
             'phone'         => $rawPhone,
             'direction'     => 'in',
             'body'          => $msg->text ?? '',
+            'content'       => $msg->text ?? '',
             'lead_id'       => $leadId,
             'user_id'       => null,
             'sent_at'       => now(),
