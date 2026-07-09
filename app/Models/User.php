@@ -61,6 +61,8 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, HasMedia
         'asesor_id',
         'score',
         'evolution_whatsapp_instance_id',
+        'pdr_office_id',
+        'pdr_asesor_id',
     ];
 
     /**

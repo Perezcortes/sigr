@@ -28,6 +28,27 @@ class EditProfile extends \Filament\Pages\Auth\EditProfile
         return $user->hasAnyRole(['Agente', 'Asesor']);
     }
 
+    protected function getPdrOfficeFormComponent(): Component
+    {
+        return Select::make('pdr_office_id')
+            ->label('Equipo / Sucursal asignada (PDR)')
+            ->options(fn (\App\Services\PdrApi\PdrApiService $api) => $api->obtenerSucursales())
+            ->disabled() // Solo lectura
+            ->visible(fn (): bool => $this->isAsesor());
+    }
+
+    protected function getPdrAsesorFormComponent(): Component
+    {
+        return Select::make('pdr_asesor_id')
+            ->label('Agente / Abogado asignado (PDR)')
+            ->options(function (\App\Services\PdrApi\PdrApiService $api) {
+                $officeId = auth()->user()->pdr_office_id;
+                return $officeId ? $api->obtenerAgentesPorSucursal($officeId) : [];
+            })
+            ->disabled() // Solo lectura
+            ->visible(fn (): bool => $this->isAsesor());
+    }
+
     protected function getPhoneFormComponent(): Component
     {
         return TextInput::make('telefono')
@@ -200,6 +221,8 @@ class EditProfile extends \Filament\Pages\Auth\EditProfile
                 $this->getIdNocnokFormComponent(),
                 $this->getZoneEstateFormComponent(),
                 $this->getZoneCitiesFormComponent(),
+                $this->getPdrOfficeFormComponent(),
+                $this->getPdrAsesorFormComponent(),
                 Section::make('WhatsApp Evolution')
                     ->description('Crea tu instancia y escanea el código QR para vincular tu línea con el panel (leads, envíos, etc.).')
                     ->visible(fn (): bool => $this->isAsesor())

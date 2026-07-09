@@ -292,44 +292,39 @@ class ViewRent extends EditRecord
                                             ->disabled(),
                                         Forms\Components\Select::make('pdr_office_id')
                                             ->label('Equipo (PDR)')
-                                            ->options(function (PdrApiService $api) {
-                                                return $api->obtenerSucursales();
-                                            })
+                                            ->options(fn (\App\Services\PdrApi\PdrApiService $api) => $api->obtenerSucursales())
                                             ->disabled(fn () => ! auth()->user()->hasRole('Administrador'))
+                                            ->dehydrated() 
                                             ->searchable()
                                             ->preload()
                                             ->live()
                                             ->required(fn () => auth()->user()->hasRole('Administrador'))
-                                            ->helperText(fn () => auth()->user()->hasRole('Administrador')
-                                                ? 'Elige el equipo para cargar los agentes desde Póliza de Rentas.'
-                                                : null)
-                                            ->afterStateUpdated(function (Forms\Set $set) {
-                                                if (! auth()->user()->hasRole('Administrador')) {
-                                                    return;
+                                            ->afterStateHydrated(function (Forms\Components\Select $component, $state) {
+                                                if (! auth()->user()->hasRole('Administrador') && blank($state)) {
+                                                    $component->state(auth()->user()->pdr_office_id);
                                                 }
-                                                $set('pdr_asesor_id', null); // Limpiamos el asesor si cambia el equipo
+                                            })
+                                            ->afterStateUpdated(function (Forms\Set $set) {
+                                                if (! auth()->user()->hasRole('Administrador')) return;
+                                                $set('pdr_asesor_id', null);
                                             }),
 
                                         Forms\Components\Select::make('pdr_asesor_id')
-                                            ->label('Agente (PDR)')
-                                            ->options(function (Forms\Get $get, PdrApiService $api) {
-                                                $officeHash = $get('pdr_office_id');
-
-                                                if (blank($officeHash)) {
-                                                    return [];
-                                                }
-
-                                                $agentes = $api->obtenerAgentesPorSucursal($officeHash);
-                                                
-                                                return $agentes;
+                                            ->label('Agente / Abogado (PDR)')
+                                            ->options(function (Forms\Get $get, \App\Services\PdrApi\PdrApiService $api) {
+                                                $officeHash = $get('pdr_office_id') ?? auth()->user()->pdr_office_id;
+                                                return blank($officeHash) ? [] : $api->obtenerAgentesPorSucursal($officeHash);
                                             })
                                             ->disabled(fn () => ! auth()->user()->hasRole('Administrador'))
+                                            ->dehydrated() 
                                             ->searchable()
                                             ->preload()
-                                            ->placeholder(fn (Forms\Get $get) => auth()->user()->hasRole('Administrador') && blank($get('pdr_office_id'))
-                                                ? 'Primero selecciona un equipo'
-                                                : 'Selecciona un agente')
-                                            ->required(),
+                                            ->required()
+                                            ->afterStateHydrated(function (Forms\Components\Select $component, $state) {
+                                                if (! auth()->user()->hasRole('Administrador') && blank($state)) {
+                                                    $component->state(auth()->user()->pdr_asesor_id);
+                                                }
+                                            }),
 
                                         Forms\Components\Select::make('estatus')
                                             ->label('Estatus')
