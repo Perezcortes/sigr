@@ -160,8 +160,16 @@ class PropertyController extends Controller
                 $nombre = $foto['nombre'] ?? "imagen_{$index}.jpg";
                 $ext = pathinfo($nombre, PATHINFO_EXTENSION) ?: 'jpg';
                 // Se usa uniqid() para evitar colisiones si se sube el mismo archivo dos veces.
-                $path = "properties/{$property->id}/images/" . uniqid() . ".{$ext}";
+                $uid = uniqid();
+                $path = "properties/{$property->id}/images/{$uid}.{$ext}";
                 Storage::disk('spaces')->put($path, $content);
+
+                // Miniatura para listados
+                $miniatura = $this->generarMiniatura($content);
+                if ($miniatura !== null) {
+                    Storage::disk('spaces')->put($this->thumbnailPath($path), $miniatura);
+                }
+
                 PropertyImage::create([
                     'property_id' => $property->id,
                     'path_file'   => $path,
@@ -377,7 +385,17 @@ class PropertyController extends Controller
             return null;
         }
 
-        return Storage::disk('spaces')->url($first->path_file);
+        // Prefiere la miniatura si existe en el disco, si no cae a la original
+        $thumb = $this->thumbnailPath($first->path_file);
+        $path = Storage::disk('spaces')->exists($thumb) ? $thumb : $first->path_file;
+
+        return Storage::disk('spaces')->url($path);
+    }
+
+    // Miniatura: mismo path + sufijo "_thumb.jpg" (sin columna en BD)
+    private function thumbnailPath(string $originalPath): string
+    {
+        return preg_replace('/\.\w+$/', '_thumb.jpg', $originalPath);
     }
 
     // Usa el campo legado `direccion` si está relleno; si no, concatena los campos individuales
@@ -422,6 +440,11 @@ class PropertyController extends Controller
             };
             $path = 'properties/' . $property->id . '/' . uniqid() . '.' . $ext;
             Storage::disk('spaces')->put($path, $content, 'public');
+
+            $miniatura = $this->generarMiniatura($content);
+            if ($miniatura !== null) {
+                Storage::disk('spaces')->put($this->thumbnailPath($path), $miniatura, 'public');
+            }
 
             $img = PropertyImage::create([
                 'property_id' => $property->id,
@@ -537,6 +560,21 @@ class PropertyController extends Controller
             'application/pdf' => str_starts_with($header, '%PDF'),
             default           => false,
         };
+    }
+
+    // Miniatura 480px/JPEG 75 para listados; null si falla, sin tumbar la subida
+    private function generarMiniatura(string $content): ?string
+    {
+        try {
+            return (string) \Intervention\Image\Facades\Image::make($content)
+                ->resize(480, null, function ($constraint) {
+                    $constraint->aspectRatio();
+                    $constraint->upsize();
+                })
+                ->encode('jpg', 75);
+        } catch (\Throwable $e) {
+            return null;
+        }
     }
 
     // Inverso de mapTipoInmueble: label guardado en BD → slug que espera el frontend

@@ -61,6 +61,18 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, HasMedia
         'asesor_id',
         'score',
         'evolution_whatsapp_instance_id',
+        'notif_recordatorios_email',
+        'notif_recordatorios_push',
+        'notif_recordatorios_whatsapp',
+        'notif_reporte_pago_email',
+        'notif_reporte_pago_push',
+        'notif_reporte_pago_whatsapp',
+        'notif_mensajes_email',
+        'notif_mensajes_push',
+        'notif_mensajes_whatsapp',
+        'notif_mantenimiento_email',
+        'notif_mantenimiento_push',
+        'notif_mantenimiento_whatsapp',
     ];
 
     /**
@@ -71,6 +83,13 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, HasMedia
     protected $hidden = [
         'password',
         'remember_token',
+    ];
+
+    /**
+     * @var list<string>
+     */
+    protected $appends = [
+        'foto',
     ];
 
     /**
@@ -90,6 +109,18 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, HasMedia
             'is_buyer' => 'boolean',
             'is_seller' => 'boolean',
             'score' => 'integer',
+            'notif_recordatorios_email' => 'boolean',
+            'notif_recordatorios_push' => 'boolean',
+            'notif_recordatorios_whatsapp' => 'boolean',
+            'notif_reporte_pago_email' => 'boolean',
+            'notif_reporte_pago_push' => 'boolean',
+            'notif_reporte_pago_whatsapp' => 'boolean',
+            'notif_mensajes_email' => 'boolean',
+            'notif_mensajes_push' => 'boolean',
+            'notif_mensajes_whatsapp' => 'boolean',
+            'notif_mantenimiento_email' => 'boolean',
+            'notif_mantenimiento_push' => 'boolean',
+            'notif_mantenimiento_whatsapp' => 'boolean',
         ];
     }
 
@@ -132,6 +163,12 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, HasMedia
             // Si hay cualquier error, usar imagen por defecto
             return self::DEFAULT_AVATAR_URL;
         }
+    }
+
+    // A diferencia de getFilamentAvatarUrl(), regresa null si no hay foto (sin placeholder)
+    public function getFotoAttribute(): ?string
+    {
+        return $this->getFirstMediaUrl('profile-images') ?: null;
     }
 
     /**
