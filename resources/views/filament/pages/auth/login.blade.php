@@ -11,9 +11,7 @@
     ></div>
 
     {{-- Tarjeta --}}
-    {{-- md:w-full + md:max-w-2xl (no md:w-auto): con w-auto el ancho se calcula por shrink-to-fit,
-         y un hijo con width en % (w-full) contra un contenedor de ancho "auto" es undefined behavior
-         según CSS 2.2 §10.2 — por eso max-w-2xl nunca se reflejaba visualmente. --}}
+    {{-- md:w-full (no md:w-auto): w-auto + hijo con % es undefined behavior (CSS 2.2 §10.2) --}}
     <div class="relative px-4 pt-20 md:absolute md:left-48 md:top-1/2 md:w-full md:max-w-lg md:px-0 md:pt-0 md:-translate-y-1/2">
         <div class="rounded-2xl bg-white p-10 shadow-xl">
             <div class="text-center">
