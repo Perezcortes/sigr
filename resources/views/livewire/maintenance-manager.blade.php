@@ -10,7 +10,7 @@
         @forelse($activeTickets as $ticket)
             <div x-data="{ open: false }" class="bg-white border border-gray-200 rounded-xl shadow-sm dark:bg-gray-800 dark:border-gray-700 overflow-hidden">
                 
-                <button @click="open = !open" 
+                <button type="button" @click="open = !open"
                         class="report-row flex items-center justify-between w-full p-4 transition rounded-xl focus:outline-none">
                     
                     <div class="flex items-center gap-3">
@@ -43,7 +43,7 @@
                     </p>
                     
                     <div class="flex justify-end pt-2 border-t border-gray-200/50 dark:border-gray-700/50">
-                        <button wire:click="mountAction('editarTicket', { record: {{ $ticket->id }} })" 
+                        <button type="button" wire:click="mountAction('editarTicket', { record: {{ $ticket->id }} })"
                                 class="group flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold shadow-sm transition-all duration-200 border
                                        /* Estilos Modo Claro */
                                        bg-white text-[#161848] border-gray-300 hover:border-[#FF5A1F] hover:text-[#FF5A1F] hover:shadow-md

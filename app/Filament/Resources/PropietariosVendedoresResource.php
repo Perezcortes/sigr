@@ -30,7 +30,7 @@ class PropietariosVendedoresResource extends Resource
 
     protected static ?string $slug = 'propietarios-vendedores';
 
-    protected static function portalFlagColumn(): string
+    public static function portalFlagColumn(): string
     {
         return 'is_seller';
     }

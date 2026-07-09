@@ -17,26 +17,9 @@ class SettingsManager extends Component implements HasForms
 {
     use InteractsWithForms;
 
-    private const NOTIFICATION_FIELDS = [
-        'notif_recordatorios_email',
-        'notif_recordatorios_push',
-        'notif_recordatorios_whatsapp',
-        'notif_reporte_pago_email',
-        'notif_reporte_pago_push',
-        'notif_reporte_pago_whatsapp',
-        'notif_mensajes_email',
-        'notif_mensajes_push',
-        'notif_mensajes_whatsapp',
-        'notif_mantenimiento_email',
-        'notif_mantenimiento_push',
-        'notif_mantenimiento_whatsapp',
-    ];
-
     public $rentId;
 
-    public ?array $data = []; // Datos del formulario de notificaciones
-
-    public bool $isInitializingForm = true;
+    public ?array $data = [];
 
     public function mount(int $rentId): void
     {
@@ -45,15 +28,14 @@ class SettingsManager extends Component implements HasForms
         $this->form->fill($record->attributesToArray());
         $this->ensureBaseRentPayment($record);
         $this->ensureDefaultUtilityPayments();
-        $this->isInitializingForm = false;
     }
 
-    // --- (Agente y Notificaciones) ---
+    // --- (Agente) ---
     public function form(Form $form): Form
     {
         return $form
             ->schema([
-                // 1. SECCIÓN AGENTE
+                // SECCIÓN AGENTE
                 Forms\Components\Group::make()->schema([
                     Forms\Components\Grid::make(12)->schema([
                         Forms\Components\Placeholder::make('agente_info')
@@ -85,85 +67,8 @@ class SettingsManager extends Component implements HasForms
                             }),
                     ]),
                 ])->extraAttributes(['class' => 'bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-100 border-t-4 border-t-[#26cad3] shadow-sm mb-6']),
-
-                // 2. SECCIÓN NOTIFICACIONES
-                Forms\Components\Section::make('Notificaciones')
-                    ->extraAttributes(['class' => 'shadow-sm border-gray-100'])
-                    ->schema([
-                        Forms\Components\Grid::make(4)
-                            ->extraAttributes([
-                                // Filament fuerza `inline-flex` en el switch; con eso `mx-auto` no centra. Forzamos flex en bloque + márgenes.
-                                'class' => '[&_button.fi-fo-toggle]:!flex [&_button.fi-fo-toggle]:!mx-auto',
-                            ])
-                            ->schema([
-                                Forms\Components\Placeholder::make('notif_header_tipo')
-                                    ->hiddenLabel()
-                                    ->extraAttributes(['class' => 'flex min-h-6 items-center'])
-                                    ->content(new HtmlString('<span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Tipo de notificación</span>')),
-                                Forms\Components\Placeholder::make('notif_header_email')
-                                    ->hiddenLabel()
-                                    ->extraAttributes(['class' => 'flex min-h-6 items-left justify-left text-left'])
-                                    ->content(new HtmlString('<span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Email</span>')),
-                                Forms\Components\Placeholder::make('notif_header_push')
-                                    ->hiddenLabel()
-                                    ->extraAttributes(['class' => 'flex min-h-6 items-left justify-left text-left'])
-                                    ->content(new HtmlString('<span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Push</span>')),
-                                Forms\Components\Placeholder::make('notif_header_whatsapp')
-                                    ->hiddenLabel()
-                                    ->extraAttributes(['class' => 'flex min-h-6 items-left justify-left text-left'])
-                                    ->content(new HtmlString('<span class="text-xs font-semibold uppercase tracking-wide text-gray-500">WhatsApp</span>')),
-
-                                Forms\Components\Placeholder::make('notif_row_recordatorios')
-                                    ->hiddenLabel()
-                                    ->extraAttributes(['class' => 'flex min-h-11 items-center'])
-                                    ->content(new HtmlString('<span class="text-sm font-medium text-gray-800 dark:text-gray-100">Recordatorios de pago</span>')),
-                                Forms\Components\Toggle::make('notif_recordatorios_email')->hiddenLabel()->default(true)->onColor('warning')->live(),
-                                Forms\Components\Toggle::make('notif_recordatorios_push')->hiddenLabel()->default(true)->onColor('warning')->live(),
-                                Forms\Components\Toggle::make('notif_recordatorios_whatsapp')->hiddenLabel()->default(true)->onColor('warning')->live(),
-
-                                Forms\Components\Placeholder::make('notif_row_reporte_pago')
-                                    ->hiddenLabel()
-                                    ->extraAttributes(['class' => 'flex min-h-11 items-center'])
-                                    ->content(new HtmlString('<span class="text-sm font-medium text-gray-800 dark:text-gray-100">Reporte de pago</span>')),
-                                Forms\Components\Toggle::make('notif_reporte_pago_email')->hiddenLabel()->default(true)->onColor('warning')->live(),
-                                Forms\Components\Toggle::make('notif_reporte_pago_push')->hiddenLabel()->default(true)->onColor('warning')->live(),
-                                Forms\Components\Toggle::make('notif_reporte_pago_whatsapp')->hiddenLabel()->default(true)->onColor('warning')->live(),
-
-                                Forms\Components\Placeholder::make('notif_row_mensajes')
-                                    ->hiddenLabel()
-                                    ->extraAttributes(['class' => 'flex min-h-11 items-center'])
-                                    ->content(new HtmlString('<span class="text-sm font-medium text-gray-800 dark:text-gray-100">Mensajes</span>')),
-                                Forms\Components\Toggle::make('notif_mensajes_email')->hiddenLabel()->default(true)->onColor('warning')->live(),
-                                Forms\Components\Toggle::make('notif_mensajes_push')->hiddenLabel()->default(true)->onColor('warning')->live(),
-                                Forms\Components\Toggle::make('notif_mensajes_whatsapp')->hiddenLabel()->default(true)->onColor('warning')->live(),
-
-                                Forms\Components\Placeholder::make('notif_row_mantenimiento')
-                                    ->hiddenLabel()
-                                    ->extraAttributes(['class' => 'flex min-h-11 items-center'])
-                                    ->content(new HtmlString('<span class="text-sm font-medium text-gray-800 dark:text-gray-100">Reporte de mantenimiento</span>')),
-                                Forms\Components\Toggle::make('notif_mantenimiento_email')->hiddenLabel()->default(true)->onColor('warning')->live(),
-                                Forms\Components\Toggle::make('notif_mantenimiento_push')->hiddenLabel()->default(true)->onColor('warning')->live(),
-                                Forms\Components\Toggle::make('notif_mantenimiento_whatsapp')->hiddenLabel()->default(true)->onColor('warning')->live(),
-                            ]),
-                    ]),
             ])
             ->statePath('data');
-    }
-
-    // Guardar Notificaciones (se llama automáticamente o con wire:change)
-    public function updatedData()
-    {
-        if ($this->isInitializingForm) {
-            return;
-        }
-
-        $notificationData = array_intersect_key($this->data, array_flip(self::NOTIFICATION_FIELDS));
-        Rent::find($this->rentId)?->update($notificationData);
-
-        Notification::make()
-            ->title('Preferencia actualizada')
-            ->success()
-            ->send();
     }
 
     public function addPaymentSetting(): void
@@ -186,6 +91,7 @@ class SettingsManager extends Component implements HasForms
 
         PaymentReminder::create([
             'payment_setting_id' => $setting->id,
+            'user_id' => Rent::find($this->rentId)->owner->user_id,
             'dias_antes' => 3,
             'direccion' => 'antes',
             'activo' => true,
@@ -261,9 +167,11 @@ class SettingsManager extends Component implements HasForms
             return;
         }
 
-        $nextDays = (int) ($payment->reminders()->max('dias_antes') ?? 0) + 1;
+        $ownerUserId = $payment->rent->owner->user_id;
+        $nextDays = (int) ($payment->reminders()->where('user_id', $ownerUserId)->max('dias_antes') ?? 0) + 1;
 
         $payment->reminders()->create([
+            'user_id' => $ownerUserId,
             'dias_antes' => $nextDays,
             'direccion' => 'antes',
             'activo' => true,
@@ -275,6 +183,7 @@ class SettingsManager extends Component implements HasForms
     public function removeReminder(int $reminderId): void
     {
         $reminder = PaymentReminder::whereHas('paymentSetting', fn ($query) => $query->where('rent_id', $this->rentId))
+            ->where('user_id', Rent::find($this->rentId)->owner->user_id)
             ->find($reminderId);
 
         if (! $reminder) {
@@ -288,6 +197,7 @@ class SettingsManager extends Component implements HasForms
     public function updateReminderDays(int $reminderId, mixed $days): void
     {
         $reminder = PaymentReminder::whereHas('paymentSetting', fn ($query) => $query->where('rent_id', $this->rentId))
+            ->where('user_id', Rent::find($this->rentId)->owner->user_id)
             ->find($reminderId);
 
         if (! $reminder) {
@@ -303,6 +213,7 @@ class SettingsManager extends Component implements HasForms
     public function updateReminderDirection(int $reminderId, string $direction): void
     {
         $reminder = PaymentReminder::whereHas('paymentSetting', fn ($query) => $query->where('rent_id', $this->rentId))
+            ->where('user_id', Rent::find($this->rentId)->owner->user_id)
             ->find($reminderId);
 
         if (! $reminder) {
@@ -336,9 +247,11 @@ class SettingsManager extends Component implements HasForms
             'es_variable' => false,
             'activo' => true,
             'es_base_renta' => true,
+            'icono' => 'home',
         ]);
 
         $base->reminders()->create([
+            'user_id' => $rent->owner->user_id,
             'dias_antes' => 3,
             'direccion' => 'antes',
             'activo' => true,
@@ -347,9 +260,13 @@ class SettingsManager extends Component implements HasForms
 
     private function ensureDefaultUtilityPayments(): void
     {
-        $types = ['mantenimiento', 'agua', 'luz'];
+        $types = [
+            'mantenimiento' => 'wrench',
+            'agua' => 'water',
+            'luz' => 'bolt',
+        ];
 
-        foreach ($types as $type) {
+        foreach ($types as $type => $icono) {
             $exists = PaymentSetting::where('rent_id', $this->rentId)
                 ->where('tipo', $type)
                 ->exists();
@@ -369,6 +286,7 @@ class SettingsManager extends Component implements HasForms
                 'es_variable' => true,
                 'activo' => false,
                 'es_base_renta' => false,
+                'icono' => $icono,
             ]);
         }
     }
@@ -391,8 +309,11 @@ class SettingsManager extends Component implements HasForms
 
     public function render()
     {
+        // Panel de staff: solo administra los recordatorios del propietario
+        $ownerUserId = Rent::find($this->rentId)->owner->user_id;
+
         $paymentSettings = PaymentSetting::where('rent_id', $this->rentId)
-            ->with('reminders')
+            ->with(['reminders' => fn ($q) => $q->where('user_id', $ownerUserId)])
             ->orderByRaw("
                 CASE
                     WHEN es_base_renta = 1 THEN 0
