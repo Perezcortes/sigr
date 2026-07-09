@@ -247,6 +247,7 @@ class SettingsManager extends Component implements HasForms
             'es_variable' => false,
             'activo' => true,
             'es_base_renta' => true,
+            'icono' => 'home',
         ]);
 
         $base->reminders()->create([
@@ -259,9 +260,13 @@ class SettingsManager extends Component implements HasForms
 
     private function ensureDefaultUtilityPayments(): void
     {
-        $types = ['mantenimiento', 'agua', 'luz'];
+        $types = [
+            'mantenimiento' => 'wrench',
+            'agua' => 'water',
+            'luz' => 'bolt',
+        ];
 
-        foreach ($types as $type) {
+        foreach ($types as $type => $icono) {
             $exists = PaymentSetting::where('rent_id', $this->rentId)
                 ->where('tipo', $type)
                 ->exists();
@@ -281,6 +286,7 @@ class SettingsManager extends Component implements HasForms
                 'es_variable' => true,
                 'activo' => false,
                 'es_base_renta' => false,
+                'icono' => $icono,
             ]);
         }
     }
