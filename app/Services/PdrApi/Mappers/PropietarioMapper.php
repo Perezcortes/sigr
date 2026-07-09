@@ -29,7 +29,7 @@ class PropietarioMapper
         return [
             'tipo_persona'    => 'Persona física',
             'datosPersonales' => self::getDatosPersonalesFisica($req, $rent),
-            'datosInmueble'   => self::getDatosInmuebleFisica($req),
+            //'datosInmueble'   => self::getDatosInmuebleFisica($req),
             'datosTercero'    => self::getDatosTerceroFisica($req), 
             'datosDocumentos' => DocumentoMapper::mapear($rent->ownerDocuments, 'Propietario', 'PF'),
         ];
@@ -204,7 +204,7 @@ class PropietarioMapper
         return [
             'tipo_persona'    => 'Persona moral',
             'datosEmpresa'    => self::getDatosEmpresaMoral($req),
-            'datosInmueble'   => self::getDatosInmuebleFisica($req), 
+            'datosInmueble'   => self::getDatosInmuebleMoral($req), 
             'datosTercero'    => self::getDatosTerceroFisica($req), // Lo agregamos porque Jona lo espera
             'datosDocumentos' => DocumentoMapper::mapear($rent->ownerDocuments, 'Propietario', 'PM'),
         ];
@@ -327,21 +327,21 @@ class PropietarioMapper
             'frecPagoOtra_moral'        => $req->frecuencia_pago === 'Otra' ? $req->frecuencia_pago_otra : null,
             'condicionPago_moral'       => $req->condiciones_pago,
             'instruccionesPago_moral'   => $req->instrucciones_pago,
-            'depositoGarantia_moral'    => $req->deposito_garantia,
+            'depositoGarantia_moral'    => (int) $req->deposito_garantia,
 
             // Mantenimiento (Con sufijo _moral)
             'usuarioPagaMant_moral'     => $req->paga_mantenimiento === 'si' ? $req->quien_paga_mantenimiento : null,
             'cuotaIncluida_moral'       => $req->paga_mantenimiento === 'si' && $req->mantenimiento_incluido_renta ? $booleanToText($req->mantenimiento_incluido_renta) : null,
-            'precioMantenimiento_moral' => $req->paga_mantenimiento === 'si' ? $req->costo_mantenimiento_mensual : null,
+            'precioMantenimiento_moral' => $req->paga_mantenimiento === 'si' ? (int) $req->costo_mantenimiento_mensual : null,
 
             // Seguro y Extras (Con sufijo _moral)
             'tieneSeguro_moral'         => $booleanToText($req->requiere_seguro),
             'cobertura_moral'           => $req->requiere_seguro === 'si' ? $req->cobertura_seguro : null,
-            'precioSeguro_moral'        => $req->requiere_seguro === 'si' ? $req->monto_cobertura_seguro : null,
+            'precioSeguro_moral'        => $req->requiere_seguro === 'si' ? (int) $req->monto_cobertura_seguro : null,
             'servicios_moral'           => $req->servicios_pagar,
             'inventario_moral'          => $req->inmueble_inventario,
             
-            'renta'                     => $req->precio_renta,
+            'renta'                     => (int) $req->precio_renta,
             'calle'                     => $req->inmueble_calle,
             'numExt'                    => $req->inmueble_numero_exterior,
             'numInt'                    => $req->inmueble_numero_interior,
