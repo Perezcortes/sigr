@@ -20,14 +20,14 @@ class DocumentoMapper
         return $documents->map(function ($doc) use ($rol, $tipoPersona) {
             // Obtenemos la URL completa
             $urlCompleta = asset('storage/' . $doc->path_file);
-            
+
             $nombreTraducido = self::traducirNombre($doc->tag, $rol);
 
             // 'tag' exacto que exige Jona
             // Inquilino y Fiador usan siempre 'PF' o 'PM'
             // Propietario tiene etiquetas especiales en las reglas de Jona
-            $tagAsignado = $tipoPersona; 
-            
+            $tagAsignado = $tipoPersona;
+
             if ($rol === 'Propietario') {
                 if (str_contains(strtolower($nombreTraducido), 'inmueble') || str_contains(strtolower($nombreTraducido), 'propiedad') || str_contains(strtolower($nombreTraducido), 'predial')) {
                     $tagAsignado = 'Prop';
@@ -35,12 +35,12 @@ class DocumentoMapper
                     $tagAsignado = 'RL'; // O 'Rep legal' según  Jona
                 }
             }
-            
+
             return [
                 'mime'      => $doc->mime ?? 'application/octet-stream',
                 'path_file' => $urlCompleta,
                 'tag'       => $tagAsignado,
-                'name'      => $nombreTraducido, 
+                'name'      => $nombreTraducido,
             ];
         })->values()->toArray();
     }
@@ -52,10 +52,12 @@ class DocumentoMapper
     {
         $lowerTag = strtolower($tagGuardado);
 
-        if (str_contains($lowerTag, 'identificaci') && !str_contains($lowerTag, 'representante')) {
+        // Mapeo exacto para evitar errores de validación
+        if (str_contains($lowerTag, 'identificaci') && !str_contains($lowerTag, 'rep')) {
             return 'Identificación oficial';
         }
-        if (str_contains($lowerTag, 'comprobante de domicilio') && !str_contains($lowerTag, 'representante') && !str_contains($lowerTag, 'propiedad')) {
+        // CAPTURA TU COMPROBANTE DE DOMICILIO
+        if (str_contains($lowerTag, 'comprobante') && str_contains($lowerTag, 'domicilio')) {
             return 'Comprobante de domicilio';
         }
         if (str_contains($lowerTag, 'ingresos')) {
@@ -67,7 +69,7 @@ class DocumentoMapper
         if (str_contains($lowerTag, 'situaci') || str_contains($lowerTag, 'fiscal')) {
             return 'Constancia de situación fiscal';
         }
-        
+
         // Específicos Fiador y Propietario
         if (str_contains($lowerTag, 'escritura') || str_contains($lowerTag, 'título')) {
             return $rol === 'Fiador' ? 'Escritura/Título Propiedad' : 'Título de propiedad';
