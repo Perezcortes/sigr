@@ -10,6 +10,7 @@ class Service extends Model
     protected $fillable = [
         'rent_id',
         'payment_setting_id',
+        'lote_pago',
         'nombre',
         'tipo',
         'frecuencia',

@@ -7,6 +7,7 @@ namespace App\Livewire;
 use App\Models\User;
 use App\Models\WhatsappInstance;
 use App\Services\EvolutionInstanceBootstrapper;
+use App\Services\OpenWaService;
 use Filament\Notifications\Notification;
 use Livewire\Attributes\On;
 use Livewire\Component;
@@ -21,6 +22,8 @@ class AdvisorWhatsappEvolutionPanel extends Component
     public bool $showQr = false;
 
     public ?WhatsappInstance $whatsappInstance = null;
+
+    public ?string $qrCode = null;
 
     public function mount(): void
     {
@@ -73,7 +76,7 @@ class AdvisorWhatsappEvolutionPanel extends Component
             return false;
         }
 
-        if (! $target->hasAnyRole(['Agente', 'Asesor'])) {
+        if (! $target->hasAnyRole(['Agente', 'Asesor', 'Administrador'])) {
             return false;
         }
 
@@ -81,7 +84,7 @@ class AdvisorWhatsappEvolutionPanel extends Component
             return $this->actingUserCanManageAdvisors();
         }
 
-        return $target->hasAnyRole(['Agente', 'Asesor']);
+        return $target->hasAnyRole(['Agente', 'Asesor', 'Administrador']);
     }
 
     public function loadAdvisorState(): void
@@ -95,6 +98,78 @@ class AdvisorWhatsappEvolutionPanel extends Component
         $user->loadMissing('evolutionWhatsappInstance');
         $this->createNumber = (string) ($user->whatsapp ?? '');
         $this->whatsappInstance = $user->evolutionWhatsappInstance;
+
+        if ($this->whatsappInstance && $this->whatsappInstance->status !== StatusConnectionEnum::OPEN) {
+            $this->checkStatus();
+        }
+    }
+
+    public function checkStatus(): void
+    {
+        if (! $this->whatsappInstance) {
+            return;
+        }
+
+        $openWa = app(OpenWaService::class);
+
+        // Si es una instancia legacy sin instance_id, crearla y arrancarla automáticamente
+        if (! $this->whatsappInstance->instance_id) {
+            try {
+                $session = $openWa->createSession($this->whatsappInstance->name);
+                $uuid = $session['id'];
+
+                $this->whatsappInstance->update([
+                    'instance_id' => $uuid,
+                    'status' => StatusConnectionEnum::CONNECTING,
+                ]);
+
+                $openWa->startSession($uuid);
+
+                try {
+                    $openWa->registerWebhook($uuid, url('/api/webhooks/openwa'));
+                } catch (\Throwable $webhookEx) {
+                    \Log::warning("Failed to register webhook for legacy session: " . $webhookEx->getMessage());
+                }
+            } catch (\Throwable $e) {
+                \Log::error("Failed to auto-create OpenWA session for legacy instance: " . $e->getMessage());
+                return;
+            }
+        }
+
+        try {
+            $statusData = $openWa->getSessionStatus($this->whatsappInstance->instance_id);
+            $openWaStatus = $statusData['status'] ?? 'disconnected';
+
+            $localStatus = match ($openWaStatus) {
+                'ready' => StatusConnectionEnum::OPEN,
+                'initializing', 'authenticating' => StatusConnectionEnum::CONNECTING,
+                default => StatusConnectionEnum::CLOSE,
+            };
+
+            if ($this->whatsappInstance->status !== $localStatus) {
+                $this->whatsappInstance->update([
+                    'status' => $localStatus,
+                ]);
+
+                if ($localStatus === StatusConnectionEnum::OPEN) {
+                    $this->showQr = false;
+                    $this->qrCode = null;
+                    $this->dispatch('instance-connected');
+                    return;
+                }
+            }
+
+            if ($this->showQr && $openWaStatus === 'qr_ready') {
+                $this->qrCode = $openWa->getQrCode($this->whatsappInstance->instance_id);
+            } else {
+                $this->qrCode = null;
+            }
+        } catch (\Throwable $e) {
+            $this->whatsappInstance->update([
+                'status' => StatusConnectionEnum::CLOSE,
+            ]);
+            $this->qrCode = null;
+        }
     }
 
     public function createInstance(): void
@@ -135,6 +210,8 @@ class AdvisorWhatsappEvolutionPanel extends Component
 
         $this->showQr = true;
 
+        $this->checkStatus();
+
         Notification::make()
             ->success()
             ->title('Instancia creada')
@@ -171,6 +248,14 @@ class AdvisorWhatsappEvolutionPanel extends Component
         }
 
         $this->showQr = true;
+
+        try {
+            app(OpenWaService::class)->startSession($this->whatsappInstance->instance_id);
+        } catch (\Throwable $e) {
+            // Ignorar si ya está iniciado
+        }
+
+        $this->checkStatus();
     }
 
     public function closeQr(): void

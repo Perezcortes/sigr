@@ -90,9 +90,39 @@ SHOW INDEX FROM users;
 SHOW INDEX FROM offices;
 ```
 
-## 8. Monitoreo
+## 8. Webhook Nocnok (imagen y datos de propiedad)
+
+En `.env` de producción **debe** estar:
+
+```env
+NOCNOK_SITE_URL=https://rentascom.nocnok.com
+```
+
+Si queda `https://www.rentas.com`, las URLs relativas del webhook responden **404** y no se guarda `imagen_propiedad` (ni metros/recámaras del scraping).
+
+Tras cambiar `.env`:
+
+```bash
+php artisan config:clear
+php artisan config:cache
+php artisan migrate --force
+```
+
+Comprobar que el servidor puede salir a internet hacia `rentascom.nocnok.com` y `s3.amazonaws.com`.
+
+Diagnóstico rápido:
+
+```bash
+php artisan tinker --execute="print_r(app(\App\Services\NocnokPropertyPageFetcher::class)->fetchPropertyPageData('https://rentascom.nocnok.com/propiedad/casa-en-renta/mexico/metepec/santa-maria-magdalena-ocotitlan-id-nn-gyu790'));"
+tail -f storage/logs/nocnok-webhook.log
+```
+
+Los leads creados **antes** del deploy no tendrán imagen hasta re-procesarlos.
+
+## 9. Monitoreo
 
 - Revisar logs de Laravel: `storage/logs/laravel.log`
+- Revisar webhook Nocnok: `storage/logs/nocnok-webhook.log`
 - Monitorear queries lentas en MySQL
 - Verificar uso de memoria y CPU
 

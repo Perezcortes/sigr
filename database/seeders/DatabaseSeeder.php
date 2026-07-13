@@ -17,15 +17,16 @@ class DatabaseSeeder extends Seeder
     {
         // Seed roles y permisos primero
         $this->call([
-            RolePermissionSeeder::class,
+            // RolePermissionSeeder::class,
             EstateCitySeeder::class,
+            MunicipalitySeeder::class,
         ]);
 
         // User::factory(10)->create();
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-        ]);
+        // User::factory()->create([
+        //     'name' => 'Test User',
+        //     'email' => 'test@example.com',
+        // ]);
     }
 }
