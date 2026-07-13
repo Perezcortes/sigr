@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 
 trait HasPortalFlagUserList
 {
-    abstract protected static function portalFlagColumn(): string;
+    abstract public static function portalFlagColumn(): string;
 
     public static function getEloquentQuery(): Builder
     {
@@ -26,7 +26,7 @@ trait HasPortalFlagUserList
 
     public static function canCreate(): bool
     {
-        return false;
+        return auth()->user()->hasAnyRole(['Administrador', 'Agente']);
     }
 
     public static function canEdit(Model $record): bool

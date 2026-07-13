@@ -9,21 +9,27 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('paises')) {
+            return;
+        }
+
+        $path = database_path('sql/paises.sql');
+
+        if (file_exists($path)) {
+            $sql = file_get_contents($path);
+
+            DB::unprepared($sql);
+
+            return;
+        }
+
         Schema::create('paises', function (Blueprint $table) {
             $table->id();
             $table->string('tag', 20);
             $table->string('name', 200);
             $table->timestamps();
-            $table->softDeletes(); 
+            $table->softDeletes();
         });
-
-        $path = database_path('sql/paises.sql');
-        
-        if (file_exists($path)) {
-            $sql = file_get_contents($path);
-            
-            DB::unprepared($sql);
-        }
     }
 
     public function down(): void

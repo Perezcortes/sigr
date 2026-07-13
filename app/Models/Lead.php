@@ -5,12 +5,14 @@ namespace App\Models;
 use App\Enums\LeadCanal;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use App\Models\WhatsappMessage;
-use App\Models\LeadActivity;
 
 class Lead extends Model
 {
     protected $table = 'leads';
+
+    protected $attributes = [
+        'etapa' => 'nuevo',
+    ];
 
     protected $fillable = [
         'nombre',
@@ -22,6 +24,7 @@ class Lead extends Model
         'calificacion_lead',
         'mensaje',
         'url_propiedad',
+        'imagen_propiedad',
         'metros_cuadrados',
         'numero_recamaras',
         'presupuesto',

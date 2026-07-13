@@ -19,7 +19,9 @@ class TenantRequest extends Model
         'fecha_constitucion' => 'date',
         'fecha_escritura_facultades' => 'date',
         'fecha_inscripcion_facultades' => 'date',
-        
+        'plazo_desde' => 'date',
+        'plazo_hasta' => 'date',
+
         'precio_renta' => 'decimal:2',
         'deposito_garantia' => 'decimal:2',
         'costo_mantenimiento_mensual' => 'decimal:2',
@@ -32,6 +34,14 @@ class TenantRequest extends Model
     public function tenant(): BelongsTo
     {
         return $this->belongsTo(Tenant::class);
+    }
+
+    /**
+     * Relación con Application (etapa previa a que exista un Rent)
+     */
+    public function application(): BelongsTo
+    {
+        return $this->belongsTo(Application::class);
     }
 
     /**

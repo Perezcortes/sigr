@@ -8,6 +8,7 @@ use App\Filament\Resources\LeadResource\Pages;
 use App\Models\Lead;
 use App\Models\LeadActivity;
 use App\Models\WhatsappInstance;
+use App\Models\WhatsappMessage;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
@@ -19,10 +20,10 @@ use Filament\Tables\Actions\BulkAction;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\HtmlString;
 use Maatwebsite\Excel\Facades\Excel;
-use App\Models\WhatsappMessage;
 use WallaceMartinss\FilamentEvolution\Enums\StatusConnectionEnum;
-use WallaceMartinss\FilamentEvolution\Services\WhatsappService;
+use App\Services\OpenWaService;
 
 class LeadResource extends Resource
 {
@@ -39,12 +40,12 @@ class LeadResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        return static::getModel()::where('etapa', 'no_contactado')->count();
+        return static::getModel()::where('etapa', 'nuevo')->count();
     }
 
     public static function getNavigationBadgeColor(): ?string
     {
-        return static::getModel()::where('etapa', 'no_contactado')->count() > 0 ? 'danger' : 'success';
+        return static::getModel()::where('etapa', 'nuevo')->count() > 0 ? 'danger' : 'success';
     }
 
     public static function form(Form $form): Form
@@ -104,8 +105,10 @@ class LeadResource extends Resource
                                         'arrendador' => 'Arrendador',
                                         'comprador' => 'Comprador',
                                         'vendedor' => 'Vendedor',
-                                        'NA' => 'NA',
-                                    ])->required()
+                                    ])
+                                    ->placeholder('Sin asignar')
+                                    ->native(false)
+                                    ->nullable()
                                     ->columnSpanFull(),
 
                                 Forms\Components\Select::make('canal')
@@ -152,72 +155,8 @@ class LeadResource extends Resource
                         Forms\Components\Tabs::make('CRM Tabs')
                             ->tabs([
 
-                                // --- NOTAS Y ACCIONES ---
-                                Forms\Components\Tabs\Tab::make('Notas')
-                                    ->icon('heroicon-m-document-text')
-                                    ->schema([
-
-                                        // Botonera de acciones
-                                        Forms\Components\Actions::make([
-
-                                            Forms\Components\Actions\Action::make('agregar_nota')
-                                                ->label('Agregar Nota')
-                                                ->icon('heroicon-m-pencil-square')
-                                                ->color('warning')
-                                                ->form([
-                                                    Forms\Components\Textarea::make('nota')
-                                                        ->label('Escribe aquí tu nota')
-                                                        ->required()
-                                                        ->rows(3),
-                                                ])
-                                                ->action(function (array $data, ?Lead $record) {
-                                                    if ($record) {
-                                                        $hist = $record->historial_acciones ?? [];
-                                                        $hist[] = ['fecha' => now()->format('d/m/Y H:i'), 'accion' => 'Nota: '.$data['nota']];
-                                                        $record->update(['historial_acciones' => $hist]);
-                                                    }
-                                                })->visible(fn (?Lead $record) => $record !== null),
-
-                                            Forms\Components\Actions\Action::make('crear_cita')
-                                                ->label('Cita')
-                                                ->icon('heroicon-m-calendar')
-                                                ->color('primary')
-                                                ->form([
-                                                    Forms\Components\DatePicker::make('fecha')->required(),
-                                                    Forms\Components\TimePicker::make('hora')->required(),
-                                                    Forms\Components\Textarea::make('observaciones'),
-                                                ])
-                                                ->action(function (array $data, ?Lead $record) {
-                                                    if ($record) {
-                                                        $hist = $record->historial_acciones ?? [];
-                                                        $hist[] = ['fecha' => now()->format('d/m/Y H:i'), 'accion' => "Cita: {$data['fecha']} a las {$data['hora']} - ".($data['observaciones'] ?? '')];
-                                                        $record->update(['etapa' => 'cita', 'historial_acciones' => $hist]);
-                                                    }
-                                                })->visible(fn (?Lead $record) => $record !== null),
-
-                                            Forms\Components\Actions\Action::make('registrar_llamada')
-                                                ->label('Llamada')
-                                                ->icon('heroicon-m-phone')
-                                                ->color('gray')
-                                                ->requiresConfirmation()
-                                                ->action(function (?Lead $record) {
-                                                    if ($record) {
-                                                        $hist = $record->historial_acciones ?? [];
-                                                        $hist[] = ['fecha' => now()->format('d/m/Y H:i'), 'accion' => 'Llamada telefónica realizada'];
-                                                        $record->update(['etapa' => 'contactado', 'historial_acciones' => $hist]);
-                                                    }
-                                                })->visible(fn (?Lead $record) => $record !== null),
-                                        ]),
-
-                                        // Muro de historial
-                                        Forms\Components\ViewField::make('historial_acciones')
-                                            ->view('filament.forms.components.lead-history')
-                                            ->label('')
-                                            ->visible(fn (?Lead $record) => $record !== null && ! empty($record->historial_acciones)),
-                                    ]),
-
-                                // --- PROPIEDADES DE INTERÉS ---
-                                Forms\Components\Tabs\Tab::make('Propiedades de interés')
+                                // --- PROPIEDAD ---
+                                Forms\Components\Tabs\Tab::make('Propiedad')
                                     ->icon('heroicon-m-home-modern')
                                     ->schema([
                                         Forms\Components\TextInput::make('url_propiedad')
@@ -227,6 +166,18 @@ class LeadResource extends Resource
                                                     ->icon('heroicon-m-arrow-top-right-on-square')
                                                     ->url(fn ($state) => $state, shouldOpenInNewTab: true)
                                             ),
+
+                                        Forms\Components\Placeholder::make('imagen_propiedad_vista')
+                                            ->label('Imagen de la propiedad')
+                                            ->content(function (?Lead $record): HtmlString|string {
+                                                if (! filled($record?->imagen_propiedad)) {
+                                                    return 'Sin imagen disponible (se obtiene al crear el lead desde el webhook de Nocnok).';
+                                                }
+
+                                                return new HtmlString(
+                                                    '<img src="'.e($record->imagen_propiedad).'" alt="Propiedad" class="rounded-lg max-h-48 w-full object-cover border border-gray-200 dark:border-gray-700" />'
+                                                );
+                                            }),
 
                                         Forms\Components\Grid::make(2)->schema([
                                             Forms\Components\TextInput::make('metros_cuadrados')
@@ -245,6 +196,12 @@ class LeadResource extends Resource
                                             ->disabled()
                                             ->rows(3),
                                     ]),
+
+                                // --- SEGUIMIENTO ---
+                                Forms\Components\Tabs\Tab::make('Seguimiento')
+                                    ->icon('heroicon-o-calendar-days')
+                                    ->visible(fn ($livewire) => $livewire instanceof Pages\EditLead)
+                                    ->schema(static::seguimientoTabSchema()),
 
                                 // --- MENSAJES / WHATSAPP ---
                                 Forms\Components\Tabs\Tab::make('WhatsApp')
@@ -317,9 +274,9 @@ class LeadResource extends Resource
                                                     }
 
                                                     try {
-                                                        $service = app(WhatsappService::class);
+                                                        $openWa = app(OpenWaService::class);
                                                         $instance = static::resolveWhatsappInstance($data['instance_id'] ?? null);
-                                                        if (! $instance) {
+                                                        if (! $instance || ! $instance->instance_id) {
                                                             Notification::make()->danger()->title('Instancia inválida')->body('Selecciona una instancia conectada válida.')->send();
 
                                                             return;
@@ -327,20 +284,23 @@ class LeadResource extends Resource
                                                         $type = (string) ($data['type'] ?? 'text');
                                                         $caption = $data['caption'] ?? null;
 
-                                                        if ($type === 'image') {
-                                                            $service->sendImage($instance->id, $number, (string) $data['media'], $caption, 'public');
-                                                        } elseif ($type === 'document') {
-                                                            $service->sendDocument($instance->id, $number, (string) $data['media'], basename((string) $data['media']), $caption, 'public');
+                                                        if ($type === 'image' || $type === 'document') {
+                                                            $openWa->sendMedia($instance->instance_id, $number, (string) $data['media'], $caption, 'public');
                                                         } else {
-                                                            $service->sendText($instance->id, $number, (string) $data['message']);
+                                                            $openWa->sendText($instance->instance_id, $number, (string) $data['message']);
                                                         }
 
                                                         $bodyText = $data['message'] ?? $caption ?? basename((string) ($data['media'] ?? ''));
+                                                        $msgId = 'local-'.uniqid();
                                                         WhatsappMessage::create([
-                                                            'wa_message_id' => 'local-'.uniqid(),
+                                                            'instance_id'   => $instance->id,
+                                                            'message_id'    => $msgId,
+                                                            'remote_jid'    => $number . '@c.us',
+                                                            'wa_message_id' => $msgId,
                                                             'phone'         => $number,
                                                             'direction'     => 'out',
                                                             'body'          => $bodyText,
+                                                            'content'       => $bodyText,
                                                             'lead_id'       => $record->id,
                                                             'user_id'       => auth()->id(),
                                                             'sent_at'       => now(),
@@ -364,70 +324,74 @@ class LeadResource extends Resource
                                             ->view('filament.forms.components.lead-whatsapp-chat')
                                             ->label(''),
                                     ]),
+
+                                // --- NOTAS Y ACCIONES ---
+                                Forms\Components\Tabs\Tab::make('Notas')
+                                    ->icon('heroicon-m-document-text')
+                                    ->schema([
+
+                                        // Botonera de acciones
+                                        Forms\Components\Actions::make([
+
+                                            Forms\Components\Actions\Action::make('agregar_nota')
+                                                ->label('Agregar Nota')
+                                                ->icon('heroicon-m-pencil-square')
+                                                ->color('warning')
+                                                ->form([
+                                                    Forms\Components\Textarea::make('nota')
+                                                        ->label('Escribe aquí tu nota')
+                                                        ->required()
+                                                        ->rows(3),
+                                                ])
+                                                ->action(function (array $data, ?Lead $record) {
+                                                    if ($record) {
+                                                        $hist = $record->historial_acciones ?? [];
+                                                        $hist[] = ['fecha' => now()->format('d/m/Y H:i'), 'accion' => 'Nota: '.$data['nota']];
+                                                        $record->update(['historial_acciones' => $hist]);
+                                                    }
+                                                })->visible(fn (?Lead $record) => $record !== null),
+
+                                            Forms\Components\Actions\Action::make('crear_cita')
+                                                ->label('Cita')
+                                                ->icon('heroicon-m-calendar')
+                                                ->color('primary')
+                                                ->form([
+                                                    Forms\Components\DatePicker::make('fecha')->required(),
+                                                    Forms\Components\TimePicker::make('hora')->required(),
+                                                    Forms\Components\Textarea::make('observaciones'),
+                                                ])
+                                                ->action(function (array $data, ?Lead $record) {
+                                                    if ($record) {
+                                                        $hist = $record->historial_acciones ?? [];
+                                                        $hist[] = ['fecha' => now()->format('d/m/Y H:i'), 'accion' => "Cita: {$data['fecha']} a las {$data['hora']} - ".($data['observaciones'] ?? '')];
+                                                        $record->update(['etapa' => 'cita', 'historial_acciones' => $hist]);
+                                                    }
+                                                })->visible(fn (?Lead $record) => $record !== null),
+
+                                            Forms\Components\Actions\Action::make('registrar_llamada')
+                                                ->label('Llamada')
+                                                ->icon('heroicon-m-phone')
+                                                ->color('gray')
+                                                ->requiresConfirmation()
+                                                ->action(function (?Lead $record) {
+                                                    if ($record) {
+                                                        $hist = $record->historial_acciones ?? [];
+                                                        $hist[] = ['fecha' => now()->format('d/m/Y H:i'), 'accion' => 'Llamada telefónica realizada'];
+                                                        $record->update(['etapa' => 'contactado', 'historial_acciones' => $hist]);
+                                                    }
+                                                })->visible(fn (?Lead $record) => $record !== null),
+                                        ]),
+
+                                        // Muro de historial
+                                        Forms\Components\ViewField::make('historial_acciones')
+                                            ->view('filament.forms.components.lead-history')
+                                            ->label('')
+                                            ->visible(fn (?Lead $record) => $record !== null && ! empty($record->historial_acciones)),
+                                    ]),
                             ])
                             ->columnSpanFull(),
                     ]),
                 ]),
-
-                // ── SECCIÓN SEGUIMIENTO ────────────────────────────────────────
-                Forms\Components\Section::make('Seguimiento')
-                    ->icon('heroicon-o-calendar-days')
-                    ->description('Agenda actividades y próximas acciones con este interesado.')
-                    ->visible(fn ($livewire) => $livewire instanceof Pages\EditLead)
-                    ->schema([
-                        Forms\Components\Repeater::make('activities')
-                            ->relationship('activities')
-                            ->label('')
-                            ->addActionLabel('+ Agregar actividad')
-                            ->orderColumn(false)
-                            ->defaultItems(0)
-                            ->schema([
-                                Forms\Components\Grid::make(3)->schema([
-                                    Forms\Components\DatePicker::make('fecha')
-                                        ->label('Fecha')
-                                        ->required()
-                                        ->native(false)
-                                        ->displayFormat('d/m/Y')
-                                        ->default(now()->addDay()),
-
-                                    Forms\Components\TextInput::make('hora')
-                                        ->label('Hora')
-                                        ->type('time')
-                                        ->required()
-                                        ->default('09:00'),
-
-                                    Forms\Components\Toggle::make('completada')
-                                        ->label('Realizada')
-                                        ->inline(false)
-                                        ->default(false),
-                                ]),
-
-                                Forms\Components\Textarea::make('descripcion')
-                                    ->label('¿Qué vas a hacer con este prospecto?')
-                                    ->required()
-                                    ->rows(2)
-                                    ->placeholder('Ej: Llamarle para confirmar visita, enviar cotización, agendar cita...')
-                                    ->columnSpanFull(),
-                            ])
-                            ->mutateRelationshipDataBeforeCreateUsing(function (array $data): array {
-                                $data['user_id'] = auth()->id();
-                                return $data;
-                            })
-                            ->itemLabel(function (array $state): ?string {
-                                $fecha = isset($state['fecha'])
-                                    ? \Carbon\Carbon::parse($state['fecha'])->format('d/m/Y')
-                                    : '—';
-                                $hora = $state['hora'] ?? '';
-                                $desc = isset($state['descripcion'])
-                                    ? \Illuminate\Support\Str::limit($state['descripcion'], 40)
-                                    : '';
-                                $status = ($state['completada'] ?? false) ? '✓' : '•';
-                                return "{$status}  {$fecha}" . ($hora ? " {$hora}" : '') . "  —  {$desc}";
-                            })
-                            ->collapsible()
-                            ->collapsed(false),
-                    ]),
-                // ──────────────────────────────────────────────────────────────
             ]);
     }
 
@@ -435,7 +399,7 @@ class LeadResource extends Resource
     {
         return $table
             ->actionsColumnLabel('Acciones')
-            ->defaultSort(fn ($query) => $query->orderByRaw("CASE WHEN etapa = 'no_contactado' THEN 1 ELSE 2 END")->orderBy('created_at', 'desc'))
+            ->defaultSort(fn ($query) => $query->orderByRaw("CASE WHEN etapa IN ('nuevo', 'no_contactado') THEN 1 ELSE 2 END")->orderBy('created_at', 'desc'))
             ->modifyQueryUsing(fn (Builder $query) => $query->whereNotIn('etapa', ['ganado', 'perdido', 'no_califica']))
             ->headerActions([
                 Action::make('exportar_todo_bonito')
@@ -461,7 +425,7 @@ class LeadResource extends Resource
                     ->label('Etapa')
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
-                        'no_contactado' => 'danger',
+                        'nuevo', 'no_contactado' => 'danger',
                         'ganado' => 'success',
                         'perdido', 'no_califica' => 'gray',
                         default => 'warning',
@@ -561,6 +525,212 @@ class LeadResource extends Resource
             'create' => Pages\CreateLead::route('/create'),
             'edit' => Pages\EditLead::route('/{record}/edit'),
         ];
+    }
+
+    /**
+     * @return array<int, Forms\Components\Component>
+     */
+    protected static function seguimientoTabSchema(): array
+    {
+        return [
+            Forms\Components\Placeholder::make('seguimiento_descripcion')
+                ->label('')
+                ->content('Agenda actividades y próximas acciones con este interesado.'),
+
+            Forms\Components\Hidden::make('seguimiento_show_form')
+                ->default(false)
+                ->dehydrated(false),
+
+            Forms\Components\Actions::make([
+                Forms\Components\Actions\Action::make('agregar_actividad')
+                    ->label('Agregar actividad')
+                    ->icon('heroicon-m-plus')
+                    ->color('primary')
+                    ->visible(fn (Forms\Get $get): bool => ! (bool) $get('seguimiento_show_form'))
+                    ->action(function (Forms\Set $set): void {
+                        $set('seguimiento_show_form', true);
+                        $set('seguimiento_draft', static::seguimientoDraftDefaults());
+                    }),
+            ]),
+
+            Forms\Components\Group::make()
+                ->visible(fn (Forms\Get $get): bool => (bool) $get('seguimiento_show_form'))
+                ->schema(static::seguimientoActivityFieldSchema()),
+
+            Forms\Components\Actions::make([
+                Forms\Components\Actions\Action::make('guardar_actividad')
+                    ->label('Guardar')
+                    ->icon('heroicon-m-check')
+                    ->color('success')
+                    ->visible(fn (Forms\Get $get): bool => (bool) $get('seguimiento_show_form'))
+                    ->action(function (Forms\Get $get, Forms\Set $set, Lead $record, Pages\EditLead $livewire): void {
+                        $draft = static::resolveSeguimientoDraftFromForm($get, $livewire);
+
+                        if (blank($draft['fecha'] ?? null) || blank(trim((string) ($draft['descripcion'] ?? '')))) {
+                            Notification::make()
+                                ->danger()
+                                ->title('Completa la fecha y la descripción')
+                                ->send();
+
+                            return;
+                        }
+
+                        $record->activities()->create([
+                            'user_id' => auth()->id(),
+                            'fecha' => $draft['fecha'],
+                            'hora' => $draft['hora'] ?? '09:00',
+                            'descripcion' => trim((string) $draft['descripcion']),
+                            'completada' => (bool) ($draft['completada'] ?? false),
+                        ]);
+
+                        $set('seguimiento_show_form', false);
+                        $set('seguimiento_draft', static::seguimientoDraftDefaults());
+                        $livewire->refreshSeguimientoLista();
+
+                        Notification::make()
+                            ->success()
+                            ->title('Actividad guardada')
+                            ->send();
+                    }),
+                Forms\Components\Actions\Action::make('cancelar_actividad')
+                    ->label('Cancelar')
+                    ->icon('heroicon-m-x-mark')
+                    ->color('gray')
+                    ->visible(fn (Forms\Get $get): bool => (bool) $get('seguimiento_show_form'))
+                    ->action(function (Forms\Set $set): void {
+                        $set('seguimiento_show_form', false);
+                        $set('seguimiento_draft', static::seguimientoDraftDefaults());
+                    }),
+            ]),
+
+            Forms\Components\ViewField::make('seguimiento_lista')
+                ->label('Actividades')
+                ->view('filament.forms.components.lead-activities-list')
+                ->viewData(fn (Pages\EditLead $livewire): array => [
+                    'listKey' => $livewire->seguimientoListKey,
+                ])
+                ->visible(fn (Pages\EditLead $livewire): bool => $livewire->record->activities()->exists())
+                ->key(fn (Pages\EditLead $livewire): string => 'seguimiento-list-'.$livewire->seguimientoListKey),
+        ];
+    }
+
+    /**
+     * @return array<int, Forms\Components\Component>
+     */
+    /**
+     * @return array<int, Forms\Components\Component>
+     */
+    public static function seguimientoActivityEditFormSchema(): array
+    {
+        return [
+            Forms\Components\Grid::make(3)->schema([
+                Forms\Components\DatePicker::make('fecha')
+                    ->label('Fecha')
+                    ->required()
+                    ->native(false)
+                    ->displayFormat('d/m/Y')
+                    ->defaultFocusedDate(now()),
+
+                Forms\Components\TextInput::make('hora')
+                    ->label('Hora')
+                    ->type('time')
+                    ->required(),
+
+                Forms\Components\Toggle::make('completada')
+                    ->label('Realizada')
+                    ->inline(false),
+            ]),
+
+            Forms\Components\Textarea::make('descripcion')
+                ->label('¿Qué vas a hacer con este prospecto?')
+                ->required()
+                ->rows(3)
+                ->columnSpanFull(),
+        ];
+    }
+
+    protected static function seguimientoActivityFieldSchema(): array
+    {
+        return [
+            Forms\Components\Grid::make(3)->schema([
+                Forms\Components\DatePicker::make('seguimiento_draft.fecha')
+                    ->label('Fecha')
+                    ->required()
+                    ->native(false)
+                    ->displayFormat('d/m/Y')
+                    ->default(now())
+                    ->defaultFocusedDate(now())
+                    ->live(),
+
+                Forms\Components\TextInput::make('seguimiento_draft.hora')
+                    ->label('Hora')
+                    ->type('time')
+                    ->required()
+                    ->default('09:00')
+                    ->live(),
+
+                Forms\Components\Toggle::make('seguimiento_draft.completada')
+                    ->label('Realizada')
+                    ->inline(false)
+                    ->default(false),
+            ]),
+
+            Forms\Components\Textarea::make('seguimiento_draft.descripcion')
+                ->label('¿Qué vas a hacer con este prospecto?')
+                ->required()
+                ->rows(2)
+                ->placeholder('Ej: Llamarle para confirmar visita, enviar cotización, agendar cita...')
+                ->columnSpanFull()
+                ->live(),
+        ];
+    }
+
+    /**
+     * @return array{fecha?: mixed, hora?: mixed, descripcion?: mixed, completada?: mixed}
+     */
+    protected static function resolveSeguimientoDraftFromForm(Forms\Get $get, Pages\EditLead $livewire): array
+    {
+        $draft = $get('seguimiento_draft');
+
+        if (is_array($draft) && filled($draft['fecha'] ?? null) && filled($draft['descripcion'] ?? null)) {
+            return $draft;
+        }
+
+        return data_get($livewire->form->getRawState(), 'seguimiento_draft', [])
+            ?: data_get($livewire->data, 'seguimiento_draft', []);
+    }
+
+    /**
+     * @return array{fecha: string, hora: string, descripcion: string, completada: bool}
+     */
+    public static function seguimientoDraftDefaults(): array
+    {
+        return [
+            'fecha' => now()->format('Y-m-d'),
+            'hora' => '09:00',
+            'descripcion' => '',
+            'completada' => false,
+        ];
+    }
+
+    /**
+     * Pendientes primero (fecha más próxima arriba), luego realizadas (más recientes primero).
+     *
+     * @return \Illuminate\Support\Collection<int, LeadActivity>
+     */
+    public static function orderedActivitiesForList(Lead $lead): \Illuminate\Support\Collection
+    {
+        $activities = $lead->activities()->with('user')->get();
+
+        $pendientes = $activities
+            ->where('completada', false)
+            ->sortBy(fn (LeadActivity $activity): string => $activity->fecha->format('Y-m-d').' '.($activity->hora ?? '00:00'));
+
+        $realizadas = $activities
+            ->where('completada', true)
+            ->sortByDesc(fn (LeadActivity $activity): string => $activity->fecha->format('Y-m-d').' '.($activity->hora ?? '00:00'));
+
+        return $pendientes->concat($realizadas)->values();
     }
 
     protected static function friendlyWhatsappError(string $message): string

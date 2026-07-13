@@ -64,18 +64,6 @@ class Rent extends Model
         'enviar_recordatorio_inquilino',
         'enviar_recordatorio_propietario',
         'notas_administracion',
-        'notif_recordatorios_email',
-        'notif_recordatorios_push',
-        'notif_recordatorios_whatsapp',
-        'notif_reporte_pago_email',
-        'notif_reporte_pago_push',
-        'notif_reporte_pago_whatsapp',
-        'notif_mensajes_email',
-        'notif_mensajes_push',
-        'notif_mensajes_whatsapp',
-        'notif_mantenimiento_email',
-        'notif_mantenimiento_push',
-        'notif_mantenimiento_whatsapp',
     ];
 
     protected $casts = [
@@ -91,18 +79,6 @@ class Rent extends Model
         'is_administrada_por_agente' => 'boolean',
         'enviar_recordatorio_inquilino' => 'boolean',
         'enviar_recordatorio_propietario' => 'boolean',
-        'notif_recordatorios_email' => 'boolean',
-        'notif_recordatorios_push' => 'boolean',
-        'notif_recordatorios_whatsapp' => 'boolean',
-        'notif_reporte_pago_email' => 'boolean',
-        'notif_reporte_pago_push' => 'boolean',
-        'notif_reporte_pago_whatsapp' => 'boolean',
-        'notif_mensajes_email' => 'boolean',
-        'notif_mensajes_push' => 'boolean',
-        'notif_mensajes_whatsapp' => 'boolean',
-        'notif_mantenimiento_email' => 'boolean',
-        'notif_mantenimiento_push' => 'boolean',
-        'notif_mantenimiento_whatsapp' => 'boolean',
     ];
 
     /**
