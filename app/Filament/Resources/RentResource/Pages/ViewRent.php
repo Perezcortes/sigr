@@ -1368,6 +1368,9 @@ class ViewRent extends EditRecord
                                                         ->action(function () {
                                                             $ownerRequest = OwnerRequest::where('owner_id', $this->record->owner_id)
                                                                 ->where('rent_id', $this->record->id)->first();
+
+                                                            $property = $this->record->property;
+
                                                             if (! $ownerRequest) {
                                                                 $ownerRequest = OwnerRequest::create([
                                                                     'owner_id' => $this->record->owner_id,
@@ -1378,6 +1381,16 @@ class ViewRent extends EditRecord
                                                                     'segundo_apellido' => $this->record->owner->segundo_apellido,
                                                                     'email' => $this->record->owner->email,
                                                                     'rfc' => $this->record->owner->rfc,
+                                                                    // Inyectamos datos de la propiedad (si $property existe)
+                                                                    'tipo_inmueble'                 => $property?->tipo_inmueble,
+                                                                    'uso_suelo'                     => $property?->uso_suelo,
+                                                                    'precio_renta'                  => $property?->precio_renta,
+                                                                    'iva_renta'                     => $property?->iva_renta,
+                                                                    'frecuencia_pago'               => $property?->frecuencia_pago,
+                                                                    'inmueble_calle'                => $property?->calle,
+                                                                    'inmueble_numero_exterior'      => $property?->numero_exterior,
+                                                                    'inmueble_codigo_postal'        => $property?->codigo_postal,
+                                                                    'inmueble_estado'               => $property?->estado,
                                                                 ]);
                                                             }
                                                             $this->redirect(OwnerRequestResource::getUrl('edit', ['record' => $ownerRequest]));
@@ -1496,12 +1509,12 @@ class ViewRent extends EditRecord
                                                             ->preload()
                                                             ->live()
                                                             ->placeholder('Seleccione una propiedad disponible')
-                                                            ->afterStateUpdated(function (Forms\Set $set, $state) {
+                                                            ->afterStateUpdated(function (Forms\Set $set, $state, $record) {
                                                                 if ($state) {
                                                                     $property = Property::find($state);
                                                                     if ($property) {
                                                                         // Actualizar property_id en la rent
-                                                                        $this->record->update([
+                                                                        $record->update([
                                                                             'property_id' => $state,
                                                                             'tipo_propiedad' => $property->tipo_inmueble ?? null,
                                                                             'calle' => $property->calle ?? null,
@@ -1513,21 +1526,36 @@ class ViewRent extends EditRecord
                                                                             'estado' => $property->estado ?? null,
                                                                             'referencias_ubicacion' => $property->referencias_ubicacion ?? null,
                                                                         ]);
+                                                                        
+                                                                        $ownerRequest = \App\Models\OwnerRequest::where('rent_id', $record->id)->first();
+                                                                        if ($ownerRequest) {
+                                                                            $ownerRequest->update([
+                                                                                'tipo_inmueble'                 => $property->tipo_inmueble,
+                                                                                'uso_suelo'                     => $property->uso_suelo,
+                                                                                'precio_renta'                  => $property->precio_renta,
+                                                                                'iva_renta'                     => $property->iva_renta,
+                                                                                'frecuencia_pago'               => $property->frecuencia_pago,
+                                                                                'inmueble_calle'                => $property->calle,
+                                                                                'inmueble_numero_exterior'      => $property->numero_exterior,
+                                                                                'inmueble_codigo_postal'        => $property->codigo_postal,
+                                                                                'inmueble_estado'               => $property->estado,
+                                                                            ]);
+                                                                        }
 
-                                                                        // Copiar todos los datos de la propiedad a los campos de la rent
-                                                                        $set('tipo_propiedad', $property->tipo_inmueble ?? '');
-                                                                        $set('calle', $property->calle ?? '');
-                                                                        $set('numero_exterior', $property->numero_exterior ?? '');
-                                                                        $set('numero_interior', $property->numero_interior ?? '');
-                                                                        $set('codigo_postal', $property->codigo_postal ?? '');
-                                                                        $set('colonia', $property->colonia ?? '');
-                                                                        $set('municipio', $property->delegacion_municipio ?? '');
-                                                                        $set('estado', $property->estado ?? '');
-                                                                        $set('referencias_ubicacion', $property->referencias_ubicacion ?? '');
+                                                                        // Refrescar el formulario actual para que el usuario vea los cambios visualmente
+                                                                        $record->refresh();
+                                                                        $set('tipo_inmueble', $property->tipo_inmueble);
+                                                                        $set('uso_suelo', $property->uso_suelo);
+                                                                        $set('iva_renta', $property->iva_renta);
+                                                                        $set('frecuencia_pago', $property->frecuencia_pago);
+                                                                        $set('inmueble_calle', $property->calle);
+                                                                        $set('inmueble_numero_exterior', $property->numero_exterior);
+                                                                        $set('inmueble_codigo_postal', $property->codigo_postal);
+                                                                        $set('inmueble_estado', $property->estado);
 
                                                                         Notification::make()
                                                                             ->success()
-                                                                            ->title('Propiedad seleccionada')
+                                                                            ->title('Propiedad seleccionada y sincronizada')
                                                                             ->body('Los datos de la propiedad se han cargado. Haga clic en Guardar para persistir los cambios.')
                                                                             ->send();
                                                                     }
@@ -1564,40 +1592,7 @@ class ViewRent extends EditRecord
                                                             ->label('Municipio/Alcaldía'),
                                                         Forms\Components\Select::make('estado')
                                                             ->label('Estado')
-                                                            ->options([
-                                                                'Aguascalientes' => 'Aguascalientes',
-                                                                'Baja California' => 'Baja California',
-                                                                'Baja California Sur' => 'Baja California Sur',
-                                                                'Campeche' => 'Campeche',
-                                                                'Chiapas' => 'Chiapas',
-                                                                'Chihuahua' => 'Chihuahua',
-                                                                'Ciudad de México' => 'Ciudad de México',
-                                                                'Coahuila' => 'Coahuila',
-                                                                'Colima' => 'Colima',
-                                                                'Durango' => 'Durango',
-                                                                'Estado de México' => 'Estado de México',
-                                                                'Guanajuato' => 'Guanajuato',
-                                                                'Guerrero' => 'Guerrero',
-                                                                'Hidalgo' => 'Hidalgo',
-                                                                'Jalisco' => 'Jalisco',
-                                                                'Michoacán' => 'Michoacán',
-                                                                'Morelos' => 'Morelos',
-                                                                'Nayarit' => 'Nayarit',
-                                                                'Nuevo León' => 'Nuevo León',
-                                                                'Oaxaca' => 'Oaxaca',
-                                                                'Puebla' => 'Puebla',
-                                                                'Querétaro' => 'Querétaro',
-                                                                'Quintana Roo' => 'Quintana Roo',
-                                                                'San Luis Potosí' => 'San Luis Potosí',
-                                                                'Sinaloa' => 'Sinaloa',
-                                                                'Sonora' => 'Sonora',
-                                                                'Tabasco' => 'Tabasco',
-                                                                'Tamaulipas' => 'Tamaulipas',
-                                                                'Tlaxcala' => 'Tlaxcala',
-                                                                'Veracruz' => 'Veracruz',
-                                                                'Yucatán' => 'Yucatán',
-                                                                'Zacatecas' => 'Zacatecas',
-                                                            ])
+                                                            ->options(\App\Helpers\EstadosMexico::getEstados())
                                                             ->disabled()
                                                             ->dehydrated()
                                                             ->nullable(),

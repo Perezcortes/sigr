@@ -6,7 +6,8 @@ class DocumentoMapper
 {
     /**
      * Mapea y traduce documentos al formato estricto de PDR.
-     * * @param \Illuminate\Support\Collection|null $documents Colección de documentos
+     *
+     * @param \Illuminate\Support\Collection|null $documents Colección de documentos
      * @param string $rol 'Inquilino', 'Fiador' o 'Propietario'
      * @param string $tipoPersona 'PF' o 'PM'
      * @return array
@@ -21,23 +22,25 @@ class DocumentoMapper
             // Obtenemos la URL completa
             $urlCompleta = asset('storage/' . $doc->path_file);
 
-            $nombreTraducido = self::traducirNombre($doc->tag, $rol);
+            // Obtenemos el nombre traducido al formato exacto de Jona
+            // Usamos $doc->name (o el campo que uses para el nombre real) en lugar del tag
+            $nombreBase = $doc->name ?? $doc->tag; 
+            $nombreTraducido = self::traducirNombre($nombreBase, $rol);
 
-            // 'tag' exacto que exige Jona
-            // Inquilino y Fiador usan siempre 'PF' o 'PM'
-            // Propietario tiene etiquetas especiales en las reglas de Jona
+            // 'tag' exacto 
             $tagAsignado = $tipoPersona;
 
             if ($rol === 'Propietario') {
-                if (str_contains(strtolower($nombreTraducido), 'inmueble') || str_contains(strtolower($nombreTraducido), 'propiedad') || str_contains(strtolower($nombreTraducido), 'predial')) {
+                $nombreLower = strtolower($nombreTraducido);
+                if (str_contains($nombreLower, 'propiedad') || str_contains($nombreLower, 'inmueble') || str_contains($nombreLower, 'predial')) {
                     $tagAsignado = 'Prop';
-                } elseif (str_contains(strtolower($nombreTraducido), 'representante')) {
-                    $tagAsignado = 'RL'; // O 'Rep legal' según  Jona
+                } elseif (str_contains($nombreLower, 'representante legal') || str_contains($nombreLower, 'poder notarial') || str_contains($nombreLower, 'poder_notarial')) {
+                    $tagAsignado = 'RL';
                 }
             }
 
             return [
-                'mime'      => $doc->mime ?? 'application/octet-stream',
+                'mime'      => $doc->mime ?? 'application/pdf',
                 'path_file' => $urlCompleta,
                 'tag'       => $tagAsignado,
                 'name'      => $nombreTraducido,
@@ -48,50 +51,73 @@ class DocumentoMapper
     /**
      * Intenta mapear el nombre guardado en BD al string exacto que exige Jona
      */
-    private static function traducirNombre(string $tagGuardado, string $rol): string
+    private static function traducirNombre(string $nombreOriginal, string $rol): string
     {
-        $lowerTag = strtolower($tagGuardado);
+        $lowerName = strtolower($nombreOriginal);
 
-        // Mapeo exacto para evitar errores de validación
-        if (str_contains($lowerTag, 'identificaci') && !str_contains($lowerTag, 'rep')) {
-            return 'Identificación oficial';
-        }
-        // CAPTURA TU COMPROBANTE DE DOMICILIO
-        if (str_contains($lowerTag, 'comprobante') && str_contains($lowerTag, 'domicilio')) {
-            return 'Comprobante de domicilio';
-        }
-        if (str_contains($lowerTag, 'ingresos')) {
-            return 'Comprobante de ingresos';
-        }
-        if (str_contains($lowerTag, 'acta')) {
-            return 'Acta constitutiva';
-        }
-        if (str_contains($lowerTag, 'situaci') || str_contains($lowerTag, 'fiscal')) {
+        // CONSTANCIA DE SITUACIÓN FISCAL / RFC
+        // Si en tu panel lo llaman 'rfc', 'csf' o 'situación', lo mandamos como Constancia
+        if (str_contains($lowerName, 'rfc') || str_contains($lowerName, 'situaci') || str_contains($lowerName, 'fiscal')) {
             return 'Constancia de situación fiscal';
         }
 
-        // Específicos Fiador y Propietario
-        if (str_contains($lowerTag, 'escritura') || str_contains($lowerTag, 'título')) {
+        // ACTA CONSTITUTIVA
+        if (str_contains($lowerName, 'acta') || str_contains($lowerName, 'constitutiva')) {
+            return 'Acta constitutiva';
+        }
+
+        // IDENTIFICACIÓN OFICIAL Y REPRESENTANTE LEGAL
+        if (str_contains($lowerName, 'identificaci') || str_contains($lowerName, 'ine') || str_contains($lowerName, 'pasaporte')) {
+            if (str_contains($lowerName, 'rep') || str_contains($lowerName, 'legal')) {
+                return $rol === 'Propietario' ? 'Identificación representante legal' : 'Identificación rep legal';
+            }
+            return 'Identificación oficial';
+        }
+
+        // COMPROBANTES DE DOMICILIO
+        if (str_contains($lowerName, 'comprobante') || str_contains($lowerName, 'domicilio') || str_contains($lowerName, 'luz') || str_contains($lowerName, 'agua')) {
+            // Si es comprobante de la propiedad en garantía
+            if (str_contains($lowerName, 'propiedad')) {
+                return $rol === 'Fiador' ? 'Comprobante de Domicilio Propiedad' : 'Comprobante de domicilio propiedad';
+            }
+            // Si es comprobante del representante legal (Solo propietario)
+            if ($rol === 'Propietario' && (str_contains($lowerName, 'rep') || str_contains($lowerName, 'legal'))) {
+                return 'Comprobante de domicilio representante legal';
+            }
+            // Comprobante de domicilio normal
+            return 'Comprobante de domicilio';
+        }
+
+        // COMPROBANTES DE INGRESOS
+        if (str_contains($lowerName, 'ingresos') || str_contains($lowerName, 'estado de cuenta') || str_contains($lowerName, 'nomina')) {
+            return 'Comprobante de ingresos';
+        }
+
+        // PODER NOTARIAL / DOCUMENTO REPRESENTANTE LEGAL (Solo propietario PM)
+        if (str_contains($lowerName, 'poder') || str_contains($lowerName, 'notarial') || str_contains($lowerName, 'acredita')) {
+            return 'Documento que acredita al representante legal';
+        }
+
+        // ESPECÍFICOS DE LA PROPIEDAD EN GARANTÍA O DEL INMUEBLE RENTADO
+        if (str_contains($lowerName, 'escritura') || str_contains($lowerName, 'título') || str_contains($lowerName, 'titulo')) {
             return $rol === 'Fiador' ? 'Escritura/Título Propiedad' : 'Título de propiedad';
         }
-        if (str_contains($lowerTag, 'comprobante') && str_contains($lowerTag, 'propiedad')) {
-            return $rol === 'Fiador' ? 'Comprobante de Domicilio Propiedad' : 'Comprobante de domicilio propiedad';
-        }
-        if (str_contains($lowerTag, 'boleta') || str_contains($lowerTag, 'predial')) {
+        if (str_contains($lowerName, 'boleta') || str_contains($lowerName, 'predial')) {
             return $rol === 'Fiador' ? 'Boleta Predial Propiedad' : 'Boleta Predial';
         }
-        if (str_contains($lowerTag, 'reglamento')) {
+        if (str_contains($lowerName, 'reglamento')) {
             return $rol === 'Fiador' ? 'Reglamento Propiedad' : 'Reglamento de propiedad';
         }
-        if (str_contains($lowerTag, 'foto')) {
+        if (str_contains($lowerName, 'foto') || str_contains($lowerName, 'imagen')) {
             return $rol === 'Fiador' ? 'Foto de la Propiedad' : 'Foto del inmueble';
         }
-
-        // Específicos Representante Legal
-        if (str_contains($lowerTag, 'identificaci') && str_contains($lowerTag, 'rep')) {
-            return $rol === 'Propietario' ? 'Identificación representante legal' : 'Identificación rep legal';
+        
+        // MIGRATORIO (Solo Propietario)
+        if (str_contains($lowerName, 'migratorio')) {
+            return 'Documento migratorio';
         }
 
-        return $tagGuardado;
+        // Fallback: Si no coincide con nada, devolvemos el original esperando que el usuario lo haya escrito perfecto.
+        return $nombreOriginal;
     }
 }
