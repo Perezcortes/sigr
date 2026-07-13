@@ -115,12 +115,12 @@ class OwnerRequestResource extends Resource
 
                             Forms\Components\Section::make('Datos del Inmueble a Arrendar')
                                 ->schema(self::getDatosInmuebleSchema())
-                                ->visible(fn (Forms\Get $get) => blank($get('selected_property_id')))
+                                //->visible(fn (Forms\Get $get) => blank($get('selected_property_id')))
                                 ->columns(2),
 
                             Forms\Components\Section::make('Dirección del Inmueble')
                                 ->schema(self::getDireccionInmuebleSchema())
-                                ->visible(fn (Forms\Get $get) => blank($get('selected_property_id')))
+                                //->visible(fn (Forms\Get $get) => blank($get('selected_property_id')))
                                 ->columns(2),
                         ]),
 

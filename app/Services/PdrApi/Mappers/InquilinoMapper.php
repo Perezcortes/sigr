@@ -322,9 +322,7 @@ class InquilinoMapper
         $esResidencial = $rent->tipo_inmueble === 'residencial';
         $tipoInmueble = $esResidencial ? 'Inmuebles Residenciales' : 'Inmuebles Comerciales';
 
-        $datos = [
-            'tipoInmueble_PM' => $tipoInmueble,
-        ];
+        $datos = [];
 
         // INMUEBLE RESIDENCIAL (Persona Moral)
         if ($esResidencial) {
