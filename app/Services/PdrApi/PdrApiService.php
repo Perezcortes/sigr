@@ -9,7 +9,7 @@ use Illuminate\Support\Str;
 use App\Services\PdrApi\Mappers\InquilinoMapper;
 use App\Services\PdrApi\Mappers\PropietarioMapper;
 use App\Services\PdrApi\Mappers\FiadorMapper;
-use App\Models\SolicitudesPolizaLog; 
+use App\Models\SolicitudesPolizaLog;
 
 class PdrApiService
 {
@@ -20,7 +20,7 @@ class PdrApiService
 
     public function __construct()
     {
-        $this->baseUrl      = env('PDR_API_URL', 'http://localhost:8001'); 
+        $this->baseUrl      = env('PDR_API_URL', 'https://pruebas.polizaderentas.com');
         $this->clientId     = env('PDR_CLIENT_ID', '');
         $this->clientSecret = env('PDR_CLIENT_SECRET', '');
         $this->scope        = env('PDR_SCOPE', 'poliza.crear');
@@ -58,7 +58,7 @@ class PdrApiService
 
         if ($response->successful()) {
             $sucursales = $response->json('data.sucursales', []);
-            
+
             return collect($sucursales)->pluck('nombre', 'id')->toArray();
         }
 
@@ -77,7 +77,7 @@ class PdrApiService
 
         if ($response->successful()) {
             $agentes = $response->json('data.usuarios', []);
-            
+
             return collect($agentes)->pluck('nombre', 'id')->toArray();
         }
 
@@ -101,11 +101,12 @@ class PdrApiService
 
         try {
             $token = $this->obtenerToken();
-            $idempotencyKey = (string) Str::uuid(); 
+            $idempotencyKey = (string) Str::uuid();
 
             $response = Http::withToken($token)
                 ->withoutVerifying()
                 ->asForm()
+                ->timeout(90)
                 ->withHeaders([
                     'Idempotency-Key' => $idempotencyKey,
                     'Accept' => 'application/json',
@@ -115,7 +116,28 @@ class PdrApiService
             if (!$response->successful()) {
                 Log::error('Error de validación PDR API: ' . $response->body());
                 $log->update(['status' => 'fallido', 'mensaje_error' => $response->body()]);
-                return ['success' => false, 'error' => 'La API de Póliza de Rentas rechazó la solicitud.'];
+
+                // Decodificamos la respuesta de la API para extraer el error real
+                $apiResponse = $response->json();
+
+                // Tomamos el mensaje general ("Error de validación", "Error al procesar...", etc.)
+                $mensajeError = $apiResponse['message'] ?? 'La API de Póliza de Rentas rechazó la solicitud sin especificar un motivo.';
+
+                // Si la API devolvió errores específicos por campo, los acumulamos limpiamente
+                if (!empty($apiResponse['errors']) && is_array($apiResponse['errors'])) {
+                    $detallesCampos = [];
+                    foreach ($apiResponse['errors'] as $campo => $mensajesDelCampo) {
+                        // Un campo puede tener varios mensajes de error, los unimos
+                        $detallesCampos[] = is_array($mensajesDelCampo) ? implode(' ', $mensajesDelCampo) : $mensajesDelCampo;
+                    }
+                    // Juntamos todos los errores de los campos separados por un salto de línea o punto
+                    $mensajeError .= ' Detalles: ' . implode(' ', $detallesCampos);
+                }
+
+                return [
+                    'success' => false,
+                    'error' => $mensajeError 
+                ];
             }
 
             // Si PDR respondió 200/201 (Ok)
@@ -144,7 +166,12 @@ class PdrApiService
     }
 
     private function armarJsonEstructurado($rentaRecord, array $payloadValidacion): array
-    {
+    {   
+        // ASIGNACIÓN TEMPORAL EN MEMORIA:
+        // Como la actualización en la base de datos se ejecuta después de enviar el JSON,
+        // los mappers leen el valor viejo. Forzamos el nuevo valor en el objeto para el mapeo:
+        $rentaRecord->tipo_poliza = $payloadValidacion['tipo_poliza'];
+        
         $tenantRequest = \App\Models\TenantRequest::where('tenant_id', $rentaRecord->tenant_id)->where('rent_id', $rentaRecord->id)->first();
         $inquilinoMapeado = $tenantRequest ? InquilinoMapper::mapear($tenantRequest, $rentaRecord) : [];
 
@@ -158,16 +185,17 @@ class PdrApiService
         }
 
         $callbackUrl = url('/api/webhooks/poliza-status');
+        //$callbackUrl = 'http://192.168.1.85:8000/api/webhooks/poliza-status';
 
         return [
-            'external_reference' => 'RENTA-' . $rentaRecord->id . '-' . time(), 
+            'external_reference' => 'RENTA-' . $rentaRecord->id . '-' . time(),
             'tipoInmueble'       => $rentaRecord->tipo_inmueble === 'residencial' ? 'Inmuebles Residenciales' : 'Inmuebles Comerciales',
             'tipoPoliza'         => $payloadValidacion['tipo_poliza'],
-            
+
             'idUser' => $rentaRecord->pdr_asesor_id,
             'idSuc'  => $rentaRecord->pdr_office_id,
-            'idInmo' => 3071,
-            
+            'idInmo' => $rentaRecord->pdr_inmo_id ?? 89, 
+
             'renta'  => (int) $rentaRecord->precio_renta,
             'callback_url' => $callbackUrl,
 
