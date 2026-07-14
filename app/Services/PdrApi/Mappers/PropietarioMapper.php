@@ -130,7 +130,7 @@ class PropietarioMapper
             'frecPagoOtra'         => $req->frecuencia_pago === 'Otra' ? $req->frecuencia_pago_otra : null,
             'condicionPago'        => $req->condiciones_pago,
             'instruccionesPago'    => $req->instrucciones_pago,
-            'depositoGarantia'     => $req->deposito_garantia,
+            'depositoGarantia' => (int) ($req->deposito_garantia ?? 0),
 
             'usuarioPagaMant'      => $req->quien_paga_mantenimiento,
             'cuotaIncluida'        => $req->mantenimiento_incluido_renta ? $booleanToText($req->mantenimiento_incluido_renta) : null,
@@ -213,6 +213,7 @@ class PropietarioMapper
             'renta'               => 0,
             'calle'               => $req->calle ?? 'S/N',
             'numExt'              => $req->numero_exterior ?? 'S/N',
+            'depositoGarantia'    => (int) ($req->deposito_garantia ?? 0),
         ];
     }
 
@@ -347,7 +348,7 @@ class PropietarioMapper
             'frecPagoOtra_moral'        => $req->frecuencia_pago === 'Otra' ? $req->frecuencia_pago_otra : null,
             'condicionPago_moral'       => $req->condiciones_pago,
             'instruccionesPago_moral'   => $req->instrucciones_pago,
-            'depositoGarantia_moral'    => (int) $req->deposito_garantia,
+            'depositoGarantia_moral' => (int) ($req->deposito_garantia ?? 0),
 
             // Mantenimiento (Con sufijo _moral)
             'usuarioPagaMant_moral'     => $req->paga_mantenimiento === 'si' ? $req->quien_paga_mantenimiento : null,
