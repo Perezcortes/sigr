@@ -86,13 +86,13 @@ class InquilinoMapper
             'metrosCuadradosActual' => $req->metros_cuadrados,
 
             // DOMICILIO FISCAL 
-            'calleFiscal'          => $esMismoDomicilio ? $req->calle : $req->calle_fiscal,
-            'numExtFiscal'         => $esMismoDomicilio ? $req->numero_exterior : $req->numero_exterior_fiscal,
-            'numIntFiscal'         => $esMismoDomicilio ? $req->numero_interior : $req->numero_interior_fiscal,
-            'cpFiscal'             => $esMismoDomicilio ? $req->codigo_postal : $req->codigo_postal_fiscal,
-            'coloniaFiscal'        => $esMismoDomicilio ? $req->colonia : $req->colonia_fiscal,
-            'munFiscal'            => $esMismoDomicilio ? $req->delegacion_municipio : $req->municipio_fiscal,
-            'estadoFiscal'         => $esMismoDomicilio ? $req->estado : $req->estado_fiscal,
+            'calleFiscal'          => $esMismoDomicilio ? $req->calle : (!empty($req->calle_fiscal) ? $req->calle_fiscal : $req->calle),
+            'numExtFiscal'         => $esMismoDomicilio ? $req->numero_exterior : (!empty($req->numero_exterior_fiscal) ? $req->numero_exterior_fiscal : $req->numero_exterior),
+            'numIntFiscal'         => $esMismoDomicilio ? $req->numero_interior : (!empty($req->numero_interior_fiscal) ? $req->numero_interior_fiscal : $req->numero_interior),
+            'cpFiscal'             => $esMismoDomicilio ? $req->codigo_postal : (!empty($req->codigo_postal_fiscal) ? $req->codigo_postal_fiscal : $req->codigo_postal),
+            'coloniaFiscal'        => $esMismoDomicilio ? $req->colonia : (!empty($req->colonia_fiscal) ? $req->colonia_fiscal : $req->colonia),
+            'munFiscal'            => $esMismoDomicilio ? $req->delegacion_municipio : (!empty($req->municipio_fiscal) ? $req->municipio_fiscal : $req->delegacion_municipio),
+            'estadoFiscal'         => $esMismoDomicilio ? $req->estado : (!empty($req->estado_fiscal) ? $req->estado_fiscal : $req->estado),
 
             // ARRENDADOR ACTUAL
             'nombrea'              => $req->arrendador_actual_nombres,
@@ -282,13 +282,13 @@ class InquilinoMapper
             'referenciaDomiEmp'    => $req->referencias_ubicacion,
 
             // DOMICILIO FISCAL 
-            'calleFiscal'          => $esMismoDomicilio ? $req->calle : $req->calle_fiscal,
-            'numExtFiscal'         => $esMismoDomicilio ? $req->numero_exterior : $req->numero_exterior_fiscal,
-            'numIntFiscal'         => $esMismoDomicilio ? $req->numero_interior : $req->numero_interior_fiscal,
-            'cpFiscal'             => $esMismoDomicilio ? $req->codigo_postal : $req->codigo_postal_fiscal,
-            'coloniaFiscal'        => $esMismoDomicilio ? $req->colonia : $req->colonia_fiscal,
-            'munFiscal'            => $esMismoDomicilio ? ($req->municipio ?? $req->delegacion_municipio) : $req->municipio_fiscal,
-            'estadoFiscal'         => $esMismoDomicilio ? $req->estado : $req->estado_fiscal,
+            'calleFiscal'          => $esMismoDomicilio ? $req->calle : (!empty($req->calle_fiscal) ? $req->calle_fiscal : $req->calle),
+            'numExtFiscal'         => $esMismoDomicilio ? $req->numero_exterior : (!empty($req->numero_exterior_fiscal) ? $req->numero_exterior_fiscal : $req->numero_exterior),
+            'numIntFiscal'         => $esMismoDomicilio ? $req->numero_interior : (!empty($req->numero_interior_fiscal) ? $req->numero_interior_fiscal : $req->numero_interior),
+            'cpFiscal'             => $esMismoDomicilio ? $req->codigo_postal : (!empty($req->codigo_postal_fiscal) ? $req->codigo_postal_fiscal : $req->codigo_postal),
+            'coloniaFiscal'        => $esMismoDomicilio ? $req->colonia : (!empty($req->colonia_fiscal) ? $req->colonia_fiscal : $req->colonia),
+            'munFiscal'            => $esMismoDomicilio ? ($req->municipio ?? $req->delegacion_municipio) : (!empty($req->municipio_fiscal) ? $req->municipio_fiscal : ($req->municipio ?? $req->delegacion_municipio)),
+            'estadoFiscal'         => $esMismoDomicilio ? $req->estado : (!empty($req->estado_fiscal) ? $req->estado_fiscal : $req->estado),
 
             // ACTA CONSTITUTIVA
             'nombreNotario'        => $req->notario_nombres,
