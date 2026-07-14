@@ -178,10 +178,20 @@ class PdrApiService
         $ownerRequest = \App\Models\OwnerRequest::where('owner_id', $rentaRecord->owner_id)->where('rent_id', $rentaRecord->id)->first();
         $propietarioMapeado = $ownerRequest ? PropietarioMapper::mapear($ownerRequest, $rentaRecord) : [];
 
-        $fiadorMapeado = null;
-        if (strtolower($rentaRecord->tiene_fiador ?? 'no') === 'si') {
+        // Siempre enviamos el arreglo con la bandera para que Jona sepa si hay o no.
+        $tieneFiador = strtolower($rentaRecord->tiene_fiador ?? 'no') === 'si';
+        
+        $fiadorMapeado = [
+            'incluyeFiadorFlag' => $tieneFiador ? 1 : 0
+        ];
+
+        // Si sí tiene fiador, le inyectamos el resto de los datos mapeados
+        if ($tieneFiador) {
             $guarantorRequest = \App\Models\GuarantorRequest::where('rent_id', $rentaRecord->id)->first();
-            $fiadorMapeado = $guarantorRequest ? FiadorMapper::mapear($guarantorRequest, $rentaRecord) : [];
+            if ($guarantorRequest) {
+                $datosFiador = FiadorMapper::mapear($guarantorRequest, $rentaRecord);
+                $fiadorMapeado = array_merge($fiadorMapeado, $datosFiador);
+            }
         }
 
         $callbackUrl = url('/api/webhooks/poliza-status');
@@ -194,7 +204,7 @@ class PdrApiService
 
             'idUser' => $rentaRecord->pdr_asesor_id,
             'idSuc'  => $rentaRecord->pdr_office_id,
-            'idInmo' => $rentaRecord->pdr_inmo_id ?? 89, 
+            'idInmo' => '2Volej2RejNm',
 
             'renta'  => (int) $rentaRecord->precio_renta,
             'callback_url' => $callbackUrl,

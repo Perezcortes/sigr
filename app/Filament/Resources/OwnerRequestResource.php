@@ -211,7 +211,7 @@ class OwnerRequestResource extends Resource
 
                     Forms\Components\Radio::make('nacionalidad')
                         ->label('Nacionalidad')
-                        ->options(['mexicana' => 'Mexicana', 'extranjera' => 'Extranjera'])
+                        ->options(['Mexicana' => 'Mexicana', 'Extranjera' => 'Extranjera'])
                         ->required()
                         ->live()
                         ->validationMessages(['required' => 'Este campo es obligatorio.']),

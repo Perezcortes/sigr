@@ -29,7 +29,7 @@ class PropietarioMapper
         return [
             'tipo_persona'    => 'Persona física',
             'datosPersonales' => self::getDatosPersonalesFisica($req, $rent),
-            //'datosInmueble'   => self::getDatosInmuebleFisica($req),
+            'datosInmueble'   => self::getDatosInmuebleFisica($req),
             'datosTercero'    => self::getDatosTerceroFisica($req), 
             'datosDocumentos' => DocumentoMapper::mapear($rent->ownerDocuments, 'Propietario', 'PF'),
         ];
@@ -37,11 +37,12 @@ class PropietarioMapper
 
     private static function getDatosPersonalesFisica($req, $rent): array
     {
-        $sustituyeDomicilio = strtolower($req->mismo_domicilio_fiscal) === 'si' ? 1 : 0;
+        // Evaluamos una sola vez si es el mismo domicilio
+        $esMismoDomicilio = strtolower($req->mismo_domicilio_fiscal) === 'si';
 
         $datos = [
             'demail'               => $req->email,
-            'mismoDomicilioFiscal' => $sustituyeDomicilio,
+            'mismoDomicilioFiscal' => $esMismoDomicilio ? 1 : 0,
             'edoCivil'             => ucfirst(strtolower($req->estado_civil)),
             'nacionalidad'         => ucfirst(strtolower($req->nacionalidad)),
             
@@ -52,13 +53,14 @@ class PropietarioMapper
             'formaPago'            => $req->forma_pago,
             'regimen'              => $req->estado_civil === 'Casado' ? $req->regimen_conyugal : null,
             
-            'calleFiscal'          => $req->calle_fiscal,
-            'numExtFiscal'         => $req->numero_exterior_fiscal,
-            'numIntFiscal'         => $req->numero_interior_fiscal,
-            'cpFiscal'             => $req->codigo_postal_fiscal,
-            'coloniaFiscal'        => $req->colonia_fiscal,
-            'munFiscal'            => $req->municipio_fiscal,
-            'estadoFiscal'         => $req->estado_fiscal,
+            // Si es el mismo, tomamos los datos del domicilio particular
+            'calleFiscal'          => $esMismoDomicilio ? $req->calle : $req->calle_fiscal,
+            'numExtFiscal'         => $esMismoDomicilio ? $req->numero_exterior : $req->numero_exterior_fiscal,
+            'numIntFiscal'         => $esMismoDomicilio ? $req->numero_interior : $req->numero_interior_fiscal,
+            'cpFiscal'             => $esMismoDomicilio ? $req->codigo_postal : $req->codigo_postal_fiscal,
+            'coloniaFiscal'        => $esMismoDomicilio ? $req->colonia : $req->colonia_fiscal,
+            'munFiscal'            => $esMismoDomicilio ? $req->delegacion_municipio : $req->municipio_fiscal,
+            'estadoFiscal'         => $esMismoDomicilio ? $req->estado : $req->estado_fiscal,
 
             'dnombres'             => $req->nombres,
             'dapellidoP'           => $req->primer_apellido,
@@ -128,7 +130,7 @@ class PropietarioMapper
             'frecPagoOtra'         => $req->frecuencia_pago === 'Otra' ? $req->frecuencia_pago_otra : null,
             'condicionPago'        => $req->condiciones_pago,
             'instruccionesPago'    => $req->instrucciones_pago,
-            'depositoGarantia'     => $req->deposito_garantia,
+            'depositoGarantia' => (int) ($req->deposito_garantia ?? 0),
 
             'usuarioPagaMant'      => $req->quien_paga_mantenimiento,
             'cuotaIncluida'        => $req->mantenimiento_incluido_renta ? $booleanToText($req->mantenimiento_incluido_renta) : null,
@@ -196,6 +198,25 @@ class PropietarioMapper
         ];
     }
 
+    private static function getDatosInmuebleFisicaDummy($req): array
+    {
+        return [
+            'tieneMantenimiento'  => 'No',
+            'tipoInmueble'        => 'Inmuebles Residenciales',
+            'usoSuelo'            => 'Habitacional',
+            'mascotas'            => 'No',
+            'iva'                 => 'SIN IVA',
+            'frecPago'            => 'Mensual',
+            'cp'                  => $req->codigo_postal ?? '00000',
+            'Estado'              => $req->estado ?? 'No especificado',
+            'tieneSeguro'         => 'No',
+            'renta'               => 0,
+            'calle'               => $req->calle ?? 'S/N',
+            'numExt'              => $req->numero_exterior ?? 'S/N',
+            'depositoGarantia'    => (int) ($req->deposito_garantia ?? 0),
+        ];
+    }
+
     /**
      * MAPEADORES: PERSONA MORAL
      */
@@ -212,8 +233,8 @@ class PropietarioMapper
 
     private static function getDatosEmpresaMoral($req): array
     {
-        // Booleanos adaptados a las reglas de Jona
-        $sustituyeDomicilio = strtolower($req->mismo_domicilio_fiscal) === 'si' ? 1 : 0;
+        // Evaluamos si es el mismo domicilio
+        $esMismoDomicilio = strtolower($req->mismo_domicilio_fiscal) === 'si';
         $facultadesEnActa   = strtolower($req->facultades_en_acta) === 'si' ? 'Sí' : 'No';
 
         return [
@@ -221,17 +242,17 @@ class PropietarioMapper
             'correo_electronico_moral' => $req->email,
             'fechaConstNot_moral'      => $req->fecha_constitucion ? \Carbon\Carbon::parse($req->fecha_constitucion)->format('Y-m-d') : null,
             'r_correo_electronico'     => $req->apoderado_email,
-            'mismoDomicilioFiscal'     => $sustituyeDomicilio,
+            'mismoDomicilioFiscal'     => $esMismoDomicilio ? 1 : 0,
             'r_facultadEmp'            => $facultadesEnActa,
 
-            // Domicilio Fiscal
-            'calleFiscal'              => $req->calle_fiscal,
-            'numExtFiscal'             => $req->numero_exterior_fiscal,
-            'numIntFiscal'             => $req->numero_interior_fiscal,
-            'cpFiscal'                 => $req->codigo_postal_fiscal,
-            'coloniaFiscal'            => $req->colonia_fiscal,
-            'munFiscal'                => $req->municipio_fiscal,
-            'estadoFiscal'             => $req->estado_fiscal,
+            // Domicilio Fiscal Inteligente
+            'calleFiscal'              => $esMismoDomicilio ? $req->calle : $req->calle_fiscal,
+            'numExtFiscal'             => $esMismoDomicilio ? $req->numero_exterior : $req->numero_exterior_fiscal,
+            'numIntFiscal'             => $esMismoDomicilio ? $req->numero_interior : $req->numero_interior_fiscal,
+            'cpFiscal'                 => $esMismoDomicilio ? $req->codigo_postal : $req->codigo_postal_fiscal,
+            'coloniaFiscal'            => $esMismoDomicilio ? $req->colonia : $req->colonia_fiscal,
+            'munFiscal'                => $esMismoDomicilio ? $req->delegacion_municipio : $req->municipio_fiscal,
+            'estadoFiscal'             => $esMismoDomicilio ? $req->estado : $req->estado_fiscal,
 
             // Datos Generales de la Empresa
             'nombre_empresa'           => $req->razon_social,
@@ -327,7 +348,7 @@ class PropietarioMapper
             'frecPagoOtra_moral'        => $req->frecuencia_pago === 'Otra' ? $req->frecuencia_pago_otra : null,
             'condicionPago_moral'       => $req->condiciones_pago,
             'instruccionesPago_moral'   => $req->instrucciones_pago,
-            'depositoGarantia_moral'    => (int) $req->deposito_garantia,
+            'depositoGarantia_moral' => (int) ($req->deposito_garantia ?? 0),
 
             // Mantenimiento (Con sufijo _moral)
             'usuarioPagaMant_moral'     => $req->paga_mantenimiento === 'si' ? $req->quien_paga_mantenimiento : null,

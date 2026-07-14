@@ -35,12 +35,15 @@ class InquilinoMapper
 
     private static function getDatosPersonalesFisica($req): array
     {
+        // Evaluamos si es el mismo domicilio
+        $esMismoDomicilio = strtolower($req->mismo_domicilio_fiscal) === 'si';
+
         return [
             // DATOS OBLIGATORIOS Y BOOLEANOS
             'email'                => $req->email,
             'fechaNac'             => $req->fecha_nacimiento ? \Carbon\Carbon::parse($req->fecha_nacimiento)->format('Y-m-d') : null,
             // 1 = Sí, 0 = No
-            'mismoDomicilioFiscal' => strtolower($req->mismo_domicilio_fiscal) === 'si' ? 1 : 0,
+            'mismoDomicilioFiscal' => $esMismoDomicilio ? 1 : 0,
             // 1 = Masculino, 0 = Femenino
             'sexo'                 => strtolower($req->sexo) === 'masculino' ? 1 : 0,
             // 1 = Soltero, 0 = Casado
@@ -82,14 +85,14 @@ class InquilinoMapper
             'estado'                => $req->estado,
             'metrosCuadradosActual' => $req->metros_cuadrados,
 
-            // DOMICILIO FISCAL (Si es diferente)
-            'calleFiscal'          => $req->calle_fiscal,
-            'numExtFiscal'         => $req->numero_exterior_fiscal,
-            'numIntFiscal'         => $req->numero_interior_fiscal,
-            'cpFiscal'             => $req->codigo_postal_fiscal,
-            'coloniaFiscal'        => $req->colonia_fiscal,
-            'munFiscal'            => $req->municipio_fiscal,
-            'estadoFiscal'         => $req->estado_fiscal,
+            // DOMICILIO FISCAL 
+            'calleFiscal'          => $esMismoDomicilio ? $req->calle : (!empty($req->calle_fiscal) ? $req->calle_fiscal : $req->calle),
+            'numExtFiscal'         => $esMismoDomicilio ? $req->numero_exterior : (!empty($req->numero_exterior_fiscal) ? $req->numero_exterior_fiscal : $req->numero_exterior),
+            'numIntFiscal'         => $esMismoDomicilio ? $req->numero_interior : (!empty($req->numero_interior_fiscal) ? $req->numero_interior_fiscal : $req->numero_interior),
+            'cpFiscal'             => $esMismoDomicilio ? $req->codigo_postal : (!empty($req->codigo_postal_fiscal) ? $req->codigo_postal_fiscal : $req->codigo_postal),
+            'coloniaFiscal'        => $esMismoDomicilio ? $req->colonia : (!empty($req->colonia_fiscal) ? $req->colonia_fiscal : $req->colonia),
+            'munFiscal'            => $esMismoDomicilio ? $req->delegacion_municipio : (!empty($req->municipio_fiscal) ? $req->municipio_fiscal : $req->delegacion_municipio),
+            'estadoFiscal'         => $esMismoDomicilio ? $req->estado : (!empty($req->estado_fiscal) ? $req->estado_fiscal : $req->estado),
 
             // ARRENDADOR ACTUAL
             'nombrea'              => $req->arrendador_actual_nombres,
@@ -249,13 +252,15 @@ class InquilinoMapper
     private static function getDatosEmpresaMoral($req): array
     {
         $facultadesEnActa = (int)$req->facultades_en_acta === 0 ? 'Sí' : 'No';
+        // Evaluamos si es el mismo domicilio
+        $esMismoDomicilio = strtolower($req->mismo_domicilio_fiscal) === 'si';
 
         return [
             // DATOS OBLIGATORIOS BASE
             'emailE'               => $req->email,
             'regimenFiscalPm'      => $req->regimen_fiscal,
             'emailRepLeg'          => $req->apoderado_email,
-            'mismoDomicilioFiscal' => strtolower($req->mismo_domicilio_fiscal) === 'si' ? 1 : 0,
+            'mismoDomicilioFiscal' => $esMismoDomicilio ? 1 : 0,
             'facultadEmp'          => $facultadesEnActa,
             'sexoRepLegal'         => ucfirst(strtolower($req->apoderado_sexo)), // "Masculino" o "Femenino"
             'ingMensualEmp'        => $req->ingreso_mensual_promedio ? (float) $req->ingreso_mensual_promedio : 0,
@@ -271,19 +276,19 @@ class InquilinoMapper
             'numExtEmp'            => $req->numero_exterior,
             'numIntEmp'            => $req->numero_interior,
             'coloniaEmp'           => $req->colonia,
-            'municipioEmp'         => $req->municipio,
+            'municipioEmp'         => $req->municipio ?? $req->delegacion_municipio,
             'estadoEmp'            => $req->estado,
             'cpostalEmp'           => $req->codigo_postal,
             'referenciaDomiEmp'    => $req->referencias_ubicacion,
 
-            // DOMICILIO FISCAL (Si es diferente)
-            'calleFiscal'          => $req->calle_fiscal,
-            'numExtFiscal'         => $req->numero_exterior_fiscal,
-            'numIntFiscal'         => $req->numero_interior_fiscal,
-            'cpFiscal'             => $req->codigo_postal_fiscal,
-            'coloniaFiscal'        => $req->colonia_fiscal,
-            'munFiscal'            => $req->municipio_fiscal,
-            'estadoFiscal'         => $req->estado_fiscal,
+            // DOMICILIO FISCAL 
+            'calleFiscal'          => $esMismoDomicilio ? $req->calle : (!empty($req->calle_fiscal) ? $req->calle_fiscal : $req->calle),
+            'numExtFiscal'         => $esMismoDomicilio ? $req->numero_exterior : (!empty($req->numero_exterior_fiscal) ? $req->numero_exterior_fiscal : $req->numero_exterior),
+            'numIntFiscal'         => $esMismoDomicilio ? $req->numero_interior : (!empty($req->numero_interior_fiscal) ? $req->numero_interior_fiscal : $req->numero_interior),
+            'cpFiscal'             => $esMismoDomicilio ? $req->codigo_postal : (!empty($req->codigo_postal_fiscal) ? $req->codigo_postal_fiscal : $req->codigo_postal),
+            'coloniaFiscal'        => $esMismoDomicilio ? $req->colonia : (!empty($req->colonia_fiscal) ? $req->colonia_fiscal : $req->colonia),
+            'munFiscal'            => $esMismoDomicilio ? ($req->municipio ?? $req->delegacion_municipio) : (!empty($req->municipio_fiscal) ? $req->municipio_fiscal : ($req->municipio ?? $req->delegacion_municipio)),
+            'estadoFiscal'         => $esMismoDomicilio ? $req->estado : (!empty($req->estado_fiscal) ? $req->estado_fiscal : $req->estado),
 
             // ACTA CONSTITUTIVA
             'nombreNotario'        => $req->notario_nombres,
