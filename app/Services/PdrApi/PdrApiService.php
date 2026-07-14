@@ -194,7 +194,7 @@ class PdrApiService
 
             'idUser' => $rentaRecord->pdr_asesor_id,
             'idSuc'  => $rentaRecord->pdr_office_id,
-            'idInmo' => $rentaRecord->pdr_inmo_id ?? '2Volej2RejNm', 
+            'idInmo' => '2Volej2RejNm',
 
             'renta'  => (int) $rentaRecord->precio_renta,
             'callback_url' => $callbackUrl,
