@@ -29,7 +29,7 @@ class PropietarioMapper
         return [
             'tipo_persona'    => 'Persona física',
             'datosPersonales' => self::getDatosPersonalesFisica($req, $rent),
-            //'datosInmueble'   => self::getDatosInmuebleFisica($req),
+            'datosInmueble'   => self::getDatosInmuebleFisica($req),
             'datosTercero'    => self::getDatosTerceroFisica($req), 
             'datosDocumentos' => DocumentoMapper::mapear($rent->ownerDocuments, 'Propietario', 'PF'),
         ];
@@ -195,6 +195,24 @@ class PropietarioMapper
             
             'tipoRepreTercero' => $tipoRepresentacion,
             'terceroTipoident' => $tipoIdentificacion,
+        ];
+    }
+
+    private static function getDatosInmuebleFisicaDummy($req): array
+    {
+        return [
+            'tieneMantenimiento'  => 'No',
+            'tipoInmueble'        => 'Inmuebles Residenciales',
+            'usoSuelo'            => 'Habitacional',
+            'mascotas'            => 'No',
+            'iva'                 => 'SIN IVA',
+            'frecPago'            => 'Mensual',
+            'cp'                  => $req->codigo_postal ?? '00000',
+            'Estado'              => $req->estado ?? 'No especificado',
+            'tieneSeguro'         => 'No',
+            'renta'               => 0,
+            'calle'               => $req->calle ?? 'S/N',
+            'numExt'              => $req->numero_exterior ?? 'S/N',
         ];
     }
 
