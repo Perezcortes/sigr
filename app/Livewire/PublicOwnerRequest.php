@@ -22,7 +22,13 @@ class PublicOwnerRequest extends Component implements HasForms
         // Cargamos relaciones para que no oculte las pestañas
         $this->record = $record->load(['rent', 'owner']);
         
-        $this->form->fill($this->record->attributesToArray());
+        // Extraemos los datos base
+        $data = $this->record->attributesToArray();
+        
+        // Inyectamos el ID de la propiedad 
+        $data['selected_property_id'] = $this->record->rent?->property_id;
+        
+        $this->form->fill($data);
     }
 
     public function form(Form $form): Form
@@ -36,6 +42,8 @@ class PublicOwnerRequest extends Component implements HasForms
     public function save(): void
     {
         $data = $this->form->getState();
+
+        unset($data['selected_property_id']);
         
         $this->record->update($data);
         $this->record->update(['estatus' => 'en_proceso']);
