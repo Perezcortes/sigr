@@ -90,6 +90,29 @@ class PdrApiService
         $jsonPayload = $this->armarJsonEstructurado($rentaRecord, $payloadValidacion);
         $externalReference = $jsonPayload['external_reference'];
 
+        // Validación Pre-Vuelo para Póliza con Seguro
+        if ($payloadValidacion['tipo_poliza'] === 'PÓLIZA CON SEGURO') {
+            $datosPersonalesInq = $jsonPayload['inquilino']['datosPersonales'] ?? [];
+            
+            // 1 significa 'Extranjera' en InquilinoMapper
+            if (($datosPersonalesInq['nacionalidad'] ?? 0) === 1) { 
+                
+                $camposFaltantes = [];
+                if (empty($datosPersonalesInq['paispf'])) $camposFaltantes[] = 'País de origen';
+                if (empty($datosPersonalesInq['fechaVencimientoTarjeta'])) $camposFaltantes[] = 'Fecha de Vencimiento de Tarjeta';
+                if (empty($datosPersonalesInq['nue'])) $camposFaltantes[] = 'NUE';
+                if (empty($datosPersonalesInq['tipoResidencia'])) $camposFaltantes[] = 'Tipo de Residencia';
+
+                // Si falta al menos uno, abortamos el envío y le avisamos al admin
+                if (!empty($camposFaltantes)) {
+                    return [
+                        'success' => false,
+                        'error' => 'No se puede enviar. Para la PÓLIZA CON SEGURO de un inquilino extranjero, faltan los siguientes datos en su solicitud: ' . implode(', ', $camposFaltantes) . '.'
+                    ];
+                }
+            }
+        }
+
         Log::info('Enviando JSON a PDR:', $jsonPayload);
 
         $log = SolicitudesPolizaLog::create([
