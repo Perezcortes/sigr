@@ -45,6 +45,18 @@ class DocumentoMapper
                 'tag'       => $tagAsignado,
                 'name'      => $nombreTraducido,
             ];
+        })->filter(function ($docMap) use ($rol) {
+            // Filtramos lo que no está en el catálogo de Jona
+            if ($rol === 'Propietario') {
+                $permitidosJona = [
+                    'Identificación oficial', 'Comprobante de domicilio', 'Documento migratorio',
+                    'Título de propiedad', 'Comprobante de domicilio propiedad', 'Reglamento de propiedad',
+                    'Foto del inmueble', 'Boleta Predial', 'Identificación representante legal',
+                    'Comprobante de domicilio representante legal', 'Documento que acredita al representante legal'
+                ];
+                return in_array($docMap['name'], $permitidosJona);
+            }
+            return true;
         })->values()->toArray();
     }
 
