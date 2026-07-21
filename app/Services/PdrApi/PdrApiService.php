@@ -185,7 +185,7 @@ class PdrApiService
             \App\Models\RentComment::create([
                 'rent_id' => $rentaRecord->id,
                 'user_id' => auth()->id(),
-                'comment' => "El sistema registró el envío exitoso del expediente a Póliza de Rentas.\n\n• Referencia externa: " . $externalReference . "\n• Estatus de la operación: cambió a 'Análisis'.",
+                'comment' => "El sistema registró el envío exitoso del expediente a Póliza de Rentas. Procesamiento asíncrono en curso.\n\n• Referencia externa: " . $externalReference . "\n• Folio Póliza de Rentas: Pendiente de asignación automática.\n• Estatus de la operación: cambió a 'Análisis'.",
                 'status'  => 'activa',
             ]);
 
