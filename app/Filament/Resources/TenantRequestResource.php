@@ -115,7 +115,7 @@ class TenantRequestResource extends Resource
 
                 ])
                 ->columnSpanFull()
-                //->skippable() // Permite al usuario navegar entre pasos sin que le exija llenar todo
+                ->skippable() // Permite al usuario navegar entre pasos sin que le exija llenar todo
                 ->submitAction(new \Illuminate\Support\HtmlString('<button type="submit" class="fi-btn fi-btn-color-primary">Guardar Solicitud</button>')),
             ]);
     }

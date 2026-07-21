@@ -181,6 +181,14 @@ class PdrApiService
                 'tipo_poliza' => $payloadValidacion['tipo_poliza'],
                 'estatus' => 'analisis',
             ]);
+
+            \App\Models\RentComment::create([
+                'rent_id' => $rentaRecord->id,
+                'user_id' => auth()->id(),
+                'comment' => "El sistema registró el envío exitoso del expediente a Póliza de Rentas.\n\n• Referencia externa: " . $externalReference . "\n• Estatus de la operación: cambió a 'Análisis'.",
+                'status'  => 'activa',
+            ]);
+
             return ['success' => true];
         } catch (\Exception $e) {
             Log::error('Error actualizando Renta local: ' . $e->getMessage());
