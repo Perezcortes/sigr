@@ -7,13 +7,12 @@ namespace App\Services;
 use App\Models\User;
 use App\Models\WhatsappInstance;
 use WallaceMartinss\FilamentEvolution\Enums\StatusConnectionEnum;
-use WallaceMartinss\FilamentEvolution\Exceptions\EvolutionApiException;
-use WallaceMartinss\FilamentEvolution\Services\EvolutionClient;
+use Exception;
 
 class EvolutionInstanceBootstrapper
 {
     public function __construct(
-        private EvolutionClient $client
+        private OpenWaService $openWa
     ) {}
 
     /**
@@ -21,42 +20,57 @@ class EvolutionInstanceBootstrapper
      */
     public function instanceOptionsFromModel(WhatsappInstance $record): array
     {
-        return [
-            'reject_call' => (bool) $record->reject_call,
-            'msg_call' => $record->msg_call ?? '',
-            'groups_ignore' => (bool) $record->groups_ignore,
-            'always_online' => (bool) $record->always_online,
-            'read_messages' => (bool) $record->read_messages,
-            'read_status' => (bool) $record->read_status,
-            'sync_full_history' => (bool) $record->sync_full_history,
-        ];
+        return [];
     }
 
     /**
-     * @throws EvolutionApiException
+     * Sincroniza la instancia local creando y arrancando sesión en OpenWA.
      */
     public function syncInstanceToEvolutionApi(WhatsappInstance $record): void
     {
-        $this->client->createInstance(
-            instanceName: $record->name,
-            number: $record->number,
-            qrcode: false,
-            options: $this->instanceOptionsFromModel($record)
-        );
+        $session = $this->openWa->createSession($record->name);
+        $uuid = $session['id'];
+
+        $this->openWa->startSession($uuid);
+
+        try {
+            $this->openWa->registerWebhook($uuid, url('/api/webhooks/openwa'));
+        } catch (\Throwable $e) {
+            \Log::warning("Failed to register webhook in syncInstanceToEvolutionApi: " . $e->getMessage());
+        }
+
+        $record->update([
+            'instance_id' => $uuid,
+            'status' => StatusConnectionEnum::CONNECTING,
+        ]);
     }
 
     /**
-     * Crea una instancia local y en Evolution para un asesor y la enlaza al usuario.
-     * Si la API falla, el registro local queda guardado y el enlace se mantiene (mismo criterio que el recurso admin).
+     * Crea una instancia local y en OpenWA para un asesor y la enlaza al usuario.
      */
     public function createAdvisorInstance(User $user, string $number): WhatsappInstance
     {
         $name = $this->generateUniqueInstanceName($user);
 
+        // Crear la sesión en OpenWA
+        $session = $this->openWa->createSession($name);
+        $uuid = $session['id'];
+
+        // Arrancar la sesión
+        $this->openWa->startSession($uuid);
+
+        // Registrar webhook
+        try {
+            $this->openWa->registerWebhook($uuid, url('/api/webhooks/openwa'));
+        } catch (\Throwable $e) {
+            \Log::warning("Failed to register webhook in createAdvisorInstance: " . $e->getMessage());
+        }
+
         $instance = WhatsappInstance::create([
             'name' => $name,
             'number' => $number,
-            'status' => StatusConnectionEnum::CLOSE,
+            'instance_id' => $uuid,
+            'status' => StatusConnectionEnum::CONNECTING,
             'reject_call' => config('filament-evolution.instance.reject_call', false),
             'msg_call' => config('filament-evolution.instance.msg_call', ''),
             'groups_ignore' => config('filament-evolution.instance.groups_ignore', false),
@@ -65,12 +79,6 @@ class EvolutionInstanceBootstrapper
             'read_status' => config('filament-evolution.instance.read_status', false),
             'sync_full_history' => config('filament-evolution.instance.sync_full_history', false),
         ]);
-
-        try {
-            $this->syncInstanceToEvolutionApi($instance);
-        } catch (EvolutionApiException) {
-            // Guardado local; el asesor puede reintentar conexión con el QR.
-        }
 
         $user->forceFill(['evolution_whatsapp_instance_id' => $instance->id])->save();
 

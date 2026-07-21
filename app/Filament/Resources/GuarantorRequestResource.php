@@ -1009,8 +1009,10 @@ class GuarantorRequestResource extends Resource
                         ->required()
                         ->validationMessages(['required' => 'Este campo es obligatorio.']),
 
-                    Forms\Components\TextInput::make('garantia_lugar_notaria')
-                        ->label('Lugar de la notaría')
+                    Forms\Components\Select::make('garantia_lugar_notaria') 
+                        ->label('Estado de la Notaría')
+                        ->options(\App\Helpers\EstadosMexico::getEstados())
+                        ->searchable()
                         ->required()
                         ->validationMessages(['required' => 'Este campo es obligatorio.']),
                 ])->columns(2),

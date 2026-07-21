@@ -10,7 +10,7 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Columns\BadgeColumn;
+use Illuminate\Support\HtmlString;
 
 class SolicitudesPolizaLogResource extends Resource
 {
@@ -26,39 +26,90 @@ class SolicitudesPolizaLogResource extends Resource
 
     protected static ?string $navigationGroup = 'Administración';
 
-    protected static ?int $navigationSort = 3; 
+    protected static ?int $navigationSort = 3;
 
     public static function canViewAny(): bool
     {
-        // Solo Administradores y Gerentes deberían ver los logs de solicitudes de póliza
         return auth()->user()->hasAnyRole(['Administrador', 'Soporte']);
+    }
+
+    public static function canCreate(): bool
+    {
+        return false;
+    }
+
+    public static function canEdit($record): bool
+    {
+        return false;
+    }
+
+    public static function canDelete($record): bool
+    {
+        return false;
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return false;
     }
 
     public static function form(Form $form): Form
     {
         return $form
             ->schema([
-                Forms\Components\TextInput::make('rent_id')
-                    ->label('ID de Renta')
-                    ->disabled(),
-                Forms\Components\TextInput::make('external_reference')
-                    ->label('Referencia Externa')
-                    ->disabled(),
-                Forms\Components\TextInput::make('status')
-                    ->label('Estatus')
-                    ->disabled(),
-                Forms\Components\Textarea::make('payload_enviado')
-                    ->label('JSON Enviado')
-                    ->disabled()
-                    ->columnSpanFull(),
-                Forms\Components\Textarea::make('mensaje_webhook')
-                    ->label('Respuesta del Webhook')
-                    ->disabled()
-                    ->columnSpanFull(),
-                Forms\Components\Textarea::make('mensaje_error')
-                    ->label('Error (si falló)')
-                    ->disabled()
-                    ->columnSpanFull(),
+                Forms\Components\Section::make('Información General')
+                    ->schema([
+                        Forms\Components\TextInput::make('rent_id')
+                            ->label('ID de Renta')
+                            ->disabled(),
+
+                        Forms\Components\TextInput::make('external_reference')
+                            ->label('Referencia Externa')
+                            ->disabled()
+                            ->suffixAction(
+                                Forms\Components\Actions\Action::make('copiar')
+                                    ->icon('heroicon-o-clipboard')
+                                    ->action(fn () => null)
+                            ),
+
+                        Forms\Components\TextInput::make('status')
+                            ->label('Estatus')
+                            ->disabled(),
+                    ])
+                    ->columns(3),
+
+                Forms\Components\Section::make('JSON Enviado')
+                    ->schema([
+                        Forms\Components\Placeholder::make('payload_enviado_pretty')
+                            ->label('')
+                            ->content(fn ($record) => self::formatJson($record?->payload_enviado))
+                            ->columnSpanFull(),
+                    ])
+                    ->collapsible(),
+
+                Forms\Components\Section::make('Respuesta del Webhook')
+                    ->schema([
+                        Forms\Components\Placeholder::make('mensaje_webhook_pretty')
+                            ->label('')
+                            ->content(fn ($record) => self::formatJson($record?->mensaje_webhook))
+                            ->columnSpanFull(),
+                    ])
+                    ->collapsible(),
+
+                Forms\Components\Section::make('Error')
+                    ->schema([
+                        Forms\Components\Placeholder::make('mensaje_error_pretty')
+                            ->label('')
+                            ->content(fn ($record) => $record?->mensaje_error
+                                ? new HtmlString(
+                                    '<pre class="text-sm whitespace-pre-wrap p-3 bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-400 rounded-lg border border-red-200 dark:border-red-900">'
+                                    . e($record->mensaje_error) . '</pre>'
+                                )
+                                : new HtmlString('<span class="text-gray-400 italic">Sin errores</span>'))
+                            ->columnSpanFull(),
+                    ])
+                    ->collapsible()
+                    ->visible(fn ($record) => filled($record?->mensaje_error)),
             ]);
     }
 
@@ -71,32 +122,51 @@ class SolicitudesPolizaLogResource extends Resource
                     ->dateTime('d/m/Y H:i')
                     ->sortable()
                     ->searchable(),
-                TextColumn::make('rent.id') 
+
+                TextColumn::make('rent.id')
                     ->label('Renta ID')
                     ->sortable(),
+
                 TextColumn::make('external_reference')
                     ->label('Referencia')
-                    ->searchable(),
+                    ->searchable()
+                    ->copyable()
+                    ->copyMessage('Referencia copiada'),
+
                 TextColumn::make('status')
                     ->label('Estatus')
                     ->badge()
-                    ->colors([
-                        'warning' => 'enviado',
-                        'info' => 'procesando',
-                        'success' => 'completado',
-                        'danger' => 'fallido',
-                    ]),
+                    ->color(fn (string $state): string => match ($state) {
+                        'enviado' => 'warning',
+                        'procesando' => 'info',
+                        'completado' => 'success',
+                        'fallido' => 'danger',
+                        default => 'gray',
+                    })
+                    ->icon(fn (string $state): string => match ($state) {
+                        'enviado' => 'heroicon-o-paper-airplane',
+                        'procesando' => 'heroicon-o-arrow-path',
+                        'completado' => 'heroicon-o-check-circle',
+                        'fallido' => 'heroicon-o-x-circle',
+                        default => 'heroicon-o-question-mark-circle',
+                    }),
             ])
             ->filters([
-                //
+                Tables\Filters\SelectFilter::make('status')
+                    ->label('Estatus')
+                    ->options([
+                        'enviado' => 'Enviado',
+                        'procesando' => 'Procesando',
+                        'completado' => 'Completado',
+                        'fallido' => 'Fallido',
+                    ]),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(), 
+                Tables\Actions\ViewAction::make()
+                    ->iconButton()
+                    ->tooltip('Ver detalle'),
             ])
             ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
-                ]),
             ])
             ->defaultSort('created_at', 'desc');
     }
@@ -114,5 +184,56 @@ class SolicitudesPolizaLogResource extends Resource
             'index' => Pages\ListSolicitudesPolizaLogs::route('/'),
             'view' => Pages\ViewSolicitudesPolizaLog::route('/{record}'),
         ];
+    }
+
+    /**
+     * Convierte un string JSON en HTML formateado y con resaltado de sintaxis,
+     * sin depender de librerías externas.
+     */
+    protected static function formatJson(?string $json): HtmlString
+    {
+        if (blank($json)) {
+            return new HtmlString('<span class="text-gray-400 italic">Sin datos</span>');
+        }
+
+        $decoded = json_decode($json);
+
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            // No es JSON válido: mostrarlo tal cual, sin intentar formatear
+            return new HtmlString(
+                '<pre class="text-sm whitespace-pre-wrap p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">'
+                . e($json) . '</pre>'
+            );
+        }
+
+        $pretty = json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+        $highlighted = preg_replace_callback(
+            '/("(\\\\u[a-zA-Z0-9]{4}|\\\\[^u]|[^\\\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/',
+            function (array $matches): string {
+                $match = $matches[0];
+
+                $class = match (true) {
+                    str_starts_with($match, '"') && str_ends_with(rtrim($match), ':')
+                        => 'text-purple-600 dark:text-purple-400 font-semibold', // llave
+                    str_starts_with($match, '"')
+                        => 'text-green-600 dark:text-green-400', // valor string
+                    $match === 'true' || $match === 'false'
+                        => 'text-orange-500 dark:text-orange-400 font-medium',
+                    $match === 'null'
+                        => 'text-gray-400 italic',
+                    default
+                        => 'text-blue-600 dark:text-blue-400', // número
+                };
+
+                return "<span class=\"{$class}\">" . e($match) . '</span>';
+            },
+            $pretty
+        );
+
+        return new HtmlString(
+            '<pre class="text-sm leading-relaxed whitespace-pre-wrap p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 overflow-x-auto">'
+            . $highlighted . '</pre>'
+        );
     }
 }

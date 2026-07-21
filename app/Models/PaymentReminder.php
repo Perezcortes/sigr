@@ -9,6 +9,7 @@ class PaymentReminder extends Model
 {
     protected $fillable = [
         'payment_setting_id',
+        'user_id',
         'dias_antes',
         'direccion',
         'activo',
@@ -22,5 +23,10 @@ class PaymentReminder extends Model
     public function paymentSetting(): BelongsTo
     {
         return $this->belongsTo(PaymentSetting::class);
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 }

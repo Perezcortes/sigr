@@ -18,7 +18,7 @@
             Aún no hay mensajes en este chat.
         </div>
     @else
-        <div class="max-h-[26rem] space-y-2 overflow-y-auto rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900/40">
+        <div class="max-h-[28rem] space-y-3 overflow-y-auto rounded-lg border border-gray-200 bg-[#efeae2] dark:bg-[#0b141a] p-4 shadow-inner dark:border-gray-800">
             @foreach ($messages as $message)
                 @php
                     $incoming = $message->direction === 'in';
@@ -26,15 +26,14 @@
                 @endphp
 
                 <div class="flex {{ $incoming ? 'justify-start' : 'justify-end' }}">
-                    <div class="max-w-[78%] rounded-xl px-3 py-2 text-sm {{ $incoming ? 'bg-white shadow dark:bg-gray-800' : 'bg-primary-600 text-white' }}">
-                        <div class="mb-1 text-[11px] opacity-70">
-                            {{ $incoming ? 'Prospecto' : 'Asesor' }}
-                            ·
-                            {{ optional($message->sent_at ?? $message->created_at)->format('d/m/Y H:i') }}
+                    <div class="max-w-[75%] shadow-sm px-3 py-2 text-sm relative {{ $incoming ? 'bg-white text-gray-900 rounded-lg rounded-tl-none dark:bg-[#202c33] dark:text-gray-100' : 'bg-[#d9fdd3] text-gray-900 rounded-lg rounded-tr-none dark:bg-[#005c4b] dark:text-gray-100' }}">
+                        <div class="mb-1 text-[10px] font-semibold opacity-65 flex justify-between gap-4">
+                            <span>{{ $incoming ? 'Prospecto' : 'Asesor' }}</span>
+                            <span>{{ optional($message->sent_at ?? $message->created_at)->format('H:i') }}</span>
                         </div>
 
                         @if ($body !== '')
-                            <div class="whitespace-pre-wrap">{{ $body }}</div>
+                            <div class="whitespace-pre-wrap leading-relaxed">{{ $body }}</div>
                         @else
                             <div class="italic opacity-60">Mensaje sin texto</div>
                         @endif

@@ -44,24 +44,24 @@ return new class extends Migration
 
     public function up(): void
     {
-        try {
-            if (DB::getDriverName() === 'mysql') {
-                DB::statement('ALTER TABLE guarantor_requests ROW_FORMAT=DYNAMIC;');
-            }
-        } catch (\Throwable $e) {
-        }
-
         if (DB::getDriverName() !== 'mysql') {
             $this->upWithSchemaBuilder();
             return;
         }
 
-        foreach ($this->wideVarcharToText as $column) {
-            $this->ensureTextColumn('guarantor_requests', $column);
+        $parts = [];
+        $columnsToCheck = array_unique(array_merge($this->wideVarcharToText, $this->newTextColumns));
+
+        foreach ($columnsToCheck as $column) {
+            if (! Schema::hasColumn('guarantor_requests', $column)) {
+                $parts[] = "ADD `{$column}` TEXT NULL";
+            } else {
+                $parts[] = "MODIFY `{$column}` TEXT NULL";
+            }
         }
 
-        foreach ($this->newTextColumns as $column) {
-            $this->ensureTextColumn('guarantor_requests', $column);
+        if (! empty($parts)) {
+            DB::statement("ALTER TABLE guarantor_requests " . implode(', ', $parts));
         }
 
         if (!Schema::hasColumn('guarantor_requests', 'fecha_vencimiento_tarjeta')) {
@@ -81,6 +81,8 @@ return new class extends Migration
         } else {
             DB::statement("ALTER TABLE guarantor_requests MODIFY fiscal_codigo_postal VARCHAR(10) NULL;");
         }
+
+        DB::statement('SET SESSION innodb_strict_mode = 1;');
     }
 
     private function upWithSchemaBuilder(): void

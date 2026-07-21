@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -13,14 +14,20 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class WhatsappMessage extends Model
 {
+    use HasUuids;
+
     protected $table = 'whatsapp_messages';
 
     protected $fillable = [
         'user_id',
         'lead_id',
+        'instance_id',
+        'message_id',
+        'remote_jid',
         'direction',
         'phone',
         'body',
+        'content',
         'wa_message_id',
         'sent_at',
     ];

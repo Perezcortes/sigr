@@ -30,7 +30,7 @@ class CompradoresResource extends Resource
 
     protected static ?string $slug = 'compradores';
 
-    protected static function portalFlagColumn(): string
+    public static function portalFlagColumn(): string
     {
         return 'is_buyer';
     }

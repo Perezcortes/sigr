@@ -115,12 +115,12 @@ class OwnerRequestResource extends Resource
 
                             Forms\Components\Section::make('Datos del Inmueble a Arrendar')
                                 ->schema(self::getDatosInmuebleSchema())
-                                ->visible(fn (Forms\Get $get) => blank($get('selected_property_id')))
+                                //->visible(fn (Forms\Get $get) => blank($get('selected_property_id')))
                                 ->columns(2),
 
                             Forms\Components\Section::make('Dirección del Inmueble')
                                 ->schema(self::getDireccionInmuebleSchema())
-                                ->visible(fn (Forms\Get $get) => blank($get('selected_property_id')))
+                                //->visible(fn (Forms\Get $get) => blank($get('selected_property_id')))
                                 ->columns(2),
                         ]),
 
@@ -211,7 +211,7 @@ class OwnerRequestResource extends Resource
 
                     Forms\Components\Radio::make('nacionalidad')
                         ->label('Nacionalidad')
-                        ->options(['mexicana' => 'Mexicana', 'extranjera' => 'Extranjera'])
+                        ->options(['Mexicana' => 'Mexicana', 'Extranjera' => 'Extranjera'])
                         ->required()
                         ->live()
                         ->validationMessages(['required' => 'Este campo es obligatorio.']),
@@ -247,11 +247,11 @@ class OwnerRequestResource extends Resource
                         ->label('Especifique su país')
                         ->maxLength(255)
                         ->visible(fn (Forms\Get $get, ?\Illuminate\Database\Eloquent\Model $record) => 
-                            $get('nacionalidad') === 'extranjera' && 
+                            $get('nacionalidad') === 'Extranjera' && 
                             $record?->rent?->tipo_poliza !== 'PÓLIZA CON SEGURO'
                         )
                         ->required(fn (Forms\Get $get, ?\Illuminate\Database\Eloquent\Model $record) => 
-                            $get('nacionalidad') === 'extranjera' && 
+                            $get('nacionalidad') === 'Extranjera' && 
                             $record?->rent?->tipo_poliza !== 'PÓLIZA CON SEGURO'
                         ),
 
@@ -261,11 +261,11 @@ class OwnerRequestResource extends Resource
                         ->preload() 
                         ->options(\App\Models\Pais::pluck('name', 'id')->toArray()) 
                         ->visible(fn (Forms\Get $get, ?\Illuminate\Database\Eloquent\Model $record) => 
-                            $get('nacionalidad') === 'extranjera' && 
+                            $get('nacionalidad') === 'Extranjera' && 
                             $record?->rent?->tipo_poliza === 'PÓLIZA CON SEGURO'
                         )
                         ->required(fn (Forms\Get $get, ?\Illuminate\Database\Eloquent\Model $record) => 
-                            $get('nacionalidad') === 'extranjera' && 
+                            $get('nacionalidad') === 'Extranjera' && 
                             $record?->rent?->tipo_poliza === 'PÓLIZA CON SEGURO'
                         ),
 
@@ -274,18 +274,18 @@ class OwnerRequestResource extends Resource
                         ->displayFormat('d/m/Y')
                         ->format('Y-m-d')
                         ->native(false)
-                        ->visible(fn (Forms\Get $get) => $get('nacionalidad') === 'extranjera')
+                        ->visible(fn (Forms\Get $get) => $get('nacionalidad') === 'Extranjera')
                         ->required(fn (Forms\Get $get, ?\Illuminate\Database\Eloquent\Model $record) => 
-                            $get('nacionalidad') === 'extranjera' && 
+                            $get('nacionalidad') === 'Extranjera' && 
                             $record?->rent?->tipo_poliza === 'PÓLIZA CON SEGURO'
                         ),
 
                     Forms\Components\TextInput::make('nue')
                         ->label('NUE (Número Único de Extranjero)')
                         ->maxLength(50)
-                        ->visible(fn (Forms\Get $get) => $get('nacionalidad') === 'extranjera')
+                        ->visible(fn (Forms\Get $get) => $get('nacionalidad') === 'Extranjera')
                         ->required(fn (Forms\Get $get, ?\Illuminate\Database\Eloquent\Model $record) => 
-                            $get('nacionalidad') === 'extranjera' && 
+                            $get('nacionalidad') === 'Extranjera' && 
                             $record?->rent?->tipo_poliza === 'PÓLIZA CON SEGURO'
                         ),
 
@@ -295,9 +295,9 @@ class OwnerRequestResource extends Resource
                             'permanente' => 'Permanente',
                             'temporal' => 'Temporal',
                         ])
-                        ->visible(fn (Forms\Get $get) => $get('nacionalidad') === 'extranjera')
+                        ->visible(fn (Forms\Get $get) => $get('nacionalidad') === 'Extranjera')
                         ->required(fn (Forms\Get $get, ?\Illuminate\Database\Eloquent\Model $record) => 
-                            $get('nacionalidad') === 'extranjera' && 
+                            $get('nacionalidad') === 'Extranjera' && 
                             $record?->rent?->tipo_poliza === 'PÓLIZA CON SEGURO'
                         ),
                 ])->columns(2),

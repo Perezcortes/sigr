@@ -10,6 +10,7 @@ class PropertyDocument extends Model
     protected $table = 'property_documents';
 
     protected $fillable = [
+        'property_id',
         'rent_id',
         'user_id',
         'mime',
@@ -17,6 +18,23 @@ class PropertyDocument extends Model
         'tag',
         'user_name',
     ];
+
+    protected static function boot(): void
+    {
+        parent::boot();
+
+        // Auto-pobla property_id desde la renta para que ViewRent no necesite cambios
+        static::creating(function ($doc) {
+            if (empty($doc->property_id) && $doc->rent_id) {
+                $doc->property_id = \App\Models\Rent::find($doc->rent_id)?->property_id;
+            }
+        });
+    }
+
+    public function property(): BelongsTo
+    {
+        return $this->belongsTo(Property::class);
+    }
 
     public function rent(): BelongsTo
     {

@@ -7,6 +7,7 @@ use App\Filament\Resources\GuarantorRequestResource;
 use App\Filament\Resources\OwnerRequestResource;
 use App\Filament\Resources\RentResource;
 use App\Filament\Resources\TenantRequestResource;
+use App\Services\PdrApi\PdrApiService;
 use App\Models\Application;
 use App\Models\GuarantorDocument;
 use App\Models\GuarantorRequest;
@@ -275,72 +276,55 @@ class ViewRent extends EditRecord
         return $form
             ->schema([
                 Forms\Components\Tabs::make('Tabs')
+                    ->persistTabInQueryString('tab')
                     ->columnSpanFull()
                     ->tabs([
                         // ========== TAB: INFORMACIÓN ==========
                         Forms\Components\Tabs\Tab::make('Información')
+                            ->id('informacion')
                             ->icon('heroicon-o-information-circle')
                             ->schema([
 
                                 Forms\Components\Section::make('Datos de la renta')
                                     ->schema([
-                                        Forms\Components\TextInput::make('folio')->label('Folio')->disabled(),
-                                        Forms\Components\Select::make('office_id')
-                                            ->relationship('office', 'nombre')
-                                            ->label('Equipo')
-                                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->nombre)
+                                        Forms\Components\TextInput::make('folio')
+                                            ->label('Folio')
+                                            ->disabled(),
+                                        Forms\Components\Select::make('pdr_office_id')
+                                            ->label('Equipo (PDR)')
+                                            ->options(fn (\App\Services\PdrApi\PdrApiService $api) => $api->obtenerSucursales())
                                             ->disabled(fn () => ! auth()->user()->hasRole('Administrador'))
-                                            ->dehydrated()
+                                            ->dehydrated() 
                                             ->searchable()
                                             ->preload()
                                             ->live()
                                             ->required(fn () => auth()->user()->hasRole('Administrador'))
-                                            ->helperText(fn () => auth()->user()->hasRole('Administrador')
-                                                ? 'Elige el equipo para listar solo los agentes de esa oficina.'
-                                                : null)
-                                            ->afterStateUpdated(function (Forms\Set $set) {
-                                                if (! auth()->user()->hasRole('Administrador')) {
-                                                    return;
+                                            ->afterStateHydrated(function (Forms\Components\Select $component, $state) {
+                                                if (! auth()->user()->hasRole('Administrador') && blank($state)) {
+                                                    $component->state(auth()->user()->pdr_office_id);
                                                 }
-                                                $set('asesor_id', null);
+                                            })
+                                            ->afterStateUpdated(function (Forms\Set $set) {
+                                                if (! auth()->user()->hasRole('Administrador')) return;
+                                                $set('pdr_asesor_id', null);
                                             }),
 
-                                        Forms\Components\Select::make('asesor_id')
-                                            ->relationship('asesor', 'name', function (Builder $query) {
-                                                $query->whereHas('roles', function ($q) {
-                                                    $q->whereIn('name', ['Agente', 'Gerente']);
-                                                });
-
-                                                $user = auth()->user();
-
-                                                if ($user->hasRole('Administrador')) {
-                                                    $officeId = $this->data['office_id'] ?? null;
-
-                                                    if (filled($officeId)) {
-                                                        $query->where('office_id', $officeId);
-                                                    } else {
-                                                        $query->whereRaw('0 = 1');
-                                                    }
-
-                                                    return $query;
-                                                }
-
-                                                if (filled($user->office_id)) {
-                                                    $query->where('office_id', $user->office_id);
-                                                }
-
-                                                return $query;
+                                        Forms\Components\Select::make('pdr_asesor_id')
+                                            ->label('Agente / Abogado (PDR)')
+                                            ->options(function (Forms\Get $get, \App\Services\PdrApi\PdrApiService $api) {
+                                                $officeHash = $get('pdr_office_id') ?? auth()->user()->pdr_office_id;
+                                                return blank($officeHash) ? [] : $api->obtenerAgentesPorSucursal($officeHash);
                                             })
-                                            ->label('Agente')
-                                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->name)
                                             ->disabled(fn () => ! auth()->user()->hasRole('Administrador'))
-                                            ->dehydrated()
+                                            ->dehydrated() 
                                             ->searchable()
                                             ->preload()
-                                            ->placeholder(fn (Forms\Get $get) => auth()->user()->hasRole('Administrador') && blank($get('office_id'))
-                                                ? 'Primero selecciona un equipo'
-                                                : null)
-                                            ->required(),
+                                            ->required()
+                                            ->afterStateHydrated(function (Forms\Components\Select $component, $state) {
+                                                if (! auth()->user()->hasRole('Administrador') && blank($state)) {
+                                                    $component->state(auth()->user()->pdr_asesor_id);
+                                                }
+                                            }),
 
                                         Forms\Components\Select::make('estatus')
                                             ->label('Estatus')
@@ -726,14 +710,17 @@ class ViewRent extends EditRecord
 
                         // ========== TAB: SOLICITUDES ==========
                         Forms\Components\Tabs\Tab::make('Solicitudes')
+                            ->id('solicitudes')
                             ->icon('heroicon-o-clipboard-document-list')
                             ->visible(fn (): bool => $this->record->estatus !== 'nueva')
                             ->schema([
                                 Forms\Components\Tabs::make('SolicitudesTabs')
+                                    ->persistTabInQueryString('solicitud')
                                     ->columnSpanFull()
                                     ->tabs([
                                         // Sub-tab: Inquilino
                                         Forms\Components\Tabs\Tab::make('Inquilino')
+                                            ->id('inquilino')
                                             ->icon('heroicon-o-user')
                                             ->schema([
                                                 Forms\Components\Section::make('Datos del inquilino')
@@ -865,24 +852,28 @@ class ViewRent extends EditRecord
                                                         ->icon('heroicon-o-check')
                                                         ->action(function () {
                                                             if ($this->record->tenant) {
+
+                                                                $cleanedData = collect($this->data)->map(fn($val) => $val === '' ? null : $val)->toArray();
+
                                                                 $updateData = [
-                                                                    'tipo_persona' => $this->data['tenant_tipo_persona'] ?? 'fisica',
-                                                                    'email' => $this->data['tenant_email'] ?? '',
+                                                                    'tipo_persona' => $cleanedData['tenant_tipo_persona'] ?? 'fisica',
+                                                                    'email' => $cleanedData['tenant_email'] ?? null, 
                                                                 ];
-                                                                if ($this->data['tenant_tipo_persona'] === 'fisica') {
-                                                                    $updateData['nombres'] = $this->data['tenant_nombres'] ?? '';
-                                                                    $updateData['primer_apellido'] = $this->data['tenant_primer_apellido'] ?? '';
-                                                                    $updateData['segundo_apellido'] = $this->data['tenant_segundo_apellido'] ?? '';
-                                                                    $updateData['sexo'] = $this->data['tenant_sexo'] ?? '';
-                                                                    $updateData['razon_social'] = null;
-                                                                    $updateData['rfc'] = null;
+
+                                                                if (($cleanedData['tenant_tipo_persona'] ?? 'fisica') === 'fisica') {
+                                                                    $updateData['nombres']          = $cleanedData['tenant_nombres'] ?? null;
+                                                                    $updateData['primer_apellido']  = $cleanedData['tenant_primer_apellido'] ?? null;
+                                                                    $updateData['segundo_apellido'] = $cleanedData['tenant_segundo_apellido'] ?? null;
+                                                                    $updateData['sexo']             = $cleanedData['tenant_sexo'] ?? null; 
+                                                                    $updateData['razon_social']     = null;
+                                                                    $updateData['rfc']              = null;
                                                                 } else {
-                                                                    $updateData['razon_social'] = $this->data['tenant_razon_social'] ?? '';
-                                                                    $updateData['rfc'] = $this->data['tenant_rfc'] ?? '';
-                                                                    $updateData['nombres'] = null;
-                                                                    $updateData['primer_apellido'] = null;
+                                                                    $updateData['razon_social']     = $cleanedData['tenant_razon_social'] ?? null;
+                                                                    $updateData['rfc']              = $cleanedData['tenant_rfc'] ?? null;
+                                                                    $updateData['nombres']          = null;
+                                                                    $updateData['primer_apellido']  = null;
                                                                     $updateData['segundo_apellido'] = null;
-                                                                    $updateData['sexo'] = null;
+                                                                    $updateData['sexo']             = null;
                                                                 }
 
                                                                 $this->record->tenant->update($updateData);
@@ -897,20 +888,20 @@ class ViewRent extends EditRecord
                                                                 }
 
                                                                 // Persistir application_id y actualizar tenant_id si está presente
-                                                                if (isset($this->data['application_id'])) {
-                                                                    $application = Application::with('user.tenant')->find($this->data['application_id']);
+                                                                if (isset($cleanedData['application_id'])) {
+                                                                    $application = Application::with('user.tenant')->find($cleanedData['application_id']);
                                                                     if ($application && $application->user && $application->user->tenant) {
                                                                         $this->record->update([
-                                                                            'application_id' => $this->data['application_id'],
+                                                                            'application_id' => $cleanedData['application_id'],
                                                                             'tenant_id' => $application->user->tenant->id,
                                                                         ]);
                                                                     } else {
-                                                                        $this->record->update(['application_id' => $this->data['application_id']]);
+                                                                        $this->record->update(['application_id' => $cleanedData['application_id']]);
                                                                     }
                                                                 }
 
                                                                 Notification::make()->success()->title('Inquilino actualizado')->send();
-                                                                $this->redirect(RentResource::getUrl('view', ['record' => $this->record]));
+                                                                $this->redirect(RentResource::getUrl('view', ['record' => $this->record]) . '?tab=-solicitudes-tab&solicitud=-inquilino-tab');
                                                             }
                                                         }),
                                                     Action::make('edit_tenant')
@@ -1011,6 +1002,7 @@ class ViewRent extends EditRecord
 
                                         // Sub-tab: Fiador
                                         Forms\Components\Tabs\Tab::make('Fiador')
+                                            ->id('fiador')
                                             ->icon('heroicon-o-hand-raised')
                                             ->schema([
                                                 Forms\Components\Section::make('Datos del Obligado solidario / Fiador')
@@ -1181,12 +1173,14 @@ class ViewRent extends EditRecord
                                                             ");
 
                                                             Notification::make()->success()->title('¡Link copiado!')->body('El enlace del fiador está listo para enviarse.')->send();
+                                                            $this->redirect(RentResource::getUrl('view', ['record' => $this->record]) . '?tab=solicitudes&solicitud=fiador');
                                                         }),
                                                 ]),
                                             ]),
 
                                         // Sub-tab: Propietario
                                         Forms\Components\Tabs\Tab::make('Propietario')
+                                            ->id('propietario')
                                             ->icon('heroicon-o-home')
                                             ->schema([
                                                 Forms\Components\Section::make('Datos del propietario')
@@ -1265,6 +1259,8 @@ class ViewRent extends EditRecord
                                                                             ->title('Propietario vinculado')
                                                                             ->body('Los datos del propietario se han actualizado.')
                                                                             ->send();
+                                                                            $this->redirect(RentResource::getUrl('view', ['record' => $this->record]) . '?tab=-solicitudes-tab&solicitud=-propietario-tab');
+
                                                                     }
                                                                 }
                                                             }),
@@ -1372,6 +1368,9 @@ class ViewRent extends EditRecord
                                                         ->action(function () {
                                                             $ownerRequest = OwnerRequest::where('owner_id', $this->record->owner_id)
                                                                 ->where('rent_id', $this->record->id)->first();
+
+                                                            $property = $this->record->property;
+
                                                             if (! $ownerRequest) {
                                                                 $ownerRequest = OwnerRequest::create([
                                                                     'owner_id' => $this->record->owner_id,
@@ -1382,6 +1381,16 @@ class ViewRent extends EditRecord
                                                                     'segundo_apellido' => $this->record->owner->segundo_apellido,
                                                                     'email' => $this->record->owner->email,
                                                                     'rfc' => $this->record->owner->rfc,
+                                                                    // Inyectamos datos de la propiedad (si $property existe)
+                                                                    'tipo_inmueble'                 => $property?->tipo_inmueble,
+                                                                    'uso_suelo'                     => $property?->uso_suelo,
+                                                                    'precio_renta'                  => $property?->precio_renta,
+                                                                    'iva_renta'                     => $property?->iva_renta,
+                                                                    'frecuencia_pago'               => $property?->frecuencia_pago,
+                                                                    'inmueble_calle'                => $property?->calle,
+                                                                    'inmueble_numero_exterior'      => $property?->numero_exterior,
+                                                                    'inmueble_codigo_postal'        => $property?->codigo_postal,
+                                                                    'inmueble_estado'               => $property?->estado,
                                                                 ]);
                                                             }
                                                             $this->redirect(OwnerRequestResource::getUrl('edit', ['record' => $ownerRequest]));
@@ -1451,6 +1460,7 @@ class ViewRent extends EditRecord
 
                                         // Sub-tab: Propiedad
                                         Forms\Components\Tabs\Tab::make('Propiedad')
+                                            ->id('propiedad')
                                             ->icon('heroicon-o-building-office')
                                             ->schema([
                                                 Forms\Components\Section::make('Datos de la propiedad')
@@ -1499,12 +1509,12 @@ class ViewRent extends EditRecord
                                                             ->preload()
                                                             ->live()
                                                             ->placeholder('Seleccione una propiedad disponible')
-                                                            ->afterStateUpdated(function (Forms\Set $set, $state) {
+                                                            ->afterStateUpdated(function (Forms\Set $set, $state, $record) {
                                                                 if ($state) {
                                                                     $property = Property::find($state);
                                                                     if ($property) {
                                                                         // Actualizar property_id en la rent
-                                                                        $this->record->update([
+                                                                        $record->update([
                                                                             'property_id' => $state,
                                                                             'tipo_propiedad' => $property->tipo_inmueble ?? null,
                                                                             'calle' => $property->calle ?? null,
@@ -1516,21 +1526,36 @@ class ViewRent extends EditRecord
                                                                             'estado' => $property->estado ?? null,
                                                                             'referencias_ubicacion' => $property->referencias_ubicacion ?? null,
                                                                         ]);
+                                                                        
+                                                                        $ownerRequest = \App\Models\OwnerRequest::where('rent_id', $record->id)->first();
+                                                                        if ($ownerRequest) {
+                                                                            $ownerRequest->update([
+                                                                                'tipo_inmueble'                 => $property->tipo_inmueble,
+                                                                                'uso_suelo'                     => $property->uso_suelo,
+                                                                                'precio_renta'                  => $property->precio_renta,
+                                                                                'iva_renta'                     => $property->iva_renta,
+                                                                                'frecuencia_pago'               => $property->frecuencia_pago,
+                                                                                'inmueble_calle'                => $property->calle,
+                                                                                'inmueble_numero_exterior'      => $property->numero_exterior,
+                                                                                'inmueble_codigo_postal'        => $property->codigo_postal,
+                                                                                'inmueble_estado'               => $property->estado,
+                                                                            ]);
+                                                                        }
 
-                                                                        // Copiar todos los datos de la propiedad a los campos de la rent
-                                                                        $set('tipo_propiedad', $property->tipo_inmueble ?? '');
-                                                                        $set('calle', $property->calle ?? '');
-                                                                        $set('numero_exterior', $property->numero_exterior ?? '');
-                                                                        $set('numero_interior', $property->numero_interior ?? '');
-                                                                        $set('codigo_postal', $property->codigo_postal ?? '');
-                                                                        $set('colonia', $property->colonia ?? '');
-                                                                        $set('municipio', $property->delegacion_municipio ?? '');
-                                                                        $set('estado', $property->estado ?? '');
-                                                                        $set('referencias_ubicacion', $property->referencias_ubicacion ?? '');
+                                                                        // Refrescar el formulario actual para que el usuario vea los cambios visualmente
+                                                                        $record->refresh();
+                                                                        $set('tipo_inmueble', $property->tipo_inmueble);
+                                                                        $set('uso_suelo', $property->uso_suelo);
+                                                                        $set('iva_renta', $property->iva_renta);
+                                                                        $set('frecuencia_pago', $property->frecuencia_pago);
+                                                                        $set('inmueble_calle', $property->calle);
+                                                                        $set('inmueble_numero_exterior', $property->numero_exterior);
+                                                                        $set('inmueble_codigo_postal', $property->codigo_postal);
+                                                                        $set('inmueble_estado', $property->estado);
 
                                                                         Notification::make()
                                                                             ->success()
-                                                                            ->title('Propiedad seleccionada')
+                                                                            ->title('Propiedad seleccionada y sincronizada')
                                                                             ->body('Los datos de la propiedad se han cargado. Haga clic en Guardar para persistir los cambios.')
                                                                             ->send();
                                                                     }
@@ -1567,40 +1592,7 @@ class ViewRent extends EditRecord
                                                             ->label('Municipio/Alcaldía'),
                                                         Forms\Components\Select::make('estado')
                                                             ->label('Estado')
-                                                            ->options([
-                                                                'Aguascalientes' => 'Aguascalientes',
-                                                                'Baja California' => 'Baja California',
-                                                                'Baja California Sur' => 'Baja California Sur',
-                                                                'Campeche' => 'Campeche',
-                                                                'Chiapas' => 'Chiapas',
-                                                                'Chihuahua' => 'Chihuahua',
-                                                                'Ciudad de México' => 'Ciudad de México',
-                                                                'Coahuila' => 'Coahuila',
-                                                                'Colima' => 'Colima',
-                                                                'Durango' => 'Durango',
-                                                                'Estado de México' => 'Estado de México',
-                                                                'Guanajuato' => 'Guanajuato',
-                                                                'Guerrero' => 'Guerrero',
-                                                                'Hidalgo' => 'Hidalgo',
-                                                                'Jalisco' => 'Jalisco',
-                                                                'Michoacán' => 'Michoacán',
-                                                                'Morelos' => 'Morelos',
-                                                                'Nayarit' => 'Nayarit',
-                                                                'Nuevo León' => 'Nuevo León',
-                                                                'Oaxaca' => 'Oaxaca',
-                                                                'Puebla' => 'Puebla',
-                                                                'Querétaro' => 'Querétaro',
-                                                                'Quintana Roo' => 'Quintana Roo',
-                                                                'San Luis Potosí' => 'San Luis Potosí',
-                                                                'Sinaloa' => 'Sinaloa',
-                                                                'Sonora' => 'Sonora',
-                                                                'Tabasco' => 'Tabasco',
-                                                                'Tamaulipas' => 'Tamaulipas',
-                                                                'Tlaxcala' => 'Tlaxcala',
-                                                                'Veracruz' => 'Veracruz',
-                                                                'Yucatán' => 'Yucatán',
-                                                                'Zacatecas' => 'Zacatecas',
-                                                            ])
+                                                            ->options(\App\Helpers\EstadosMexico::getEstados())
                                                             ->disabled()
                                                             ->dehydrated()
                                                             ->nullable(),

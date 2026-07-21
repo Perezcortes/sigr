@@ -5,11 +5,17 @@ namespace App\Http\Controllers\Api;
 use App\Enums\LeadCanal;
 use App\Http\Controllers\Controller;
 use App\Models\Lead;
+use App\Models\User;
+use App\Services\NocnokPropertyPageFetcher;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 class LeadWebhookController extends Controller
 {
+    public function __construct(
+        private readonly NocnokPropertyPageFetcher $propertyPageFetcher,
+    ) {}
+
     private const RAW_BODY_LOG_MAX_BYTES = 65536;
 
     /** Tamaño máximo del cuerpo guardado en JSON (evita filas enormes). */
@@ -27,7 +33,7 @@ class LeadWebhookController extends Controller
             $lead = Lead::create([
                 ...$attributes,
                 'canal' => LeadCanal::Nocnok,
-                'etapa' => 'no_contactado',
+                'etapa' => 'nuevo',
                 'payload_original' => $capture,
             ]);
 
@@ -38,6 +44,11 @@ class LeadWebhookController extends Controller
                 'telefono' => $lead->telefono,
                 'origen' => $lead->origen,
                 'tipo_cliente' => $lead->tipo_cliente,
+                'url_propiedad' => $lead->url_propiedad,
+                'imagen_propiedad' => $lead->imagen_propiedad,
+                'metros_cuadrados' => $lead->metros_cuadrados,
+                'numero_recamaras' => $lead->numero_recamaras,
+                'responsable_id' => $lead->responsable_id,
             ]);
 
             return response()->json([
@@ -67,7 +78,7 @@ class LeadWebhookController extends Controller
      */
     private function logIncomingWebhook(Request $request, array $capture): void
     {
-        if (! filter_var(env('NOCNOK_WEBHOOK_LOG', true), FILTER_VALIDATE_BOOLEAN)) {
+        if (! filter_var(config('services.nocnok.webhook_log', true), FILTER_VALIDATE_BOOLEAN)) {
             return;
         }
 
@@ -157,17 +168,57 @@ class LeadWebhookController extends Controller
             $propertyOperation ? "Operación: {$propertyOperation}" : null,
         ]);
 
+        $resolvedPropertyUrl = $this->resolvePropertyUrl($propertyUrl);
+        $pageData = $resolvedPropertyUrl
+            ? ($this->propertyPageFetcher->fetchPropertyPageData($resolvedPropertyUrl) ?? [])
+            : [];
+
+        if ($resolvedPropertyUrl !== null && empty($pageData['imagen_propiedad'])) {
+            Log::channel('nocnok_webhook')->warning('Nocnok webhook: lead sin imagen de propiedad', [
+                'url_propiedad' => $resolvedPropertyUrl,
+                'nocnok_site_url' => config('services.nocnok.site_url'),
+                'page_data_vacia' => $pageData === [],
+            ]);
+        }
+
+        $agentEmail = $pageData['agent_email'] ?? null;
+        $responsableId = $this->resolveResponsableIdFromAgentEmail($agentEmail);
+
+        if ($agentEmail !== null && $responsableId === null) {
+            Log::channel('nocnok_webhook')->info('Nocnok webhook: agente no encontrado en users', [
+                'agent_email' => $agentEmail,
+                'agent_name' => $pageData['agent_name'] ?? null,
+            ]);
+        }
+
         return [
             'nombre' => $nombre,
             'correo' => $correo,
             'telefono' => $telefono,
             'mensaje' => $mensaje,
             'origen' => $origen,
-            'url_propiedad' => $this->resolvePropertyUrl($propertyUrl),
+            'url_propiedad' => $resolvedPropertyUrl,
+            'imagen_propiedad' => $pageData['imagen_propiedad'] ?? null,
+            'metros_cuadrados' => $pageData['metros_cuadrados'] ?? null,
+            'numero_recamaras' => $pageData['numero_recamaras'] ?? null,
+            'responsable_id' => $responsableId,
             'localidades' => $propertyLocation,
-            'tipo_cliente' => $this->mapPropertyOperationToTipoCliente($propertyOperation),
+            'tipo_cliente' => null,
             'comentarios' => $comentariosParts !== [] ? implode(' · ', $comentariosParts) : null,
         ];
+    }
+
+    private function resolveResponsableIdFromAgentEmail(?string $agentEmail): ?int
+    {
+        if ($agentEmail === null || $agentEmail === '') {
+            return null;
+        }
+
+        $userId = User::query()
+            ->whereRaw('LOWER(email) = ?', [strtolower($agentEmail)])
+            ->value('id');
+
+        return $userId !== null ? (int) $userId : null;
     }
 
     /**
@@ -204,22 +255,9 @@ class LeadWebhookController extends Controller
             return $propertyUrl;
         }
 
-        $base = rtrim((string) env('NOCNOK_SITE_URL', 'https://www.rentas.com'), '/');
+        $base = rtrim((string) config('services.nocnok.site_url', 'https://rentascom.nocnok.com'), '/');
 
         return $base.'/'.ltrim($propertyUrl, '/');
-    }
-
-    private function mapPropertyOperationToTipoCliente(?string $operation): ?string
-    {
-        if ($operation === null) {
-            return null;
-        }
-
-        return match (mb_strtolower($operation)) {
-            'renta', 'alquiler' => 'inquilino',
-            'venta' => 'comprador',
-            default => 'NA',
-        };
     }
 
     /**

@@ -115,7 +115,7 @@ class TenantRequestResource extends Resource
 
                 ])
                 ->columnSpanFull()
-                //->skippable() // Permite al usuario navegar entre pasos sin que le exija llenar todo
+                ->skippable() // Permite al usuario navegar entre pasos sin que le exija llenar todo
                 ->submitAction(new \Illuminate\Support\HtmlString('<button type="submit" class="fi-btn fi-btn-color-primary">Guardar Solicitud</button>')),
             ]);
     }
@@ -491,8 +491,8 @@ class TenantRequestResource extends Resource
                         ->label('Número de m²')
                         ->helperText('Ingresa el no. de metros cuadrados aproximados del domicilio que habitas actualmente.')
                         ->numeric()
-                        ->minValue(1)
-                        ->required(fn (?\Illuminate\Database\Eloquent\Model $record) => 
+                        ->required() // Siempre requerido, PERO Filament lo ignora si está oculto
+                        ->visible(fn (?\Illuminate\Database\Eloquent\Model $record) => 
                             $record?->rent?->tipo_poliza === 'PÓLIZA CON SEGURO'
                         )
                         ->columnSpanFull(),

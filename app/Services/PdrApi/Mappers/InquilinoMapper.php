@@ -35,12 +35,15 @@ class InquilinoMapper
 
     private static function getDatosPersonalesFisica($req): array
     {
+        // Evaluamos si es el mismo domicilio
+        $esMismoDomicilio = strtolower($req->mismo_domicilio_fiscal) === 'si';
+
         return [
             // DATOS OBLIGATORIOS Y BOOLEANOS
             'email'                => $req->email,
             'fechaNac'             => $req->fecha_nacimiento ? \Carbon\Carbon::parse($req->fecha_nacimiento)->format('Y-m-d') : null,
             // 1 = Sí, 0 = No
-            'mismoDomicilioFiscal' => strtolower($req->mismo_domicilio_fiscal) === 'si' ? 1 : 0,
+            'mismoDomicilioFiscal' => $esMismoDomicilio ? 1 : 0,
             // 1 = Masculino, 0 = Femenino
             'sexo'                 => strtolower($req->sexo) === 'masculino' ? 1 : 0,
             // 1 = Soltero, 0 = Casado
@@ -82,14 +85,14 @@ class InquilinoMapper
             'estado'                => $req->estado,
             'metrosCuadradosActual' => $req->metros_cuadrados,
 
-            // DOMICILIO FISCAL (Si es diferente)
-            'calleFiscal'          => $req->calle_fiscal,
-            'numExtFiscal'         => $req->numero_exterior_fiscal,
-            'numIntFiscal'         => $req->numero_interior_fiscal,
-            'cpFiscal'             => $req->codigo_postal_fiscal,
-            'coloniaFiscal'        => $req->colonia_fiscal,
-            'munFiscal'            => $req->municipio_fiscal,
-            'estadoFiscal'         => $req->estado_fiscal,
+            // DOMICILIO FISCAL 
+            'calleFiscal'          => $esMismoDomicilio ? $req->calle : (!empty($req->calle_fiscal) ? $req->calle_fiscal : $req->calle),
+            'numExtFiscal'         => $esMismoDomicilio ? $req->numero_exterior : (!empty($req->numero_exterior_fiscal) ? $req->numero_exterior_fiscal : $req->numero_exterior),
+            'numIntFiscal'         => $esMismoDomicilio ? $req->numero_interior : (!empty($req->numero_interior_fiscal) ? $req->numero_interior_fiscal : $req->numero_interior),
+            'cpFiscal'             => $esMismoDomicilio ? $req->codigo_postal : (!empty($req->codigo_postal_fiscal) ? $req->codigo_postal_fiscal : $req->codigo_postal),
+            'coloniaFiscal'        => $esMismoDomicilio ? $req->colonia : (!empty($req->colonia_fiscal) ? $req->colonia_fiscal : $req->colonia),
+            'munFiscal'            => $esMismoDomicilio ? $req->delegacion_municipio : (!empty($req->municipio_fiscal) ? $req->municipio_fiscal : $req->delegacion_municipio),
+            'estadoFiscal'         => $esMismoDomicilio ? $req->estado : (!empty($req->estado_fiscal) ? $req->estado_fiscal : $req->estado),
 
             // ARRENDADOR ACTUAL
             'nombrea'              => $req->arrendador_actual_nombres,
@@ -107,43 +110,43 @@ class InquilinoMapper
             // DATOS DE EMPLEO BASE
             'regimenFiscalPf' => $req->regimen_fiscal ?? 'Asalariado',
             // Jona pide fecha obligatoria en formato Y-m-d
-            'fechaIng'        => $rent->fecha_ingreso ? \Carbon\Carbon::parse($rent->fecha_ingreso)->format('Y-m-d') : null,
-            'tipoEmp'         => $rent->tipo_empleo ?? 'Empleado',
-            'profesion'       => $rent->profesion_oficio_puesto,
+            'fechaIng'        => $req->fecha_ingreso ? \Carbon\Carbon::parse($req->fecha_ingreso)->format('Y-m-d') : null,
+            'tipoEmp'         => $req->tipo_empleo ?? 'Empleado',
+            'profesion'       => $req->profesion_oficio_puesto,
 
             // DOMICILIO DE EMPLEO / CONTACTO
-            'tel'             => $rent->telefono_empleo,
-            'ext'             => $rent->extension_empleo,
-            'empresa'         => $rent->empresa_trabaja,
-            'calle'           => $rent->calle_empleo, 
-            'numExt'          => $rent->numero_exterior_empleo,
-            'numInt'          => $rent->numero_interior_empleo,
-            'colonia'         => $rent->colonia_empleo,
-            'mun'             => $rent->delegacion_municipio_empleo,
-            'estado'          => $rent->estado_empleo,
-            'cp'              => $rent->codigo_postal_empleo,
+            'tel'             => $req->telefono_empleo,
+            'ext'             => $req->extension_empleo,
+            'empresa'         => $req->empresa_trabaja,
+            'calle'           => $req->calle_empleo, 
+            'numExt'          => $req->numero_exterior_empleo,
+            'numInt'          => $req->numero_interior_empleo,
+            'colonia'         => $req->colonia_empleo,
+            'mun'             => $req->delegacion_municipio_empleo,
+            'estado'          => $req->estado_empleo,
+            'cp'              => $req->codigo_postal_empleo,
 
             // JEFE INMEDIATO
-            'nombrej'         => $rent->jefe_nombres,
-            'apellidoPj'      => $rent->jefe_primer_apellido,
-            'apellidoMj'      => $rent->jefe_segundo_apellido,
-            'telefonoj'       => $rent->jefe_telefono,
-            'extj'            => $rent->jefe_extension,
+            'nombrej'         => $req->jefe_nombres,
+            'apellidoPj'      => $req->jefe_primer_apellido,
+            'apellidoMj'      => $req->jefe_segundo_apellido,
+            'telefonoj'       => $req->jefe_telefono,
+            'extj'            => $req->jefe_extension,
 
             // INGRESOS
-            'ingresos'        => $rent->ingreso_mensual_comprobable ? (float) $rent->ingreso_mensual_comprobable : 0,
-            'ingresoFam'      => $rent->ingreso_mensual_no_comprobable ? (float) $rent->ingreso_mensual_no_comprobable : 0,
+            'ingresos'        => $req->ingreso_mensual_comprobable ? (float) $req->ingreso_mensual_comprobable : 0,
+            'ingresoFam'      => $req->ingreso_mensual_no_comprobable ? (float) $req->ingreso_mensual_no_comprobable : 0,
             'numPerDep'       => $req->numero_personas_dependen ? (int) $req->numero_personas_dependen : 0,
 
             // OTRA PERSONA QUE APORTA
-            'numPerIngre'     => $rent->numero_personas_aportan ? (int) $rent->numero_personas_aportan : 0,
-            'nombrea'         => $rent->persona_aporta_nombres,
-            'apellidoPa'      => $rent->persona_aporta_primer_apellido,
-            'apellidoMa'      => $rent->persona_aporta_segundo_apellido,
-            'parentesco'      => $rent->persona_aporta_parentesco,
-            'telefonoA'       => $rent->persona_aporta_telefono,
-            'empresaA'        => $rent->persona_aporta_empresa,
-            'ingresoA'        => $rent->persona_aporta_ingreso_comprobable ? (float) $rent->persona_aporta_ingreso_comprobable : 0,
+            'numPerIngre'     => $req->numero_personas_aportan ? (int) $req->numero_personas_aportan : 0,
+            'nombrea'         => $req->persona_aporta_nombres,
+            'apellidoPa'      => $req->persona_aporta_primer_apellido,
+            'apellidoMa'      => $req->persona_aporta_segundo_apellido,
+            'parentesco'      => $req->persona_aporta_parentesco,
+            'telefonoA'       => $req->persona_aporta_telefono,
+            'empresaA'        => $req->persona_aporta_empresa,
+            'ingresoA'        => $req->persona_aporta_ingreso_comprobable ? (float) $req->persona_aporta_ingreso_comprobable : 0,
         ];
     }
 
@@ -249,13 +252,15 @@ class InquilinoMapper
     private static function getDatosEmpresaMoral($req): array
     {
         $facultadesEnActa = (int)$req->facultades_en_acta === 0 ? 'Sí' : 'No';
+        // Evaluamos si es el mismo domicilio
+        $esMismoDomicilio = strtolower($req->mismo_domicilio_fiscal) === 'si';
 
         return [
             // DATOS OBLIGATORIOS BASE
             'emailE'               => $req->email,
             'regimenFiscalPm'      => $req->regimen_fiscal,
             'emailRepLeg'          => $req->apoderado_email,
-            'mismoDomicilioFiscal' => strtolower($req->mismo_domicilio_fiscal) === 'si' ? 1 : 0,
+            'mismoDomicilioFiscal' => $esMismoDomicilio ? 1 : 0,
             'facultadEmp'          => $facultadesEnActa,
             'sexoRepLegal'         => ucfirst(strtolower($req->apoderado_sexo)), // "Masculino" o "Femenino"
             'ingMensualEmp'        => $req->ingreso_mensual_promedio ? (float) $req->ingreso_mensual_promedio : 0,
@@ -271,19 +276,19 @@ class InquilinoMapper
             'numExtEmp'            => $req->numero_exterior,
             'numIntEmp'            => $req->numero_interior,
             'coloniaEmp'           => $req->colonia,
-            'municipioEmp'         => $req->municipio,
+            'municipioEmp'         => $req->municipio ?? $req->delegacion_municipio,
             'estadoEmp'            => $req->estado,
             'cpostalEmp'           => $req->codigo_postal,
             'referenciaDomiEmp'    => $req->referencias_ubicacion,
 
-            // DOMICILIO FISCAL (Si es diferente)
-            'calleFiscal'          => $req->calle_fiscal,
-            'numExtFiscal'         => $req->numero_exterior_fiscal,
-            'numIntFiscal'         => $req->numero_interior_fiscal,
-            'cpFiscal'             => $req->codigo_postal_fiscal,
-            'coloniaFiscal'        => $req->colonia_fiscal,
-            'munFiscal'            => $req->municipio_fiscal,
-            'estadoFiscal'         => $req->estado_fiscal,
+            // DOMICILIO FISCAL 
+            'calleFiscal'          => $esMismoDomicilio ? $req->calle : (!empty($req->calle_fiscal) ? $req->calle_fiscal : $req->calle),
+            'numExtFiscal'         => $esMismoDomicilio ? $req->numero_exterior : (!empty($req->numero_exterior_fiscal) ? $req->numero_exterior_fiscal : $req->numero_exterior),
+            'numIntFiscal'         => $esMismoDomicilio ? $req->numero_interior : (!empty($req->numero_interior_fiscal) ? $req->numero_interior_fiscal : $req->numero_interior),
+            'cpFiscal'             => $esMismoDomicilio ? $req->codigo_postal : (!empty($req->codigo_postal_fiscal) ? $req->codigo_postal_fiscal : $req->codigo_postal),
+            'coloniaFiscal'        => $esMismoDomicilio ? $req->colonia : (!empty($req->colonia_fiscal) ? $req->colonia_fiscal : $req->colonia),
+            'munFiscal'            => $esMismoDomicilio ? ($req->municipio ?? $req->delegacion_municipio) : (!empty($req->municipio_fiscal) ? $req->municipio_fiscal : ($req->municipio ?? $req->delegacion_municipio)),
+            'estadoFiscal'         => $esMismoDomicilio ? $req->estado : (!empty($req->estado_fiscal) ? $req->estado_fiscal : $req->estado),
 
             // ACTA CONSTITUTIVA
             'nombreNotario'        => $req->notario_nombres,
@@ -322,9 +327,7 @@ class InquilinoMapper
         $esResidencial = $rent->tipo_inmueble === 'residencial';
         $tipoInmueble = $esResidencial ? 'Inmuebles Residenciales' : 'Inmuebles Comerciales';
 
-        $datos = [
-            'tipoInmueble_PM' => $tipoInmueble,
-        ];
+        $datos = [];
 
         // INMUEBLE RESIDENCIAL (Persona Moral)
         if ($esResidencial) {

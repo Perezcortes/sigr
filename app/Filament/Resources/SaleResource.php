@@ -366,7 +366,7 @@ class SaleResource extends Resource
                     }),
 
                 TextColumn::make('monto_operacion')
-                    ->money('MXN')
+                    ->money('MXN', locale: 'es_MX')
                     ->label('Monto')
                     ->sortable(),
 

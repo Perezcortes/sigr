@@ -67,6 +67,7 @@ class Owner extends Model
         'representante_referencias',
         // Persona Moral
         'razon_social',
+        'nombre_comercial',
         // Acta Constitutiva
         'notario_nombres',
         'notario_primer_apellido',
@@ -78,6 +79,14 @@ class Owner extends Model
         'estado_registro',
         'numero_registro_inscripcion',
         'giro_comercial',
+        // Domicilio Fiscal (independiente del Domicilio Actual de arriba)
+        'domicilio_fiscal_calle',
+        'domicilio_fiscal_numero',
+        'domicilio_fiscal_colonia',
+        'domicilio_fiscal_municipio',
+        'domicilio_fiscal_ciudad',
+        'domicilio_fiscal_estado',
+        'domicilio_fiscal_codigo_postal',
         // Apoderado Legal
         'apoderado_nombres',
         'apoderado_primer_apellido',
